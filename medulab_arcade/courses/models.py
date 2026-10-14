@@ -86,6 +86,7 @@ class Item(models.Model):
         ('project', '프로젝트'),
         ('homework', '과제'),
         ('olympiad', '사고력 올림피아드'),
+        ('block_coding', '블록코딩 미로'),
     ]
     chapter = models.ForeignKey(Chapter, on_delete=models.CASCADE, related_name="items")
     number = models.PositiveIntegerField("항목 순서", default=1)

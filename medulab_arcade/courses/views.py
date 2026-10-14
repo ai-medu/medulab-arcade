@@ -2010,6 +2010,8 @@ def item_page(request, item_id):
     
     if is_olympiad:
         template_name = "learning_program/item_page_olympiad.html"
+    elif item.item_type == "block_coding":
+        template_name = "learning_program/item_page_blockly.html"
     elif is_ppt_exam:
         template_name = "learning_program/item_page_ppt.html"
     elif "aice" in p_name or "코디니" in p_name or "codiny" in p_name:
@@ -2576,6 +2578,30 @@ def grade_code(request):
     input_str = request.POST.get("input", "")
     
     item = get_object_or_404(Item, id=item_id)
+
+    if item.item_type == "block_coding":
+        solved = request.POST.get("solved") == "1"
+        steps_used = request.POST.get("steps", "")
+        score = 100 if solved else 0
+        output_message = "미로를 탈출했습니다!" if solved else "아직 목표 지점에 도착하지 못했어요."
+
+        progress, _ = UserProgress.objects.get_or_create(user=request.user, item=item)
+        progress.code = steps_used
+        progress.last_output = output_message
+        progress.score = score
+        progress.completed = solved
+        progress.save()
+        new_badges = []
+        if solved:
+            new_badges.extend(evaluate_mission_badges(request.user))
+            new_badges.extend(evaluate_program_badges(request.user, item.chapter.program))
+
+        return JsonResponse({
+            "is_correct": solved,
+            "output": output_message,
+            "score": score,
+            "new_badges": new_badges,
+        })
 
     if item.item_type == "objective":
         selected = (request.POST.get("selected_option") or code or "").strip().upper()

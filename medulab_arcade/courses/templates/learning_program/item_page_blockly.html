@@ -1,0 +1,473 @@
+{% extends "arcade/base.html" %}
+
+{% block title %}{{ item.title }} - 코딩기초{% endblock %}
+
+{% block extra_css %}
+<style>
+    .nav { display: none !important; }
+    .footer {
+        position: fixed !important; bottom: 0 !important; left: 0 !important; right: 0 !important;
+        height: 36px; background: #08080f; border-top: 1px solid var(--border);
+        display: flex !important; align-items: center; justify-content: center;
+        font-size: 12px; color: var(--text-muted); z-index: 1000 !important;
+        margin: 0; padding: 0 !important;
+    }
+    .footer .footer-biz-info, .footer .footer-links { display: none !important; }
+    .footer p { margin: 0; }
+    #particles { opacity: 0.1; }
+
+    .editor-container {
+        position: fixed !important;
+        top: 0 !important; left: 0 !important; right: 0 !important; bottom: 36px !important;
+        display: flex;
+        gap: 12px;
+        padding: 12px;
+        background: #0f1117;
+        box-sizing: border-box;
+    }
+
+    .panel {
+        background: #1a1d26;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+    .panel-header {
+        padding: 14px 20px;
+        background: rgba(255, 255, 255, 0.03);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        font-size: 12px;
+        font-weight: 800;
+        color: var(--text-muted);
+        letter-spacing: 0.5px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .panel-left { width: 28%; }
+    .explain-scroll { flex: 1; overflow-y: auto; padding: 0; }
+    .section-part { padding: 24px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+    .part-label {
+        font-size: 11px; font-weight: 800; color: var(--accent-blue); margin-bottom: 12px;
+        text-transform: uppercase; display: flex; align-items: center; gap: 6px;
+    }
+    .part-content { color: #ccd6f6; line-height: 1.8; font-size: 15px; }
+    .part-content h2, .part-content h3 { color: #fff; margin: 0 0 12px; font-size: 18px; }
+    .learning-section-list { display: flex; flex-direction: column; gap: 12px; }
+    .learning-section-card {
+        padding: 14px 16px; border-radius: 12px; background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .learning-section-title { margin-bottom: 8px; font-size: 12px; font-weight: 800; color: #7dd3fc; letter-spacing: 0.04em; }
+    .learning-section-body { color: #e5e7eb; line-height: 1.75; white-space: pre-wrap; }
+
+    .bottom-nav { padding: 16px; border-top: 1px solid rgba(255, 255, 255, 0.08); display: flex; flex-direction: column; gap: 8px; }
+    .btn-group { display: flex; gap: 8px; }
+    .btn-mini {
+        flex: 1; padding: 8px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.03); color: var(--text-muted);
+        cursor: pointer; font-size: 12px; font-weight: 600; text-decoration: none; text-align: center;
+    }
+    .btn-mini:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+
+    .panel-center { width: 42%; }
+    #blockly-toolbar {
+        padding: 10px 16px; display: flex; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.08);
+        background: rgba(255,255,255,0.02);
+    }
+    #blockly-div { flex: 1; width: 100%; }
+
+    .panel-right { width: 30%; }
+    .maze-wrap {
+        flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        padding: 20px; gap: 16px; overflow: auto;
+    }
+    #maze-grid {
+        display: grid;
+        gap: 2px;
+        background: #05060a;
+        padding: 6px;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,0.08);
+    }
+    .maze-cell {
+        width: 38px; height: 38px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 20px; border-radius: 4px;
+        background: #1e2230;
+    }
+    .maze-cell.wall { background: #2a2130; }
+    .maze-cell.path { background: #1e2230; }
+    .maze-cell .player { transition: transform 0.25s ease; display: inline-block; }
+    .maze-status {
+        width: 100%; text-align: center; padding: 10px; border-radius: 8px; font-weight: 700;
+        background: rgba(255,255,255,0.04); color: var(--text-muted); font-size: 13px;
+    }
+    .maze-status.success { background: rgba(16,185,129,0.18); color: #10b981; }
+    .maze-status.fail { background: rgba(239,68,68,0.18); color: #ef4444; }
+
+    .btn-main {
+        padding: 10px 20px; border-radius: 8px; border: none; font-weight: 700;
+        cursor: pointer; transition: all 0.2s; font-size: 14px;
+    }
+    .btn-run { background: rgba(59, 130, 246, 0.2); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .btn-run:hover { background: #3b82f6; color: #fff; }
+    .btn-reset { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148,163,184,0.25); }
+    .btn-reset:hover { background: rgba(148,163,184,0.3); color: #fff; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="editor-container">
+    <!-- 왼쪽: 가이드 -->
+    <section class="panel panel-left">
+        <div class="panel-header">LEARNING GUIDE</div>
+        <div class="explain-scroll">
+            <div class="section-part">
+                <div class="part-label">🧩 학습 내용</div>
+                <div class="part-content">
+                    {% if learning_sections %}
+                    <div class="learning-section-list">
+                        {% for section in learning_sections %}
+                        <div class="learning-section-card">
+                            <div class="learning-section-title">{{ section.label }}</div>
+                            <div class="learning-section-body">{{ section.body }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    {{ item.explain_html|safe }}
+                    {% endif %}
+                </div>
+            </div>
+
+            <div id="hint-box" class="section-part" style="display:none; background: rgba(0, 180, 255, 0.05);">
+                <div class="part-label" style="color: var(--accent-blue);">💡 힌트 코치</div>
+                <div class="part-content" style="font-size: 14px;">{{ item.hint|default:"힌트가 없습니다." }}</div>
+            </div>
+
+            <div id="answer-box" class="section-part" style="display:none; background: rgba(168, 85, 247, 0.05);">
+                <div class="part-label" style="color: var(--accent-purple);">✅ 풀이 방법</div>
+                <div class="part-content" style="font-size: 14px; white-space: pre-wrap;">{{ item.answer_code|default:"풀이 설명이 없습니다." }}</div>
+            </div>
+        </div>
+
+        <div class="bottom-nav">
+            {% if user.is_staff %}
+            <div class="btn-group" style="padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px;">
+                <a href="{% url 'item_edit' item.id %}" class="btn-mini" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; flex: 2;">✏️ 수정하기</a>
+                <a href="{% url 'item_delete' item.id %}" class="btn-mini" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">🗑️</a>
+            </div>
+            {% endif %}
+
+            <div class="btn-group">
+                <button class="btn-mini" onclick="toggleAux('hint-box')">힌트 보기</button>
+                <button class="btn-mini" onclick="toggleAux('answer-box')">풀이 보기</button>
+            </div>
+            <div class="btn-group">
+                {% if prev_item %}
+                    <a href="{% url 'item_page' prev_item.id %}" class="btn-mini">◀ 이전</a>
+                {% else %}
+                    <span class="btn-mini" style="opacity: 0.3;">◀ 이전</span>
+                {% endif %}
+                <a href="{% url 'chapter_detail' item.chapter.id %}" class="btn-mini">목록</a>
+                {% if next_item %}
+                    <a href="{% url 'item_page' next_item.id %}" class="btn-mini">다음 ▶</a>
+                {% else %}
+                    <a href="{% url 'chapter_detail' item.chapter.id %}" class="btn-mini" style="color: var(--accent-green);">완료 ▶</a>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    <!-- 중앙: 블록 조립 공간 -->
+    <section class="panel panel-center">
+        <div class="panel-header">
+            <span>블록 조립하기</span>
+            {% if user_progress.completed %}
+                <span id="status-text" style="color: var(--accent-green); font-size: 10px;">● COMPLETED</span>
+            {% else %}
+                <span id="status-text" style="color: #64748b; font-size: 10px;">● READY</span>
+            {% endif %}
+        </div>
+        <div id="blockly-toolbar">
+            <button class="btn-main btn-run" onclick="runProgram()">▶ 실행하기</button>
+            <button class="btn-main btn-reset" onclick="resetWorkspace()">↺ 블록 초기화</button>
+        </div>
+        <div id="blockly-div"></div>
+    </section>
+
+    <!-- 오른쪽: 미로 -->
+    <section class="panel panel-right">
+        <div class="panel-header">미로 맵</div>
+        <div class="maze-wrap">
+            <div id="maze-grid"></div>
+            <div id="maze-status" class="maze-status">실행 버튼을 눌러 캐릭터를 움직여 보세요.</div>
+        </div>
+    </section>
+</div>
+
+<div id="toast" style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); padding: 12px 30px; border-radius: 10px; z-index: 9999; display: none; font-weight: 800; box-shadow: 0 10px 30px rgba(0,0,0,0.5);"></div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/blockly@10.4.3/blockly.min.js"></script>
+<script id="maze-data" type="application/json">{{ item.example_input|default:"{}"|safe }}</script>
+<script>
+    // ---------- 미로 데이터 ----------
+    const DIRS = ['N', 'E', 'S', 'W'];
+    const DIR_DELTA = { N: [-1, 0], E: [0, 1], S: [1, 0], W: [0, -1] };
+    const DIR_ROTATE = { N: 0, E: 90, S: 180, W: 270 };
+
+    let mazeData;
+    try {
+        mazeData = JSON.parse(document.getElementById('maze-data').textContent || '{}');
+    } catch (e) {
+        mazeData = {};
+    }
+    const grid = mazeData.grid || ['#####', '#S.G#', '#####'];
+    let startDir = mazeData.start_dir || 'E';
+    let playerRow = 0, playerCol = 0, playerDir = startDir;
+    let goalRow = 0, goalCol = 0;
+
+    grid.forEach((rowStr, r) => {
+        [...rowStr].forEach((ch, c) => {
+            if (ch === 'S') { playerRow = r; playerCol = c; }
+            if (ch === 'G') { goalRow = r; goalCol = c; }
+        });
+    });
+    const startRow = playerRow, startCol = playerCol;
+
+    function renderMaze() {
+        const mazeEl = document.getElementById('maze-grid');
+        mazeEl.style.gridTemplateColumns = `repeat(${grid[0].length}, 38px)`;
+        mazeEl.innerHTML = '';
+        grid.forEach((rowStr, r) => {
+            [...rowStr].forEach((ch, c) => {
+                const cell = document.createElement('div');
+                cell.className = 'maze-cell ' + (ch === '#' ? 'wall' : 'path');
+                cell.id = `cell-${r}-${c}`;
+                if (ch === 'G') cell.innerHTML = '🏁';
+                if (r === playerRow && c === playerCol) {
+                    cell.innerHTML = `<span class="player" id="player-token" style="transform: rotate(${DIR_ROTATE[playerDir]}deg);">🤖</span>`;
+                }
+                mazeEl.appendChild(cell);
+            });
+        });
+    }
+    renderMaze();
+
+    function setStatus(msg, cls) {
+        const el = document.getElementById('maze-status');
+        el.textContent = msg;
+        el.className = 'maze-status' + (cls ? ' ' + cls : '');
+    }
+
+    function showToast(msg, type) {
+        const t = document.getElementById('toast');
+        t.innerText = msg;
+        t.style.background = type === 'success' ? '#10b981' : '#ef4444';
+        t.style.color = type === 'success' ? '#000' : '#fff';
+        t.style.display = 'block';
+        setTimeout(() => { t.style.display = 'none'; }, 2000);
+    }
+
+    function showNewBadgeToast(newBadges) {
+        if (!Array.isArray(newBadges) || !newBadges.length) return;
+        const first = newBadges[0];
+        const extra = newBadges.length > 1 ? ` 외 ${newBadges.length - 1}개` : '';
+        showToast(`새 배지 획득! ${first.icon || '🏅'} ${first.name}${extra}`, 'success');
+    }
+
+    function toggleAux(id) {
+        const el = document.getElementById(id);
+        el.style.display = (el.style.display === 'block') ? 'none' : 'block';
+    }
+
+    // ---------- Blockly 블록 정의 ----------
+    Blockly.Blocks['maze_start'] = {
+        init: function () {
+            this.appendDummyInput().appendField('🚩 실행하면');
+            this.appendStatementInput('DO');
+            this.setColour(25);
+            this.setDeletable(false);
+            this.setMovable(false);
+            this.setDeletable(false);
+        }
+    };
+    Blockly.Blocks['maze_move_forward'] = {
+        init: function () {
+            this.appendDummyInput().appendField('앞으로 이동');
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour(210);
+        }
+    };
+    Blockly.Blocks['maze_turn_left'] = {
+        init: function () {
+            this.appendDummyInput().appendField('왼쪽으로 돌기');
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour(160);
+        }
+    };
+    Blockly.Blocks['maze_turn_right'] = {
+        init: function () {
+            this.appendDummyInput().appendField('오른쪽으로 돌기');
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour(160);
+        }
+    };
+    Blockly.Blocks['maze_repeat'] = {
+        init: function () {
+            this.appendDummyInput()
+                .appendField(new Blockly.FieldNumber(3, 1, 20), 'TIMES')
+                .appendField('번 반복하기');
+            this.appendStatementInput('DO');
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour(60);
+        }
+    };
+
+    const toolboxXml = `
+        <xml>
+            <block type="maze_move_forward"></block>
+            <block type="maze_turn_left"></block>
+            <block type="maze_turn_right"></block>
+            <block type="maze_repeat"></block>
+        </xml>`;
+
+    const startXml = `
+        <xml xmlns="https://developers.google.com/blockly/xml">
+            <block type="maze_start" deletable="false" movable="false" x="20" y="20"></block>
+        </xml>`;
+
+    const workspace = Blockly.inject('blockly-div', {
+        toolbox: toolboxXml,
+        trashcan: true,
+        scrollbars: true,
+        zoom: { controls: true, wheel: true, startScale: 0.9 },
+    });
+    Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(startXml), workspace);
+
+    function resetWorkspace() {
+        workspace.clear();
+        Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(startXml), workspace);
+        playerRow = startRow; playerCol = startCol; playerDir = startDir;
+        renderMaze();
+        setStatus('실행 버튼을 눌러 캐릭터를 움직여 보세요.');
+    }
+
+    function collectActions() {
+        const startBlock = workspace.getBlocksByType('maze_start', false)[0];
+        const actions = [];
+        function walk(block) {
+            while (block) {
+                if (actions.length > 300) throw new Error('too-many-steps');
+                if (block.type === 'maze_move_forward') actions.push('forward');
+                else if (block.type === 'maze_turn_left') actions.push('left');
+                else if (block.type === 'maze_turn_right') actions.push('right');
+                else if (block.type === 'maze_repeat') {
+                    const times = block.getFieldValue('TIMES') || 0;
+                    const inner = block.getInputTargetBlock('DO');
+                    for (let i = 0; i < times; i++) walk(inner);
+                }
+                block = block.getNextBlock();
+            }
+        }
+        if (startBlock) walk(startBlock.getInputTargetBlock('DO'));
+        return actions;
+    }
+
+    function cellAt(r, c) {
+        if (r < 0 || c < 0 || r >= grid.length || c >= grid[0].length) return '#';
+        return grid[r][c];
+    }
+
+    function runProgram() {
+        let actions;
+        try {
+            actions = collectActions();
+        } catch (e) {
+            setStatus('블록이 너무 많아요. 더 간단하게 만들어보세요!', 'fail');
+            return;
+        }
+        if (!actions.length) {
+            setStatus('블록을 조립한 뒤 실행해 주세요.');
+            return;
+        }
+
+        playerRow = startRow; playerCol = startCol; playerDir = startDir;
+        renderMaze();
+        setStatus('실행 중...');
+
+        let i = 0;
+        let failed = false;
+        const timer = setInterval(() => {
+            if (i >= actions.length) {
+                clearInterval(timer);
+                finishRun(failed);
+                return;
+            }
+            const action = actions[i++];
+            if (action === 'left') {
+                playerDir = DIRS[(DIRS.indexOf(playerDir) + 3) % 4];
+            } else if (action === 'right') {
+                playerDir = DIRS[(DIRS.indexOf(playerDir) + 1) % 4];
+            } else if (action === 'forward') {
+                const [dr, dc] = DIR_DELTA[playerDir];
+                const nr = playerRow + dr, nc = playerCol + dc;
+                if (cellAt(nr, nc) === '#') {
+                    failed = true;
+                    clearInterval(timer);
+                    finishRun(true);
+                    return;
+                }
+                playerRow = nr; playerCol = nc;
+            }
+            renderMaze();
+        }, 260);
+    }
+
+    function finishRun(hitWall) {
+        const reachedGoal = !hitWall && playerRow === goalRow && playerCol === goalCol;
+        if (hitWall) {
+            setStatus('🧱 벽에 부딪혔어요! 다시 시도해 보세요.', 'fail');
+            showToast('벽에 부딪혔어요.', 'error');
+        } else if (reachedGoal) {
+            setStatus('🎉 목표 지점에 도착했어요!', 'success');
+            showToast('미로를 탈출했습니다!', 'success');
+            submitResult(true);
+        } else {
+            setStatus('아직 목표 지점에 도착하지 못했어요.', 'fail');
+            showToast('다시 시도해보세요.', 'error');
+        }
+    }
+
+    function submitResult(solved) {
+        const fd = new FormData();
+        fd.append('item_id', '{{ item.id }}');
+        fd.append('solved', solved ? '1' : '0');
+        fd.append('steps', JSON.stringify(collectActions()));
+        fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch('{% url "grade_code" %}', { method: 'POST', body: fd })
+            .then(res => res.json())
+            .then(data => {
+                if (data.is_correct) {
+                    document.getElementById('status-text').innerText = '● COMPLETED';
+                    document.getElementById('status-text').style.color = '#10b981';
+                    showNewBadgeToast(data.new_badges);
+                }
+            });
+    }
+</script>
+{% endblock %}
