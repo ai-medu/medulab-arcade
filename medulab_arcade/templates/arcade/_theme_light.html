@@ -1,14 +1,13 @@
 <script>
-/* 밝은 테마 시안: ?theme=light 로 켜고 ?theme=dark 로 끈다 (브라우저에 기억) */
+/* 테마: 기본은 밝게. 사용자가 옵션 메뉴(또는 ?theme=dark / ?theme=light)로 바꾸면 브라우저에 기억한다 */
 (function () {
+    var theme = 'light';
     try {
         var q = new URLSearchParams(location.search).get('theme');
-        if (q === 'light') localStorage.setItem('medulab_theme', 'light');
-        else if (q === 'dark') localStorage.removeItem('medulab_theme');
-        if (localStorage.getItem('medulab_theme') === 'light') {
-            document.documentElement.setAttribute('data-theme', 'light');
-        }
+        if (q === 'light' || q === 'dark') localStorage.setItem('medulab_theme', q);
+        if (localStorage.getItem('medulab_theme') === 'dark') theme = 'dark';
     } catch (e) {}
+    document.documentElement.setAttribute('data-theme', theme);
 })();
 </script>
 <style>
@@ -18,9 +17,9 @@ html[data-theme="light"] {
     --bg-primary: #FFF9F2;
     --bg-card: #FFFFFF;
     --bg-surface: #F6F3FF;
-    --text-primary: #2E2A4A;
-    --text-secondary: rgba(46, 42, 74, 0.72);
-    --text-muted: rgba(46, 42, 74, 0.48);
+    --text-primary: #1F1B3D;
+    --text-secondary: rgba(31, 27, 61, 0.86);
+    --text-muted: rgba(31, 27, 61, 0.66);
     --accent-green: #17B890;
     --accent-blue: #4F7CFF;
     --accent-purple: #8C6BFA;
@@ -34,6 +33,14 @@ html[data-theme="light"] body {
     color: #2E2A4A;
 }
 html[data-theme="light"] #particles { display: none; }
+
+/* ── 흰 바탕 소셜 로그인 버튼에 테두리 ── */
+html[data-theme="light"] a[href*="social-auth/google"] { border: 1px solid rgba(31, 27, 61, .22) !important; box-shadow: 0 2px 8px rgba(31, 27, 61, .06); }
+
+/* ── 옵션 메뉴 ── */
+html[data-theme="light"] .site-options-panel .opt-seg button { background: rgba(140, 107, 250, .10); color: #1F1B3D; }
+html[data-theme="light"] .site-options-panel .opt-seg button.on { background: linear-gradient(135deg, #4F7CFF, #8C6BFA); color: #fff; }
+html[data-theme="light"] .site-options-panel .opt-select { background: #fff; color: #1F1B3D; border-color: rgba(31, 27, 61, .2); }
 
 /* ── 상단 메뉴 ── */
 html[data-theme="light"] .nav::before {

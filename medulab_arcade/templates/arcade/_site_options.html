@@ -1,0 +1,67 @@
+<div id="google_translate_element" style="display:none;"></div>
+<script>
+/* 옵션 메뉴: 테마(밝게/어둡게) + 언어(자동 번역). 선택은 이 브라우저에 기억된다. */
+(function () {
+    var LANGS = ['ko', 'en', 'ja', 'zh-CN', 'vi'];
+
+    /* ── 테마 ── */
+    function currentTheme() {
+        return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    }
+    function paintThemeButtons() {
+        document.querySelectorAll('[data-theme-set]').forEach(function (b) {
+            b.classList.toggle('on', b.getAttribute('data-theme-set') === currentTheme());
+        });
+    }
+    document.querySelectorAll('[data-theme-set]').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var t = b.getAttribute('data-theme-set');
+            document.documentElement.setAttribute('data-theme', t);
+            try { localStorage.setItem('medulab_theme', t); } catch (e) {}
+            paintThemeButtons();
+        });
+    });
+    paintThemeButtons();
+
+    /* ── 언어 (구글 번역 위젯, 한국어 외 언어를 고른 경우에만 불러온다) ── */
+    var select = document.getElementById('siteLangSelect');
+    function savedLang() {
+        try { var l = localStorage.getItem('medulab_lang'); return LANGS.indexOf(l) >= 0 ? l : 'ko'; } catch (e) { return 'ko'; }
+    }
+    function setCookie(value) {
+        var host = location.hostname, base = 'googtrans=' + value + ';path=/';
+        document.cookie = base;
+        if (host.indexOf('.') > 0) document.cookie = base + ';domain=' + host;
+    }
+    function clearCookie() {
+        var host = location.hostname, base = 'googtrans=;path=/;expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        document.cookie = base;
+        if (host.indexOf('.') > 0) document.cookie = base + ';domain=' + host;
+    }
+    function loadTranslator() {
+        window.googleTranslateElementInit = function () {
+            new google.translate.TranslateElement({
+                pageLanguage: 'ko', includedLanguages: 'en,ja,zh-CN,vi', autoDisplay: false
+            }, 'google_translate_element');
+        };
+        var s = document.createElement('script');
+        s.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+        s.async = true;
+        document.head.appendChild(s);
+    }
+
+    var lang = savedLang();
+    if (select) select.value = lang;
+    document.documentElement.setAttribute('lang', lang === 'zh-CN' ? 'zh' : lang);
+    if (lang !== 'ko') { setCookie('/ko/' + lang); loadTranslator(); }
+
+    if (select) {
+        select.addEventListener('change', function () {
+            var next = select.value;
+            try { localStorage.setItem('medulab_lang', next); } catch (e) {}
+            if (next === 'ko') clearCookie(); else setCookie('/ko/' + next);
+            location.reload();
+        });
+    }
+})();
+</script>
