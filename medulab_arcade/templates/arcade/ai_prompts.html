@@ -159,7 +159,11 @@
       <div class="pg-icon">{{ p.icon }}</div>
       <p class="pg-desc">{{ p.desc }}</p>
       <div class="pg-meta"><span>👤 {{ p.grades }}</span><span>🕒 {{ p.duration }}</span></div>
-      {% if p.tool_cards %}
+      {% if p.start_url_name %}
+      <div class="pg-tools">
+        <a class="pg-tool" href="{% url p.start_url_name %}" aria-label="{{ p.title }} 수업시작">수업시작 →</a>
+      </div>
+      {% elif p.tool_cards %}
       <div class="pg-tools">
         {% for t in p.tool_cards %}<a class="pg-tool" href="{% url t.url_name %}">{{ t.icon }} {{ t.title }}</a>{% endfor %}
       </div>

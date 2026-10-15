@@ -1,9 +1,11 @@
 from django.urls import path, re_path
+from django.views.generic import TemplateView
 from . import views
 
 urlpatterns = [
     path('', views.home, name='home'),
     path('tools/ai-prompts/', views.ai_prompts, name='ai_prompts'),
+    path('tools/generative-ai/', TemplateView.as_view(template_name='arcade/generative_ai_class.html'), name='generative_ai_class'),
     path('tools/ai-prompts/reorder/', views.ai_prompts_reorder, name='ai_prompts_reorder'),
     path('tools/future-career-video/', views.future_career_video, name='future_career_video'),
     path('tools/future-career-video/save/', views.future_career_video_save, name='future_career_video_save'),

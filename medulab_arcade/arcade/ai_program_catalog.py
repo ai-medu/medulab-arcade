@@ -6,7 +6,8 @@ tools: 이미 만들어져 있는 AI 프롬프트 도구(AI_PROMPT_CARDS의 key)
 
 AI_PROGRAMS = [
     {'no': 1, 'title': '생성형 AI 체험', 'tag': 'AI 기초', 'icon': '💡', 'grades': '초·중·고', 'duration': '90분~2시간',
-     'desc': 'ChatGPT, Gemini와 함께 생성형 AI의 원리를 이해하고 다양한 질문과 활용을 체험합니다.', 'tools': []},
+     'desc': 'ChatGPT, Gemini와 함께 생성형 AI의 원리를 이해하고 다양한 질문과 활용을 체험합니다.',
+     'tools': [], 'start_url_name': 'generative_ai_class'},
     {'no': 2, 'title': 'AI 이미지 크리에이터', 'tag': 'AI 이미지', 'icon': '🎨', 'grades': '초·중·고', 'duration': '90분~2시간',
      'desc': '텍스트로 상상을 표현하는 이미지 생성 AI를 활용해 캐릭터, 제품, 포스터 등을 제작합니다.', 'tools': []},
     {'no': 3, 'title': '나만의 미래직업 AI 아바타', 'tag': '진로교육', 'icon': '🧑‍🚀', 'grades': '초·중·고', 'duration': '2~3시간',

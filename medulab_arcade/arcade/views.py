@@ -188,7 +188,7 @@ def ai_prompts(request):
     other_cards = [c for c in cards if c['key'] not in mapped_keys]
     return render(request, 'arcade/ai_prompts.html', {
         'programs': programs, 'other_cards': other_cards,
-        'ready_count': sum(1 for p in programs if p['tool_cards']),
+        'ready_count': sum(1 for p in programs if p['tool_cards'] or p.get('start_url_name')),
     })
 
 
