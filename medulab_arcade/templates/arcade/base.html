@@ -866,7 +866,30 @@
             color: #facc15 !important;
             font-weight: 700;
         }
+
+        /* 옵션 메뉴 */
+        .site-options-panel { min-width: 240px; padding: 14px 16px; right: 0; left: auto; }
+        .site-options-panel .opt-label { font-size: 12px; font-weight: 800; color: var(--text-secondary); margin: 2px 0 8px; }
+        .site-options-panel .opt-seg { display: flex; gap: 6px; margin-bottom: 14px; }
+        .site-options-panel .opt-seg button {
+            flex: 1; padding: 9px 6px; border-radius: 10px; font-size: 13px; font-weight: 800; cursor: pointer;
+            background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text-primary);
+            font-family: inherit;
+        }
+        .site-options-panel .opt-seg button.on { background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); color: #fff; border-color: transparent; }
+        .site-options-panel .opt-select {
+            width: 100%; padding: 9px 10px; border-radius: 10px; font-size: 14px; font-weight: 700; font-family: inherit;
+            background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text-primary);
+        }
+        .site-options-panel .opt-select option { color: #1F1B3D; background: #fff; }
+        .site-options-panel .opt-note { font-size: 11px; color: var(--text-muted); line-height: 1.5; margin-top: 10px; }
+
+        /* 구글 번역 위젯의 기본 배너/툴팁 숨김 */
+        .goog-te-banner-frame, .skiptranslate > iframe, #goog-gt-tt, .goog-tooltip { display: none !important; }
+        body { top: 0 !important; }
+        .goog-text-highlight { background: none !important; box-shadow: none !important; }
     </style>
+    {% include 'arcade/_theme_light.html' %}
 </head>
 
 <body>
@@ -957,6 +980,28 @@
                 </div>
 
                 <div class="nav-links" style="flex-wrap: nowrap; flex-shrink: 0;">
+                    <!-- 옵션: 테마 / 언어 -->
+                    <div class="nav-dropdown notranslate" id="siteOptions">
+                        <button type="button" class="nav-link dropdown-toggle" style="display:flex; align-items:center; gap:4px; border:none; cursor:pointer; white-space:nowrap;">
+                            ⚙️ 옵션 <span style="font-size:10px;">▼</span>
+                        </button>
+                        <div class="dropdown-content site-options-panel">
+                            <div class="opt-label">테마 · Theme</div>
+                            <div class="opt-seg">
+                                <button type="button" data-theme-set="light">☀️ 밝게</button>
+                                <button type="button" data-theme-set="dark">🌙 어둡게</button>
+                            </div>
+                            <div class="opt-label">언어 · Language</div>
+                            <select id="siteLangSelect" class="opt-select">
+                                <option value="ko">한국어</option>
+                                <option value="en">English</option>
+                                <option value="ja">日本語</option>
+                                <option value="zh-CN">中文(简体)</option>
+                                <option value="vi">Tiếng Việt</option>
+                            </select>
+                            <div class="opt-note">한국어 외 언어는 자동 번역이라 표현이 어색할 수 있어요.<br>Other languages are machine-translated.</div>
+                        </div>
+                    </div>
                     {% if user.is_authenticated %}
                     {% if user.is_staff %}
                     <a href="{% url 'my_report' %}" class="nav-link accent-text">👤 {{ user.profile.nickname|default:user.profile.real_name|default:user.username }}</a>
@@ -1403,7 +1448,11 @@
     </script>
     {% endif %}
 
+    {% include 'arcade/_site_options.html' %}
+
     {% block extra_js %}{% endblock %}
+
+    {% include 'arcade/_theme_guard.html' %}
 </body>
 
 </html>
