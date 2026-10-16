@@ -7,78 +7,80 @@
     .nav { display: none !important; }
     .footer {
         position: fixed !important; bottom: 0 !important; left: 0 !important; right: 0 !important;
-        height: 36px; background: #08080f; border-top: 1px solid var(--border);
+        height: 36px; background: #FFE9C7; border-top: 1px solid rgba(43, 43, 69, 0.08);
         display: flex !important; align-items: center; justify-content: center;
-        font-size: 12px; color: var(--text-muted); z-index: 1000 !important;
+        font-size: 12px; color: #6b6487; z-index: 1000 !important;
         margin: 0; padding: 0 !important;
     }
     .footer .footer-biz-info, .footer .footer-links { display: none !important; }
     .footer p { margin: 0; }
-    #particles { opacity: 0.1; }
+    #particles { display: none; }
 
     .editor-container {
         position: fixed !important;
         top: 0 !important; left: 0 !important; right: 0 !important; bottom: 36px !important;
         display: flex;
-        gap: 12px;
-        padding: 12px;
-        background: #0f1117;
+        gap: 14px;
+        padding: 14px;
+        background: linear-gradient(135deg, #FFF4E3 0%, #EAF4FF 55%, #F1EBFF 100%);
         box-sizing: border-box;
     }
 
     .panel {
-        background: #1a1d26;
-        border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: #FFFFFF;
+        border-radius: 20px;
+        border: 1px solid rgba(43, 43, 69, 0.08);
         display: flex;
         flex-direction: column;
         height: 100%;
         overflow: hidden;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        box-shadow: 0 8px 24px rgba(79, 70, 160, 0.12);
     }
     .panel-header {
-        padding: 14px 20px;
-        background: rgba(255, 255, 255, 0.03);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        font-size: 12px;
+        padding: 16px 22px;
+        background: linear-gradient(90deg, #8C6BFA, #4F7CFF);
+        font-size: 13px;
         font-weight: 800;
-        color: var(--text-muted);
+        color: #fff;
         letter-spacing: 0.5px;
         display: flex;
         justify-content: space-between;
         align-items: center;
     }
+    .panel-center .panel-header { background: linear-gradient(90deg, #4F7CFF, #3DD0E6); }
+    .panel-right .panel-header { background: linear-gradient(90deg, #17B890, #6FD86B); }
 
     .panel-left { width: 28%; }
     .explain-scroll { flex: 1; overflow-y: auto; padding: 0; }
-    .section-part { padding: 24px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+    .section-part { padding: 22px; border-bottom: 1px solid rgba(43, 43, 69, 0.06); }
     .part-label {
-        font-size: 11px; font-weight: 800; color: var(--accent-blue); margin-bottom: 12px;
+        font-size: 12px; font-weight: 800; color: #4F7CFF; margin-bottom: 12px;
         text-transform: uppercase; display: flex; align-items: center; gap: 6px;
     }
-    .part-content { color: #ccd6f6; line-height: 1.8; font-size: 15px; }
-    .part-content h2, .part-content h3 { color: #fff; margin: 0 0 12px; font-size: 18px; }
+    .part-content { color: #2b2b45; line-height: 1.8; font-size: 15px; }
+    .part-content h2, .part-content h3 { color: #1F1B3D; margin: 0 0 12px; font-size: 18px; }
     .learning-section-list { display: flex; flex-direction: column; gap: 12px; }
     .learning-section-card {
-        padding: 14px 16px; border-radius: 12px; background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        padding: 14px 16px; border-radius: 14px; background: #F6F3FF;
+        border: 1px solid rgba(140, 107, 250, 0.12);
     }
-    .learning-section-title { margin-bottom: 8px; font-size: 12px; font-weight: 800; color: #7dd3fc; letter-spacing: 0.04em; }
-    .learning-section-body { color: #e5e7eb; line-height: 1.75; white-space: pre-wrap; }
+    .learning-section-title { margin-bottom: 8px; font-size: 12px; font-weight: 800; color: #4F7CFF; letter-spacing: 0.04em; }
+    .learning-section-body { color: #2b2b45; line-height: 1.75; white-space: pre-wrap; }
 
-    .bottom-nav { padding: 16px; border-top: 1px solid rgba(255, 255, 255, 0.08); display: flex; flex-direction: column; gap: 8px; }
+    .bottom-nav { padding: 16px; border-top: 1px solid rgba(43, 43, 69, 0.08); display: flex; flex-direction: column; gap: 8px; }
     .btn-group { display: flex; gap: 8px; }
     .btn-mini {
-        flex: 1; padding: 8px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.1);
-        background: rgba(255, 255, 255, 0.03); color: var(--text-muted);
-        cursor: pointer; font-size: 12px; font-weight: 600; text-decoration: none; text-align: center;
+        flex: 1; padding: 9px; border-radius: 10px; border: 1px solid rgba(43, 43, 69, 0.1);
+        background: #F6F3FF; color: #6b6487;
+        cursor: pointer; font-size: 12px; font-weight: 700; text-decoration: none; text-align: center;
+        transition: all 0.15s ease;
     }
-    .btn-mini:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+    .btn-mini:hover { background: #4F7CFF; color: #fff; border-color: #4F7CFF; }
 
     .panel-center { width: 42%; }
     #blockly-toolbar {
-        padding: 10px 16px; display: flex; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.08);
-        background: rgba(255,255,255,0.02);
+        padding: 10px 16px; display: flex; gap: 10px; border-bottom: 1px solid rgba(43, 43, 69, 0.08);
+        background: #FAFBFF;
     }
     #blockly-div { flex: 1; width: 100%; }
 
@@ -87,39 +89,41 @@
         flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
         padding: 20px; gap: 16px; overflow: auto;
         width: 100%; box-sizing: border-box;
+        background: #FAFBFF;
     }
     #maze-grid {
         display: grid;
-        gap: 4px;
-        background: #05060a;
-        padding: 10px;
-        border-radius: 14px;
-        border: 1px solid rgba(255,255,255,0.08);
+        gap: 5px;
+        background: #D7E3FF;
+        padding: 12px;
+        border-radius: 18px;
+        border: 2px solid #C3D4FF;
     }
     .maze-cell {
         width: var(--cell-size, 64px); height: var(--cell-size, 64px);
         display: flex; align-items: center; justify-content: center;
-        font-size: calc(var(--cell-size, 64px) * 0.55); border-radius: 8px;
-        background: #1e2230;
+        font-size: calc(var(--cell-size, 64px) * 0.55); border-radius: 10px;
+        background: #FFFFFF;
+        box-shadow: inset 0 0 0 1px rgba(79, 124, 255, 0.08);
     }
-    .maze-cell.wall { background: #2a2130; }
-    .maze-cell.path { background: #1e2230; }
+    .maze-cell.wall { background: #FFD9A0; box-shadow: inset 0 0 0 1px rgba(214, 150, 61, 0.25); }
+    .maze-cell.path { background: #FFFFFF; }
     .maze-cell .player { transition: transform 0.25s ease; display: inline-block; }
     .maze-status {
-        width: 100%; text-align: center; padding: 10px; border-radius: 8px; font-weight: 700;
-        background: rgba(255,255,255,0.04); color: var(--text-muted); font-size: 13px;
+        width: 100%; text-align: center; padding: 12px; border-radius: 12px; font-weight: 800;
+        background: #EFF3FF; color: #4F7CFF; font-size: 14px;
     }
-    .maze-status.success { background: rgba(16,185,129,0.18); color: #10b981; }
-    .maze-status.fail { background: rgba(239,68,68,0.18); color: #ef4444; }
+    .maze-status.success { background: #E3FAEF; color: #0E9E72; }
+    .maze-status.fail { background: #FFEAEA; color: #E0564A; }
 
     .btn-main {
-        padding: 10px 20px; border-radius: 8px; border: none; font-weight: 700;
+        padding: 11px 22px; border-radius: 999px; border: none; font-weight: 800;
         cursor: pointer; transition: all 0.2s; font-size: 14px;
     }
-    .btn-run { background: rgba(59, 130, 246, 0.2); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.3); }
-    .btn-run:hover { background: #3b82f6; color: #fff; }
-    .btn-reset { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148,163,184,0.25); }
-    .btn-reset:hover { background: rgba(148,163,184,0.3); color: #fff; }
+    .btn-run { background: linear-gradient(90deg, #4F7CFF, #3DD0E6); color: #fff; box-shadow: 0 4px 12px rgba(79, 124, 255, 0.3); }
+    .btn-run:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    .btn-reset { background: #EFF1F8; color: #6b6487; border: 1px solid rgba(43, 43, 69, 0.1); }
+    .btn-reset:hover { background: #E4E7F5; color: #2b2b45; }
 </style>
 {% endblock %}
 
@@ -147,13 +151,13 @@
                 </div>
             </div>
 
-            <div id="hint-box" class="section-part" style="display:none; background: rgba(0, 180, 255, 0.05);">
-                <div class="part-label" style="color: var(--accent-blue);">💡 힌트 코치</div>
+            <div id="hint-box" class="section-part" style="display:none; background: #EAF2FF;">
+                <div class="part-label" style="color: #4F7CFF;">💡 힌트 코치</div>
                 <div class="part-content" style="font-size: 14px;">{{ item.hint|default:"힌트가 없습니다." }}</div>
             </div>
 
-            <div id="answer-box" class="section-part" style="display:none; background: rgba(168, 85, 247, 0.05);">
-                <div class="part-label" style="color: var(--accent-purple);">✅ 풀이 방법</div>
+            <div id="answer-box" class="section-part" style="display:none; background: #F3ECFF;">
+                <div class="part-label" style="color: #8C6BFA;">✅ 풀이 방법</div>
                 <div class="part-content" style="font-size: 14px; white-space: pre-wrap;">{{ item.answer_code|default:"풀이 설명이 없습니다." }}</div>
             </div>
         </div>
@@ -180,7 +184,7 @@
                 {% if next_item %}
                     <a href="{% url 'item_page' next_item.id %}" class="btn-mini">다음 ▶</a>
                 {% else %}
-                    <a href="{% url 'chapter_detail' item.chapter.id %}" class="btn-mini" style="color: var(--accent-green);">완료 ▶</a>
+                    <a href="{% url 'chapter_detail' item.chapter.id %}" class="btn-mini" style="color: #17B890;">완료 ▶</a>
                 {% endif %}
             </div>
         </div>
@@ -191,9 +195,9 @@
         <div class="panel-header">
             <span>블록 조립하기</span>
             {% if user_progress.completed %}
-                <span id="status-text" style="color: var(--accent-green); font-size: 10px;">● COMPLETED</span>
+                <span id="status-text" style="color: #fff; background: rgba(15,12,35,0.3); padding: 3px 10px; border-radius: 999px; font-size: 10px; font-weight: 800;">● COMPLETED</span>
             {% else %}
-                <span id="status-text" style="color: #64748b; font-size: 10px;">● READY</span>
+                <span id="status-text" style="color: #fff; background: rgba(15,12,35,0.22); padding: 3px 10px; border-radius: 999px; font-size: 10px; font-weight: 800;">● READY</span>
             {% endif %}
         </div>
         <div id="blockly-toolbar">
@@ -476,8 +480,9 @@
             .then(res => res.json())
             .then(data => {
                 if (data.is_correct) {
-                    document.getElementById('status-text').innerText = '● COMPLETED';
-                    document.getElementById('status-text').style.color = '#10b981';
+                    const statusEl = document.getElementById('status-text');
+                    statusEl.innerText = '● COMPLETED';
+                    statusEl.style.background = 'rgba(15,12,35,0.3)';
                     showNewBadgeToast(data.new_badges);
                 }
             });
