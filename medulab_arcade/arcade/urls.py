@@ -211,6 +211,8 @@ urlpatterns = [
     path('admin-services/tuition/<int:invoice_id>/attendance/', views.tuition_invoice_attendance_detail, name='tuition_invoice_attendance_detail'),
     path('admin-services/tuition/<int:invoice_id>/edit/', views.tuition_invoice_edit, name='tuition_invoice_edit'),
     path('admin-services/tuition/<int:invoice_id>/delete/', views.tuition_invoice_delete, name='tuition_invoice_delete'),
+    path('admin-services/tuition/<int:invoice_id>/cancel-info/', views.tuition_invoice_cancel_info, name='tuition_invoice_cancel_info'),
+    path('admin-services/tuition/<int:invoice_id>/cancel/', views.tuition_invoice_cancel, name='tuition_invoice_cancel'),
     path('admin-services/tuition/bulk/', views.tuition_invoice_bulk_action, name='tuition_invoice_bulk_action'),
     path('admin-services/tuition/generate-all/', views.tuition_generate_invoices_all, name='tuition_generate_invoices_all'),
 

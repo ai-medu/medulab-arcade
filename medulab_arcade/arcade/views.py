@@ -3738,7 +3738,34 @@ def tuition_admin_dashboard(request):
             'mode': 'student',
             'student': student,
             'invoices': invoices,
+            'today': today,
             'title': '납부 관리',
+        }
+        return render(request, 'arcade/admin/tuition_dashboard.html', context)
+
+    search = request.GET.get('q', '').strip()
+
+    if request.GET.get('view') == 'unpaid':
+        # 월과 상관없이 모든 미납 내역 (오래된 기한부터)
+        all_unpaid_qs = TuitionInvoice.objects.filter(status=TuitionInvoice.STATUS_UNPAID)
+        invoices = all_unpaid_qs.select_related('student__profile', 'school_class').order_by(
+            'due_date', 'school_class__name', 'student__profile__real_name'
+        )
+        if search:
+            invoices = invoices.filter(
+                Q(student__profile__real_name__icontains=search) | Q(student__username__icontains=search)
+            )
+        context = {
+            'mode': 'month',
+            'all_unpaid': True,
+            'invoices': invoices,
+            'today': today,
+            'search_query': search,
+            'all_unpaid_count': all_unpaid_qs.count(),
+            'all_unpaid_amount': all_unpaid_qs.aggregate(Sum('amount'))['amount__sum'] or 0,
+            'all_unpaid_students': all_unpaid_qs.values('student_id').distinct().count(),
+            'all_overdue_count': all_unpaid_qs.filter(due_date__lt=today).count(),
+            'title': '납부 관리 - 전체 미납',
         }
         return render(request, 'arcade/admin/tuition_dashboard.html', context)
 
@@ -3749,7 +3776,6 @@ def tuition_admin_dashboard(request):
         year, month = today.year, today.month
 
     status_filter = request.GET.get('status', '')
-    search = request.GET.get('q', '').strip()
 
     invoices = TuitionInvoice.objects.filter(
         due_date__year=year, due_date__month=month,
@@ -3772,6 +3798,7 @@ def tuition_admin_dashboard(request):
     context = {
         'mode': 'month',
         'invoices': invoices,
+        'today': today,
         'year': year, 'month': month,
         'prev_year': prev_year, 'prev_month': prev_month,
         'next_year': next_year, 'next_month': next_month,
@@ -3828,6 +3855,171 @@ def tuition_invoice_edit(request, invoice_id):
         'title': '청구서 수정',
     }
     return render(request, 'arcade/admin/tuition_invoice_edit.html', context)
+
+
+def _tuition_payment_source(invoice):
+    """이 청구서를 결제한 포트원 결제건: (결제건 ID, 일괄결제 여부, 일괄결제 객체)"""
+    batch = invoice.batch_payments.filter(status=TuitionInvoice.STATUS_PAID).order_by('-paid_at').first()
+    if batch:
+        return batch.portone_payment_id, True, batch
+    return invoice.portone_payment_id, False, None
+
+
+def _portone_get_payment(payment_id):
+    """포트원 결제건 조회. (결제 정보 dict | None, 오류 메시지 | None)  - 404(결제건 없음)는 (None, None)"""
+    import requests
+    if not settings.PORTONE_API_SECRET:
+        return None, '결제 연동(포트원 API 키)이 설정되지 않았어요.'
+    try:
+        resp = requests.get(
+            f'https://api.portone.io/payments/{payment_id}',
+            headers={'Authorization': f'PortOne {settings.PORTONE_API_SECRET}'},
+            timeout=10,
+        )
+    except requests.RequestException:
+        return None, '포트원에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.'
+    if resp.status_code == 404:
+        return None, None
+    if resp.status_code != 200:
+        return None, f'포트원 결제 조회에 실패했어요. (코드 {resp.status_code})'
+    return resp.json(), None
+
+
+def _portone_cancellable_amount(data):
+    amount = data.get('amount') or {}
+    paid = amount.get('paid')
+    if paid is None:
+        paid = amount.get('total') or 0
+    return max(int(paid) - int(amount.get('cancelled') or 0), 0)
+
+
+@login_required
+@user_passes_test(staff_check)
+def tuition_invoice_cancel_info(request, invoice_id):
+    """'완납' 취소 모달에 보여줄 정보 (포트원에 실제 결제건이 있어 환불할 수 있는지 확인)"""
+    invoice = get_object_or_404(
+        TuitionInvoice.objects.select_related('student__profile', 'school_class'), pk=invoice_id
+    )
+    info = {
+        'ok': True,
+        'student': invoice.student.profile.real_name or invoice.student.username,
+        'class_name': invoice.school_class.name,
+        'period': invoice.billing_period_label,
+        'amount': invoice.amount,
+        'pay_method': invoice.portone_pay_method or '-',
+        'paid_at': timezone.localtime(invoice.paid_at).strftime('%Y.%m.%d %H:%M') if invoice.paid_at else '-',
+        'status': invoice.status,
+        'refundable': False,
+        'is_batch': False,
+        'note': '',
+    }
+    if invoice.status != TuitionInvoice.STATUS_PAID:
+        info['note'] = '완납 상태인 청구서만 취소할 수 있어요.'
+        return JsonResponse(info)
+
+    payment_id, is_batch, batch = _tuition_payment_source(invoice)
+    info['is_batch'] = is_batch
+    data, err = _portone_get_payment(payment_id)
+    if err:
+        info['note'] = err
+    elif not data:
+        info['note'] = '포트원에 결제 내역이 없어요. 관리자가 직접 "완납"으로 바꾼 청구서로 보여요. 그래서 자동 환불은 되지 않아요.'
+    else:
+        status = data.get('status')
+        cancellable = _portone_cancellable_amount(data)
+        info['portone_status'] = status
+        info['cancellable'] = cancellable
+        if status in ('PAID', 'PARTIAL_CANCELLED') and cancellable >= invoice.amount:
+            info['refundable'] = True
+            if is_batch:
+                info['note'] = f'학부모가 자녀 청구서 {batch.invoices.count()}건을 한 번에 결제한 건이에요. 이 청구서 금액({invoice.amount:,}원)만 부분 환불돼요.'
+        elif status in ('CANCELLED',):
+            info['note'] = '이미 포트원에서 결제가 취소된 건이에요. 상태만 "취소"로 정리할 수 있어요.'
+        else:
+            info['note'] = f'포트원 결제 상태가 "{status}"이라 자동 환불을 할 수 없어요.'
+    return JsonResponse(info)
+
+
+@login_required
+@user_passes_test(staff_check)
+@require_POST
+def tuition_invoice_cancel(request, invoice_id):
+    """완납 청구서 취소. mode=refund 이면 포트원 결제를 취소(환불)하고, mode=status_only 이면 상태만 '취소'로 바꾼다."""
+    import requests
+    from django.db import transaction
+
+    invoice = get_object_or_404(
+        TuitionInvoice.objects.select_related('student__profile', 'school_class'), pk=invoice_id
+    )
+    if invoice.status != TuitionInvoice.STATUS_PAID:
+        return JsonResponse({'ok': False, 'error': '완납 상태인 청구서만 취소할 수 있어요.'}, status=400)
+    if request.POST.get('confirm') != 'yes':
+        return JsonResponse({'ok': False, 'error': '확인 체크가 필요해요.'}, status=400)
+
+    mode = request.POST.get('mode')
+    if mode not in ('refund', 'status_only'):
+        return JsonResponse({'ok': False, 'error': '취소 방식이 올바르지 않아요.'}, status=400)
+    reason = (request.POST.get('reason') or '').strip()[:100] or '관리자 취소'
+
+    payment_id, is_batch, batch = _tuition_payment_source(invoice)
+    refunded = 0
+
+    if mode == 'refund':
+        data, err = _portone_get_payment(payment_id)
+        if err:
+            return JsonResponse({'ok': False, 'error': err}, status=502)
+        if not data:
+            return JsonResponse({'ok': False, 'error': '포트원에 결제 내역이 없어서 환불할 수 없어요. "상태만 취소"를 선택해 주세요.'}, status=400)
+        cancellable = _portone_cancellable_amount(data)
+        if data.get('status') not in ('PAID', 'PARTIAL_CANCELLED') or cancellable < invoice.amount:
+            return JsonResponse({'ok': False, 'error': '이 결제건은 지금 환불할 수 없는 상태예요.'}, status=400)
+
+        body = {'reason': reason, 'currentCancellableAmount': cancellable}
+        if is_batch or invoice.amount != cancellable:
+            body['amount'] = invoice.amount      # 일괄결제 등은 이 청구서 금액만 부분 취소
+        try:
+            resp = requests.post(
+                f'https://api.portone.io/payments/{payment_id}/cancel',
+                json=body,
+                headers={'Authorization': f'PortOne {settings.PORTONE_API_SECRET}'},
+                timeout=20,
+            )
+        except requests.RequestException:
+            return JsonResponse({'ok': False, 'error': '포트원 취소 요청 중 오류가 발생했어요. 환불 여부를 포트원 콘솔에서 확인해 주세요.'}, status=502)
+        if resp.status_code != 200:
+            try:
+                detail = resp.json().get('message') or ''
+            except ValueError:
+                detail = ''
+            logging.getLogger(__name__).warning('PortOne cancel failed: %s %s', resp.status_code, resp.text[:300])
+            return JsonResponse({'ok': False, 'error': f'포트원이 환불을 거절했어요. {detail}'.strip()}, status=400)
+        refunded = invoice.amount
+
+    try:
+        with transaction.atomic():
+            old_payment_id = payment_id
+            invoice.status = TuitionInvoice.STATUS_CANCELED
+            invoice.canceled_at = timezone.now()
+            invoice.cancel_reason = reason
+            invoice.refunded_amount = refunded
+            invoice.canceled_payment_id = old_payment_id
+            # 취소된 결제건 ID는 다시 쓸 수 없으니 새 ID를 발급 (다시 청구해도 결제가 가능하도록)
+            invoice.portone_payment_id = f'tuition-{uuid.uuid4().hex}'
+            invoice.save()
+            if batch:
+                batch.invoices.remove(invoice)
+                if not batch.invoices.exists():
+                    batch.status = TuitionInvoice.STATUS_CANCELED
+                    batch.save(update_fields=['status'])
+    except DatabaseError:
+        logging.getLogger(__name__).exception('Tuition cancel DB update failed after PortOne cancel: invoice=%s', invoice.pk)
+        return JsonResponse({
+            'ok': False,
+            'error': '환불은 처리됐지만 청구서 상태 저장에 실패했어요. 상태를 "취소"로 직접 수정해 주세요.' if refunded else '저장 중 오류가 발생했어요.',
+        }, status=500)
+
+    msg = f'{invoice.amount:,}원을 환불하고 청구서를 취소했어요.' if refunded else '청구서를 "취소" 상태로 바꿨어요. (환불은 하지 않았어요)'
+    return JsonResponse({'ok': True, 'message': msg})
 
 
 @login_required
