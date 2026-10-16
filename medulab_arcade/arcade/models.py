@@ -562,6 +562,11 @@ class TuitionInvoice(models.Model):
     paid_at = models.DateTimeField('결제 완료 일시', null=True, blank=True)
     portone_payment_id = models.CharField('포트원 결제건 ID', max_length=100, unique=True, blank=True)
     portone_pay_method = models.CharField('결제 수단', max_length=30, blank=True)
+    canceled_at = models.DateTimeField('취소 일시', null=True, blank=True)
+    cancel_reason = models.CharField('취소 사유', max_length=100, blank=True)
+    refunded_amount = models.PositiveIntegerField('환불 금액(원)', default=0)
+    canceled_payment_id = models.CharField('취소된 포트원 결제건 ID', max_length=100, blank=True,
+                                           help_text='취소·환불된 결제건. 취소 후에는 새 결제건 ID가 발급됩니다.')
     created_at = models.DateTimeField('생성일', auto_now_add=True)
 
     class Meta:

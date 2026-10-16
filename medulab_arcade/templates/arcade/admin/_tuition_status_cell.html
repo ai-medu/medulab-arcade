@@ -1,0 +1,5 @@
+{% load humanize %}{% if inv.status == 'paid' %}<button type="button" class="status-badge status-paid status-btn" onclick="openCancelModal({{ inv.id }})" title="눌러서 취소 · 환불하기">✅ 완납 ▾</button>
+{% elif inv.status == 'canceled' %}<span class="status-badge status-canceled">취소</span>
+{% if inv.refunded_amount %}<div class="date-line refund">환불 {{ inv.refunded_amount|intcomma }}원</div>{% endif %}
+{% else %}<span class="status-badge status-unpaid">미납</span>
+{% if inv.due_date < today %}<div class="overdue-tag">⏰ 기한 지남</div>{% endif %}{% endif %}

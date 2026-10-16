@@ -129,11 +129,30 @@
         if (cs.webkitTextFillColor && cs.webkitTextFillColor !== cs.color) setImportant(el, '-webkit-text-fill-color', 'rgb(' + out.r + ',' + out.g + ',' + out.b + ')');
     }
 
+    /* 3) 입력창/선택창/글상자: 안에 쓰는 글자는 텍스트 노드가 아니라서 따로 처리한다 (흰 글씨 + 흰 배경 -> 안 보임) */
+    var CTRL_SKIP = /^(hidden|checkbox|radio|range|file|submit|button|reset|image|color)$/;
+    function fixControl(el) {
+        var tag = el.tagName;
+        if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') return;
+        if (tag === 'INPUT' && CTRL_SKIP.test((el.getAttribute('type') || 'text').toLowerCase())) return;
+        if (el.closest('#checkinModalOverlay,.blocklyDiv,pre,code')) return;
+        var cs = getComputedStyle(el), fg = parse(cs.color); if (!fg) return;
+        var bd = backdrop(el); if (bd.unknown) return;
+        var bg = bd.bg, eff = over({ r: fg.r, g: fg.g, b: fg.b, a: fg.a }, bg);
+        if (ratio(eff, bg) >= 4.6) return;
+        if (lum(bg) > 0.35) {
+            setImportant(el, 'color', 'rgb(31,27,61)');
+            setImportant(el, 'color-scheme', 'light');
+        } else if (lum(bg) < 0.18) {
+            setImportant(el, 'color', 'rgb(255,255,255)');
+        }
+    }
+
     function scan(root) {
         if (!isLight() || !root || root.nodeType !== 1) return;
         var all = root.querySelectorAll('*'), list = [root].concat(Array.prototype.slice.call(all));
         var i, el;
-        for (i = 0; i < list.length; i++) { el = list[i]; if (!SKIP[el.tagName.toUpperCase()]) { try { fixPanel(el); } catch (e) {} } }
+        for (i = 0; i < list.length; i++) { el = list[i]; if (!SKIP[el.tagName.toUpperCase()]) { try { fixPanel(el); } catch (e) {} try { fixControl(el); } catch (e) {} } }
         var seen = new Set();
         var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
         var node;
@@ -148,7 +167,7 @@
 
     function restoreAll() {
         document.querySelectorAll('[data-tg]').forEach(function (el) {
-            ['color', 'background-color', 'border-color', 'box-shadow', '-webkit-text-fill-color', 'background-image', '-webkit-text-stroke-color'].forEach(function (prop) {
+            ['color', 'background-color', 'border-color', 'box-shadow', '-webkit-text-fill-color', 'background-image', '-webkit-text-stroke-color', 'color-scheme'].forEach(function (prop) {
                 var key = 'data-tg-' + prop, saved = el.getAttribute(key);
                 if (saved === null) return;
                 var parts = saved.split('|'); el.style.removeProperty(prop);

@@ -9,8 +9,17 @@
 .pay-title { font: 900 28px 'Orbitron', sans-serif; background: linear-gradient(90deg, var(--accent-green), var(--accent-blue)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; margin-bottom:24px; }
 
 .pay-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:12px; }
-.pay-nav a.nav-arrow { padding:8px 16px; border-radius:10px; background:rgba(255,255,255,0.06); color:#fff; text-decoration:none; font-size:13px; font-weight:700; border:1px solid var(--border); }
-.pay-nav a.nav-arrow:hover { background:rgba(255,255,255,0.1); }
+.pay-nav a.nav-arrow, .pay-nav button.nav-arrow, .pay-views a.nav-arrow { display:inline-flex; align-items:center; justify-content:center; padding:9px 16px; border-radius:10px; background:rgba(255,255,255,0.06); color:#fff; text-decoration:none; font-family:inherit; font-size:13px; font-weight:700; line-height:1.2; border:1px solid var(--border); cursor:pointer; white-space:nowrap; box-sizing:border-box; }
+.pay-nav a.nav-arrow:hover, .pay-nav button.nav-arrow:hover, .pay-views a.nav-arrow:hover { background:rgba(255,255,255,0.12); }
+.pay-nav { justify-content:flex-start; }
+.pay-nav .pay-month { min-width:120px; text-align:center; }
+.pay-nav form { margin:0; margin-left:auto; }
+.pay-views { display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap; }
+.nav-arrow.view-unpaid { background:rgba(251,191,36,0.14) !important; color:#fbbf24 !important; border-color:rgba(251,191,36,0.4) !important; }
+.nav-arrow.view-paid { background:rgba(0,200,150,0.14) !important; color:var(--accent-green) !important; border-color:rgba(0,200,150,0.4) !important; }
+.nav-arrow.view-generate { background:rgba(59,130,246,0.14) !important; color:#93c5fd !important; border-color:rgba(59,130,246,0.4) !important; }
+.nav-arrow.active { box-shadow:0 0 0 2px currentColor inset; }
+.view-badge.paid { background:rgba(0,200,150,0.15); color:var(--accent-green); }
 .pay-month { font-size:18px; font-weight:800; color:#fff; }
 
 .stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
@@ -79,6 +88,38 @@ tr:hover td { background:rgba(255,255,255,0.02); }
 .att-modal-box table { table-layout:fixed; width:100%; min-width:0; }
 .att-modal-close { position:absolute; top:16px; right:16px; background:none; border:none; color:var(--text-muted); font-size:20px; cursor:pointer; line-height:1; }
 .att-modal-close:hover { color:#fff; }
+
+.status-btn { cursor:pointer; border:1px solid transparent; font-family:inherit; }
+.status-btn:hover { filter:brightness(1.15); border-color:var(--accent-green); }
+.overdue-tag { font-size:11px; color:#f87171; font-weight:800; margin-top:5px; white-space:nowrap; }
+.date-line.cancel, .date-line.refund { color:#fca5a5; }
+.date-line.refund { margin-top:4px; font-weight:700; }
+.view-badge { display:inline-block; padding:6px 14px; border-radius:20px; background:rgba(251,191,36,0.15); color:#fbbf24; font-weight:800; font-size:13px; }
+
+.cx-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:110; align-items:center; justify-content:center; padding:20px; }
+.cx-overlay.show { display:flex; }
+.cx-box { background:var(--bg-card); border:1px solid var(--border); border-radius:18px; padding:26px; max-width:480px; width:100%; max-height:88vh; overflow-y:auto; position:relative; box-sizing:border-box; }
+.cx-close { position:absolute; top:14px; right:16px; background:none; border:none; color:var(--text-muted); font-size:20px; cursor:pointer; line-height:1; }
+.cx-title { font-size:19px; font-weight:900; margin:0 0 14px; color:var(--text-primary, #fff); }
+.cx-info { border:1px solid var(--border); border-radius:12px; padding:12px 14px; margin-bottom:14px; font-size:14px; line-height:1.9; }
+.cx-info b { display:inline-block; min-width:64px; color:var(--text-muted); font-weight:700; }
+.cx-opt { display:block; border:1.5px solid var(--border); border-radius:12px; padding:12px 14px; margin:8px 0; cursor:pointer; font-size:14px; line-height:1.6; }
+.cx-opt input { margin-right:8px; accent-color:var(--accent-green); }
+.cx-opt.selected { border-color:#ef4444; background:rgba(239,68,68,0.08); }
+.cx-opt.disabled { opacity:0.45; cursor:not-allowed; }
+.cx-opt small { display:block; color:var(--text-muted); margin-left:24px; font-size:12.5px; }
+.cx-note { font-size:13px; padding:10px 12px; border-radius:10px; background:rgba(251,191,36,0.12); color:#fbbf24; margin:10px 0; line-height:1.6; }
+.cx-field { width:100%; box-sizing:border-box; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,0.06); border:1px solid var(--border); color:var(--text-primary, #fff); font-size:14px; margin:6px 0 12px; }
+.cx-confirm { display:flex; gap:8px; align-items:flex-start; font-size:13.5px; margin:8px 0 14px; line-height:1.6; }
+.cx-confirm input { margin-top:3px; accent-color:#ef4444; }
+.cx-btns { display:flex; gap:10px; }
+.cx-btn { flex:1; padding:12px; border-radius:10px; font-weight:800; font-size:14px; cursor:pointer; border:none; }
+.cx-btn.close { background:rgba(255,255,255,0.08); color:var(--text-secondary); }
+.cx-btn.go { background:#ef4444; color:#fff; line-height:1.5; }
+.cx-btn.go:disabled { opacity:0.4; cursor:not-allowed; }
+.cx-msg { margin-top:12px; font-size:14px; font-weight:700; line-height:1.6; }
+.cx-msg.err { color:#f87171; }
+.cx-msg.ok { color:var(--accent-green); }
 </style>
 {% endblock %}
 
@@ -114,15 +155,13 @@ tr:hover td { background:rgba(255,255,255,0.02); }
                         <div class="amount-deduction">결석 {{ inv.absence_count }}회 -{{ inv.absence_deduction|intcomma }}원</div>
                         {% endif %}
                     </td>
-                    <td>
-                        {% if inv.status == 'paid' %}<span class="status-badge status-paid">✅ 완납</span>
-                        {% elif inv.status == 'canceled' %}<span class="status-badge status-canceled">취소</span>
-                        {% else %}<span class="status-badge status-unpaid">미납</span>{% endif %}
-                    </td>
+                    <td>{% include 'arcade/admin/_tuition_status_cell.html' with inv=inv today=today %}</td>
                     <td>
                         <div class="date-line due"><span class="dl-label">기한</span>{{ inv.due_date|date:"Y.m.d" }}</div>
                         <div class="date-line method"><span class="dl-label">결제방법</span>{{ inv.portone_pay_method|default:"-" }}</div>
                         <div class="date-line paid"><span class="dl-label">결제일</span>{{ inv.paid_at|date:"Y.m.d H:i"|default:"-" }}</div>
+                        {% if inv.canceled_at %}<div class="date-line cancel"><span class="dl-label">취소일</span>{{ inv.canceled_at|date:"Y.m.d H:i" }}</div>
+                        {% if inv.cancel_reason %}<div class="date-line cancel"><span class="dl-label">사유</span>{{ inv.cancel_reason }}</div>{% endif %}{% endif %}
                     </td>
                     <td>
                         <div class="inv-actions">
@@ -143,18 +182,51 @@ tr:hover td { background:rgba(255,255,255,0.02); }
     </div>
 
     {% else %}
+    {% if all_view %}
+    <a href="{% url 'tuition_admin_dashboard' %}" class="back-link">← 월별 현황으로 돌아가기</a>
+    <h1 class="pay-title">💳 납부 관리 · {% if all_unpaid %}전체 미납{% else %}전체 완납{% endif %}</h1>
+
+    <div class="pay-views">
+        <a href="?view=unpaid" class="nav-arrow view-unpaid{% if all_unpaid %} active{% endif %}">📋 전체 미납 보기</a>
+        <a href="?view=paid" class="nav-arrow view-paid{% if all_paid %} active{% endif %}">✅ 전체 완납 보기</a>
+    </div>
+
+    {% if all_unpaid %}
+    <div class="stat-grid">
+        <div class="stat-card unpaid"><div class="label">전체 미납 금액 (모든 월)</div><div class="value">{{ all_amount|intcomma }}원</div></div>
+        <div class="stat-card unpaid"><div class="label">미납 청구서</div><div class="value">{{ all_count }}건</div></div>
+        <div class="stat-card"><div class="label">미납 학생</div><div class="value">{{ all_students }}명</div></div>
+        <div class="stat-card"><div class="label">기한 지난 미납</div><div class="value" style="color:#f87171;">{{ all_overdue_count }}건</div></div>
+    </div>
+    {% else %}
+    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="stat-card paid"><div class="label">전체 완납 금액 (모든 월)</div><div class="value">{{ all_amount|intcomma }}원</div></div>
+        <div class="stat-card paid"><div class="label">완납 청구서</div><div class="value">{{ all_count }}건</div></div>
+        <div class="stat-card"><div class="label">완납 학생</div><div class="value">{{ all_students }}명</div></div>
+    </div>
+    {% endif %}
+
+    <form class="filter-bar" method="GET">
+        <input type="hidden" name="view" value="{{ all_view }}">
+        <input type="text" name="q" placeholder="학생 이름/아이디 검색..." value="{{ search_query }}">
+        <button type="submit" class="search-btn">검색</button>
+        <span class="view-badge{% if all_paid %} paid{% endif %}">{% if all_unpaid %}미납 {{ invoices|length }}건 표시 · 오래된 기한순{% else %}완납 {{ invoices|length }}건 표시 · 최근 결제순 · 완납 버튼을 누르면 취소/환불{% endif %}</span>
+    </form>
+    {% else %}
     <h1 class="pay-title">💳 납부 관리</h1>
 
     <div class="pay-nav">
         <a href="?year={{ prev_year }}&month={{ prev_month }}" class="nav-arrow">← 이전 달</a>
         <span class="pay-month">{{ year }}년 {{ month }}월</span>
         <a href="?year={{ next_year }}&month={{ next_month }}" class="nav-arrow">다음 달 →</a>
+        <a href="?view=unpaid" class="nav-arrow view-unpaid">📋 전체 미납 보기</a>
+        <a href="?view=paid" class="nav-arrow view-paid">✅ 전체 완납 보기</a>
         <form method="post" action="{% url 'tuition_generate_invoices_all' %}" onsubmit="return confirm('{{ year }}년 {{ month }}월 청구서를 모든 수업에 대해 일괄 생성할까요? (이미 생성된 청구서는 건너뜁니다)')">
             {% csrf_token %}
             <input type="hidden" name="year" value="{{ year }}">
             <input type="hidden" name="month" value="{{ month }}">
             <input type="hidden" name="next" value="{{ request.get_full_path }}">
-            <button type="submit" class="nav-arrow" style="background:rgba(0,255,180,0.12); color:var(--accent-green); border-color:rgba(0,255,180,0.3); cursor:pointer;">🧾 {{ month }}월 청구서 일괄 생성</button>
+            <button type="submit" class="nav-arrow view-generate">🧾 {{ month }}월 청구서 일괄 생성</button>
         </form>
     </div>
 
@@ -177,6 +249,7 @@ tr:hover td { background:rgba(255,255,255,0.02); }
         </select>
         <button type="submit" class="search-btn">검색</button>
     </form>
+    {% endif %}
 
     {% include 'arcade/admin/_tuition_bulk_bar.html' %}
 
@@ -205,15 +278,13 @@ tr:hover td { background:rgba(255,255,255,0.02); }
                         <div class="amount-deduction">결석 {{ inv.absence_count }}회 -{{ inv.absence_deduction|intcomma }}원</div>
                         {% endif %}
                     </td>
-                    <td>
-                        {% if inv.status == 'paid' %}<span class="status-badge status-paid">✅ 완납</span>
-                        {% elif inv.status == 'canceled' %}<span class="status-badge status-canceled">취소</span>
-                        {% else %}<span class="status-badge status-unpaid">미납</span>{% endif %}
-                    </td>
+                    <td>{% include 'arcade/admin/_tuition_status_cell.html' with inv=inv today=today %}</td>
                     <td>
                         <div class="date-line due"><span class="dl-label">기한</span>{{ inv.due_date|date:"Y.m.d" }}</div>
                         <div class="date-line method"><span class="dl-label">결제방법</span>{{ inv.portone_pay_method|default:"-" }}</div>
                         <div class="date-line paid"><span class="dl-label">결제일</span>{{ inv.paid_at|date:"Y.m.d H:i"|default:"-" }}</div>
+                        {% if inv.canceled_at %}<div class="date-line cancel"><span class="dl-label">취소일</span>{{ inv.canceled_at|date:"Y.m.d H:i" }}</div>
+                        {% if inv.cancel_reason %}<div class="date-line cancel"><span class="dl-label">사유</span>{{ inv.cancel_reason }}</div>{% endif %}{% endif %}
                     </td>
                     <td>
                         <div class="inv-actions">
@@ -227,7 +298,7 @@ tr:hover td { background:rgba(255,255,255,0.02); }
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:40px;">해당 월의 청구서가 없습니다.</td></tr>
+                <tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:40px;">{% if all_unpaid %}🎉 미납 내역이 없습니다.{% elif all_paid %}완납 내역이 없습니다.{% else %}해당 월의 청구서가 없습니다.{% endif %}</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -309,6 +380,109 @@ document.addEventListener('keydown', function (e) {
             e.preventDefault();
         }
     });
+})();
+</script>
+
+<div class="cx-overlay" id="cxOverlay" onclick="if(event.target===this) closeCancelModal();">
+    <div class="cx-box">
+        <button type="button" class="cx-close" onclick="closeCancelModal()">✕</button>
+        <h3 class="cx-title">💳 납부 취소 · 환불</h3>
+        <div id="cxBody">불러오는 중...</div>
+    </div>
+</div>
+{% csrf_token %}
+
+<script>
+(function () {
+    var currentId = null;
+    var info = null;
+
+    function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : t; return d.innerHTML; }
+    function won(n) { return Number(n).toLocaleString('ko-KR') + '원'; }
+    function csrf() { var el = document.querySelector('input[name=csrfmiddlewaretoken]'); return el ? el.value : ''; }
+
+    window.openCancelModal = function (invoiceId) {
+        currentId = invoiceId; info = null;
+        var body = document.getElementById('cxBody');
+        body.textContent = '불러오는 중...';
+        document.getElementById('cxOverlay').classList.add('show');
+        fetch('/admin-services/tuition/' + invoiceId + '/cancel-info/', { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) { info = d; render(d); })
+            .catch(function () { body.innerHTML = '<div class="cx-msg err">정보를 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.</div>'; });
+    };
+    window.closeCancelModal = function () { document.getElementById('cxOverlay').classList.remove('show'); };
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') window.closeCancelModal(); });
+
+    function render(d) {
+        var body = document.getElementById('cxBody');
+        if (d.status !== 'paid') {
+            body.innerHTML = '<div class="cx-note">' + esc(d.note || '완납 상태인 청구서만 취소할 수 있어요.') + '</div><div class="cx-btns"><button type="button" class="cx-btn close" onclick="closeCancelModal()">닫기</button></div>';
+            return;
+        }
+        var html = '<div class="cx-info">'
+            + '<div><b>학생</b>' + esc(d.student) + '</div>'
+            + '<div><b>수업</b>' + esc(d.class_name) + ' · ' + esc(d.period) + '</div>'
+            + '<div><b>결제 금액</b><strong>' + won(d.amount) + '</strong></div>'
+            + '<div><b>결제 수단</b>' + esc(d.pay_method) + '</div>'
+            + '<div><b>결제일</b>' + esc(d.paid_at) + '</div></div>';
+
+        html += '<div style="font-weight:800;margin-bottom:4px;">어떻게 취소할까요?</div>';
+        html += '<label class="cx-opt' + (d.refundable ? '' : ' disabled') + '" id="cxOptRefund">'
+            + '<input type="radio" name="cxMode" value="refund"' + (d.refundable ? ' checked' : ' disabled') + '> <strong>결제 취소 + 환불</strong>'
+            + '<small>' + (d.refundable
+                ? esc(d.pay_method) + '로 결제한 ' + won(d.amount) + '이 학부모/학생에게 <b style="display:inline;min-width:0;color:inherit;">실제로 환불</b>돼요. (카드사·카카오페이에 따라 며칠 걸릴 수 있어요)'
+                : '자동 환불을 할 수 없는 결제건이에요.') + '</small></label>';
+        html += '<label class="cx-opt" id="cxOptStatus">'
+            + '<input type="radio" name="cxMode" value="status_only"' + (d.refundable ? '' : ' checked') + '> <strong>상태만 취소 (환불 안 함)</strong>'
+            + '<small>청구서 상태만 "취소"로 바꿔요. 현금·계좌이체로 받았거나 이미 따로 돌려준 경우에 선택하세요. 돈은 돌려지지 않아요.</small></label>';
+        if (d.note) html += '<div class="cx-note">' + esc(d.note) + '</div>';
+
+        html += '<label style="font-size:13px;font-weight:700;">취소 사유 (기록용)</label>'
+            + '<input type="text" id="cxReason" class="cx-field" maxlength="100" placeholder="예: 학부모 요청, 중복 결제, 수강 취소">'
+            + '<label class="cx-confirm"><input type="checkbox" id="cxConfirm"> <span>취소하면 <strong>되돌릴 수 없다</strong>는 것을 확인했어요.</span></label>'
+            + '<div class="cx-btns"><button type="button" class="cx-btn close" onclick="closeCancelModal()">닫기</button>'
+            + '<button type="button" class="cx-btn go" id="cxGo" disabled>취소 진행</button></div>'
+            + '<div id="cxMsg" class="cx-msg"></div>';
+        body.innerHTML = html;
+
+        function modeValue() { return document.querySelector('input[name=cxMode]:checked').value; }
+        function sync() {
+            var m = modeValue();
+            document.getElementById('cxOptRefund').classList.toggle('selected', m === 'refund');
+            document.getElementById('cxOptStatus').classList.toggle('selected', m === 'status_only');
+            var go = document.getElementById('cxGo');
+            go.innerHTML = m === 'refund' ? '💸 결제 취소하고<br><span style="font-size:17px;font-weight:900;">' + won(d.amount) + ' 환불</span>' : '상태만 취소';
+            go.disabled = !document.getElementById('cxConfirm').checked;
+        }
+        document.querySelectorAll('input[name=cxMode]').forEach(function (r) { r.addEventListener('change', sync); });
+        document.getElementById('cxConfirm').addEventListener('change', sync);
+        sync();
+
+        document.getElementById('cxGo').addEventListener('click', function () {
+            var go = this, msg = document.getElementById('cxMsg');
+            var m = modeValue();
+            if (m === 'refund' && !confirm(won(d.amount) + '을 실제로 환불합니다.\n정말 진행할까요?')) return;
+            go.disabled = true; msg.className = 'cx-msg'; msg.textContent = '처리 중... 창을 닫지 마세요.';
+            var fd = new FormData();
+            fd.append('mode', m);
+            fd.append('reason', document.getElementById('cxReason').value);
+            fd.append('confirm', 'yes');
+            fetch('/admin-services/tuition/' + currentId + '/cancel/', {
+                method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-CSRFToken': csrf() }
+            }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+              .then(function (res) {
+                  if (res.ok && res.j.ok) {
+                      msg.className = 'cx-msg ok'; msg.textContent = '✅ ' + res.j.message;
+                      setTimeout(function () { location.reload(); }, 1200);
+                  } else {
+                      msg.className = 'cx-msg err'; msg.textContent = '❌ ' + ((res.j && res.j.error) || '처리하지 못했어요.');
+                      go.disabled = false;
+                  }
+              })
+              .catch(function () { msg.className = 'cx-msg err'; msg.textContent = '❌ 네트워크 오류가 났어요. 환불 여부를 목록에서 확인해 주세요.'; go.disabled = false; });
+        });
+    }
 })();
 </script>
 {% endblock %}

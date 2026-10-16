@@ -17,7 +17,7 @@ LEARNING = [
     ('🗺️', '프로그램 로드맵',   'program_roadmap',     '',        False, False, 2),
     ('🔍', '프로그램 찾기',      'program_finder',      '',        False, False, 3),
     ('🎨', '학생 작품 갤러리',   'home',                '#works',  False, False, 4),
-    ('✨', 'AI 프롬프트 생성기', 'ai_prompts',          '',        True,  False, 5),
+    ('✨', 'AI교육프로그램',     'ai_prompts',          '',        True,  False, 5),
     ('⭐', 'AI 즐겨찾기',        'ai_favorites',        '',        False, False, 6),
     ('🔑', '로그인 도우미',      'login_helper',        '',        False, False, 7),
 ]

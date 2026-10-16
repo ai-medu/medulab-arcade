@@ -164,6 +164,77 @@ AI_PROMPT_CARDS = [
         'title': 'AI 미래직업영상',
         'desc': '1~12차시로 나의 미래 직업을 탐구하고 AI 비서가 등장하는 2038년 하루를 짧은 영상으로 완성해요.',
     },
+    # ── AI 교육 프로그램 20선 전용 신규 도구 ──
+    {
+        'key': 'ai_explorer', 'url_name': 'ai_explorer', 'icon_class': 'icon-idea', 'icon': '💡',
+        'title': '생성형 AI 탐구 질문 만들기',
+        'desc': '궁금한 주제와 질문 방식을 고르면 ChatGPT·Gemini에게 바로 물어볼 탐구 질문 프롬프트를 만들어 줘요.',
+    },
+    {
+        'key': 'ai_image_creator', 'url_name': 'ai_image_creator', 'icon_class': 'icon-gallery', 'icon': '🎨',
+        'title': 'AI 이미지 생성 프롬프트',
+        'desc': '그릴 대상과 스타일, 분위기를 고르면 이미지 생성 AI에 바로 쓸 수 있는 프롬프트를 만들어 줘요.',
+    },
+    {
+        'key': 'ai_ad_creator', 'url_name': 'ai_ad_creator', 'icon_class': 'icon-content', 'icon': '📣',
+        'title': 'AI 광고 카피·이미지 만들기',
+        'desc': '제품/타겟/톤을 고르면 광고 카피와 광고 이미지 생성 프롬프트를 한 번에 만들어 줘요.',
+    },
+    {
+        'key': 'ai_movie_director', 'url_name': 'ai_movie_director', 'icon_class': 'icon-script', 'icon': '🎬',
+        'title': 'AI 단편영화 시나리오',
+        'desc': '장르와 주인공을 고르면 짧은 영화 시나리오와 장면별 영상 생성 프롬프트를 만들어 줘요.',
+    },
+    {
+        'key': 'ai_music_video', 'url_name': 'ai_music_video', 'icon_class': 'icon-plan', 'icon': '🎧',
+        'title': 'AI 뮤직비디오 가사·비주얼',
+        'desc': '장르와 주제를 고르면 가사와 뮤직비디오 비주얼 프롬프트를 함께 만들어 줘요.',
+    },
+    {
+        'key': 'ai_website_builder', 'url_name': 'ai_website_builder', 'icon_class': 'icon-channel', 'icon': '💻',
+        'title': 'AI 바이브코딩 웹사이트',
+        'desc': '만들고 싶은 사이트의 목적과 디자인을 정하면 AI 코딩 도구에 바로 줄 제작 프롬프트를 만들어 줘요.',
+    },
+    {
+        'key': 'ai_game_maker', 'url_name': 'ai_game_maker', 'icon_class': 'icon-survey', 'icon': '🎮',
+        'title': 'AI 게임 제작 프롬프트',
+        'desc': '장르와 캐릭터, 목표를 정하면 AI 코딩 도구로 바로 만들 수 있는 게임 제작 프롬프트를 만들어 줘요.',
+    },
+    {
+        'key': 'ai_chatbot_builder', 'url_name': 'ai_chatbot_builder', 'icon_class': 'icon-team', 'icon': '💬',
+        'title': 'AI 챗봇 시스템 프롬프트',
+        'desc': '챗봇의 목적과 성격을 정하면 바로 사용할 수 있는 챗봇 시스템 프롬프트를 만들어 줘요.',
+    },
+    {
+        'key': 'ai_fact_check', 'url_name': 'ai_fact_check', 'icon_class': 'icon-local', 'icon': '📰',
+        'title': 'AI 뉴스 팩트체크 프롬프트',
+        'desc': '확인하고 싶은 정보를 입력하면 AI에게 검증을 요청하는 팩트체크 프롬프트와 미디어 리터러시 팁을 줘요.',
+    },
+    {
+        'key': 'ai_image_detective', 'url_name': 'ai_image_detective', 'icon_class': 'icon-avatar', 'icon': '🔎',
+        'title': 'AI 이미지 탐정 체크리스트',
+        'desc': '체크리스트로 AI 생성 이미지 특징을 추리해보고, AI에게 더 자세히 물어볼 프롬프트를 만들어 줘요.',
+    },
+    {
+        'key': 'ai_data_analyst', 'url_name': 'ai_data_analyst', 'icon_class': 'icon-prob', 'icon': '📊',
+        'title': 'AI 데이터 분석 프롬프트',
+        'desc': '데이터 주제와 질문, 원하는 그래프를 정하면 AI와 데이터를 분석/시각화하는 프롬프트를 만들어 줘요.',
+    },
+    {
+        'key': 'ai_scientist', 'url_name': 'ai_scientist', 'icon_class': 'icon-carbon', 'icon': '🧪',
+        'title': 'AI 과학 탐구 설계 프롬프트',
+        'desc': '과학·환경 주제와 질문을 정하면 AI와 함께 탐구/실험을 설계하는 프롬프트를 만들어 줘요.',
+    },
+    {
+        'key': 'ai_career_interview', 'url_name': 'ai_career_interview', 'icon_class': 'icon-career', 'icon': '🤝',
+        'title': 'AI 모의면접 프롬프트',
+        'desc': '희망 직업과 질문 유형을 정하면 AI 면접관과 모의 면접을 진행할 수 있는 프롬프트를 만들어 줘요.',
+    },
+    {
+        'key': 'ai_robot_project', 'url_name': 'ai_robot_project', 'icon_class': 'icon-camp', 'icon': '🤖',
+        'title': 'AI 로봇 설계 프롬프트',
+        'desc': '로봇 종류와 센서, 임무를 정하면 로봇을 설계하고 동작 코드를 만드는 프롬프트를 만들어 줘요.',
+    },
 ]
 
 
@@ -519,6 +590,64 @@ def carbon_invention(request):
 
 def problem_finder(request):
     return render(request, 'arcade/problem_finder.html')
+
+
+# ── AI 교육 프로그램 20선 - 신규 프롬프트 생성기 도구 (단순 클라이언트 전용) ──
+
+def ai_explorer(request):
+    return render(request, 'arcade/ai_explorer.html')
+
+
+def ai_image_creator(request):
+    return render(request, 'arcade/ai_image_creator.html')
+
+
+def ai_ad_creator(request):
+    return render(request, 'arcade/ai_ad_creator.html')
+
+
+def ai_movie_director(request):
+    return render(request, 'arcade/ai_movie_director.html')
+
+
+def ai_music_video(request):
+    return render(request, 'arcade/ai_music_video.html')
+
+
+def ai_website_builder(request):
+    return render(request, 'arcade/ai_website_builder.html')
+
+
+def ai_game_maker(request):
+    return render(request, 'arcade/ai_game_maker.html')
+
+
+def ai_chatbot_builder(request):
+    return render(request, 'arcade/ai_chatbot_builder.html')
+
+
+def ai_fact_check(request):
+    return render(request, 'arcade/ai_fact_check.html')
+
+
+def ai_image_detective(request):
+    return render(request, 'arcade/ai_image_detective.html')
+
+
+def ai_data_analyst(request):
+    return render(request, 'arcade/ai_data_analyst.html')
+
+
+def ai_scientist(request):
+    return render(request, 'arcade/ai_scientist.html')
+
+
+def ai_career_interview(request):
+    return render(request, 'arcade/ai_career_interview.html')
+
+
+def ai_robot_project(request):
+    return render(request, 'arcade/ai_robot_project.html')
 
 
 def content_idea_finder(request):
@@ -3609,7 +3738,42 @@ def tuition_admin_dashboard(request):
             'mode': 'student',
             'student': student,
             'invoices': invoices,
+            'today': today,
             'title': '납부 관리',
+        }
+        return render(request, 'arcade/admin/tuition_dashboard.html', context)
+
+    search = request.GET.get('q', '').strip()
+
+    view_kind = request.GET.get('view')
+    if view_kind in ('unpaid', 'paid'):
+        # 월과 상관없이 모든 미납(오래된 기한순) / 모든 완납(최근 결제순) 내역
+        is_unpaid = view_kind == 'unpaid'
+        all_qs = TuitionInvoice.objects.filter(
+            status=TuitionInvoice.STATUS_UNPAID if is_unpaid else TuitionInvoice.STATUS_PAID
+        )
+        invoices = all_qs.select_related('student__profile', 'school_class')
+        if is_unpaid:
+            invoices = invoices.order_by('due_date', 'school_class__name', 'student__profile__real_name')
+        else:
+            invoices = invoices.order_by('-paid_at', '-due_date')
+        if search:
+            invoices = invoices.filter(
+                Q(student__profile__real_name__icontains=search) | Q(student__username__icontains=search)
+            )
+        context = {
+            'mode': 'month',
+            'all_view': view_kind,
+            'all_unpaid': is_unpaid,
+            'all_paid': not is_unpaid,
+            'invoices': invoices,
+            'today': today,
+            'search_query': search,
+            'all_count': all_qs.count(),
+            'all_amount': all_qs.aggregate(Sum('amount'))['amount__sum'] or 0,
+            'all_students': all_qs.values('student_id').distinct().count(),
+            'all_overdue_count': all_qs.filter(due_date__lt=today).count() if is_unpaid else 0,
+            'title': '납부 관리 - 전체 미납' if is_unpaid else '납부 관리 - 전체 완납',
         }
         return render(request, 'arcade/admin/tuition_dashboard.html', context)
 
@@ -3620,7 +3784,6 @@ def tuition_admin_dashboard(request):
         year, month = today.year, today.month
 
     status_filter = request.GET.get('status', '')
-    search = request.GET.get('q', '').strip()
 
     invoices = TuitionInvoice.objects.filter(
         due_date__year=year, due_date__month=month,
@@ -3643,6 +3806,7 @@ def tuition_admin_dashboard(request):
     context = {
         'mode': 'month',
         'invoices': invoices,
+        'today': today,
         'year': year, 'month': month,
         'prev_year': prev_year, 'prev_month': prev_month,
         'next_year': next_year, 'next_month': next_month,
@@ -3699,6 +3863,171 @@ def tuition_invoice_edit(request, invoice_id):
         'title': '청구서 수정',
     }
     return render(request, 'arcade/admin/tuition_invoice_edit.html', context)
+
+
+def _tuition_payment_source(invoice):
+    """이 청구서를 결제한 포트원 결제건: (결제건 ID, 일괄결제 여부, 일괄결제 객체)"""
+    batch = invoice.batch_payments.filter(status=TuitionInvoice.STATUS_PAID).order_by('-paid_at').first()
+    if batch:
+        return batch.portone_payment_id, True, batch
+    return invoice.portone_payment_id, False, None
+
+
+def _portone_get_payment(payment_id):
+    """포트원 결제건 조회. (결제 정보 dict | None, 오류 메시지 | None)  - 404(결제건 없음)는 (None, None)"""
+    import requests
+    if not settings.PORTONE_API_SECRET:
+        return None, '결제 연동(포트원 API 키)이 설정되지 않았어요.'
+    try:
+        resp = requests.get(
+            f'https://api.portone.io/payments/{payment_id}',
+            headers={'Authorization': f'PortOne {settings.PORTONE_API_SECRET}'},
+            timeout=10,
+        )
+    except requests.RequestException:
+        return None, '포트원에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.'
+    if resp.status_code == 404:
+        return None, None
+    if resp.status_code != 200:
+        return None, f'포트원 결제 조회에 실패했어요. (코드 {resp.status_code})'
+    return resp.json(), None
+
+
+def _portone_cancellable_amount(data):
+    amount = data.get('amount') or {}
+    paid = amount.get('paid')
+    if paid is None:
+        paid = amount.get('total') or 0
+    return max(int(paid) - int(amount.get('cancelled') or 0), 0)
+
+
+@login_required
+@user_passes_test(staff_check)
+def tuition_invoice_cancel_info(request, invoice_id):
+    """'완납' 취소 모달에 보여줄 정보 (포트원에 실제 결제건이 있어 환불할 수 있는지 확인)"""
+    invoice = get_object_or_404(
+        TuitionInvoice.objects.select_related('student__profile', 'school_class'), pk=invoice_id
+    )
+    info = {
+        'ok': True,
+        'student': invoice.student.profile.real_name or invoice.student.username,
+        'class_name': invoice.school_class.name,
+        'period': invoice.billing_period_label,
+        'amount': invoice.amount,
+        'pay_method': invoice.portone_pay_method or '-',
+        'paid_at': timezone.localtime(invoice.paid_at).strftime('%Y.%m.%d %H:%M') if invoice.paid_at else '-',
+        'status': invoice.status,
+        'refundable': False,
+        'is_batch': False,
+        'note': '',
+    }
+    if invoice.status != TuitionInvoice.STATUS_PAID:
+        info['note'] = '완납 상태인 청구서만 취소할 수 있어요.'
+        return JsonResponse(info)
+
+    payment_id, is_batch, batch = _tuition_payment_source(invoice)
+    info['is_batch'] = is_batch
+    data, err = _portone_get_payment(payment_id)
+    if err:
+        info['note'] = err
+    elif not data:
+        info['note'] = '포트원에 결제 내역이 없어요. 관리자가 직접 "완납"으로 바꾼 청구서로 보여요. 그래서 자동 환불은 되지 않아요.'
+    else:
+        status = data.get('status')
+        cancellable = _portone_cancellable_amount(data)
+        info['portone_status'] = status
+        info['cancellable'] = cancellable
+        if status in ('PAID', 'PARTIAL_CANCELLED') and cancellable >= invoice.amount:
+            info['refundable'] = True
+            if is_batch:
+                info['note'] = f'학부모가 자녀 청구서 {batch.invoices.count()}건을 한 번에 결제한 건이에요. 이 청구서 금액({invoice.amount:,}원)만 부분 환불돼요.'
+        elif status in ('CANCELLED',):
+            info['note'] = '이미 포트원에서 결제가 취소된 건이에요. 상태만 "취소"로 정리할 수 있어요.'
+        else:
+            info['note'] = f'포트원 결제 상태가 "{status}"이라 자동 환불을 할 수 없어요.'
+    return JsonResponse(info)
+
+
+@login_required
+@user_passes_test(staff_check)
+@require_POST
+def tuition_invoice_cancel(request, invoice_id):
+    """완납 청구서 취소. mode=refund 이면 포트원 결제를 취소(환불)하고, mode=status_only 이면 상태만 '취소'로 바꾼다."""
+    import requests
+    from django.db import transaction
+
+    invoice = get_object_or_404(
+        TuitionInvoice.objects.select_related('student__profile', 'school_class'), pk=invoice_id
+    )
+    if invoice.status != TuitionInvoice.STATUS_PAID:
+        return JsonResponse({'ok': False, 'error': '완납 상태인 청구서만 취소할 수 있어요.'}, status=400)
+    if request.POST.get('confirm') != 'yes':
+        return JsonResponse({'ok': False, 'error': '확인 체크가 필요해요.'}, status=400)
+
+    mode = request.POST.get('mode')
+    if mode not in ('refund', 'status_only'):
+        return JsonResponse({'ok': False, 'error': '취소 방식이 올바르지 않아요.'}, status=400)
+    reason = (request.POST.get('reason') or '').strip()[:100] or '관리자 취소'
+
+    payment_id, is_batch, batch = _tuition_payment_source(invoice)
+    refunded = 0
+
+    if mode == 'refund':
+        data, err = _portone_get_payment(payment_id)
+        if err:
+            return JsonResponse({'ok': False, 'error': err}, status=502)
+        if not data:
+            return JsonResponse({'ok': False, 'error': '포트원에 결제 내역이 없어서 환불할 수 없어요. "상태만 취소"를 선택해 주세요.'}, status=400)
+        cancellable = _portone_cancellable_amount(data)
+        if data.get('status') not in ('PAID', 'PARTIAL_CANCELLED') or cancellable < invoice.amount:
+            return JsonResponse({'ok': False, 'error': '이 결제건은 지금 환불할 수 없는 상태예요.'}, status=400)
+
+        body = {'reason': reason, 'currentCancellableAmount': cancellable}
+        if is_batch or invoice.amount != cancellable:
+            body['amount'] = invoice.amount      # 일괄결제 등은 이 청구서 금액만 부분 취소
+        try:
+            resp = requests.post(
+                f'https://api.portone.io/payments/{payment_id}/cancel',
+                json=body,
+                headers={'Authorization': f'PortOne {settings.PORTONE_API_SECRET}'},
+                timeout=20,
+            )
+        except requests.RequestException:
+            return JsonResponse({'ok': False, 'error': '포트원 취소 요청 중 오류가 발생했어요. 환불 여부를 포트원 콘솔에서 확인해 주세요.'}, status=502)
+        if resp.status_code != 200:
+            try:
+                detail = resp.json().get('message') or ''
+            except ValueError:
+                detail = ''
+            logging.getLogger(__name__).warning('PortOne cancel failed: %s %s', resp.status_code, resp.text[:300])
+            return JsonResponse({'ok': False, 'error': f'포트원이 환불을 거절했어요. {detail}'.strip()}, status=400)
+        refunded = invoice.amount
+
+    try:
+        with transaction.atomic():
+            old_payment_id = payment_id
+            invoice.status = TuitionInvoice.STATUS_CANCELED
+            invoice.canceled_at = timezone.now()
+            invoice.cancel_reason = reason
+            invoice.refunded_amount = refunded
+            invoice.canceled_payment_id = old_payment_id
+            # 취소된 결제건 ID는 다시 쓸 수 없으니 새 ID를 발급 (다시 청구해도 결제가 가능하도록)
+            invoice.portone_payment_id = f'tuition-{uuid.uuid4().hex}'
+            invoice.save()
+            if batch:
+                batch.invoices.remove(invoice)
+                if not batch.invoices.exists():
+                    batch.status = TuitionInvoice.STATUS_CANCELED
+                    batch.save(update_fields=['status'])
+    except DatabaseError:
+        logging.getLogger(__name__).exception('Tuition cancel DB update failed after PortOne cancel: invoice=%s', invoice.pk)
+        return JsonResponse({
+            'ok': False,
+            'error': '환불은 처리됐지만 청구서 상태 저장에 실패했어요. 상태를 "취소"로 직접 수정해 주세요.' if refunded else '저장 중 오류가 발생했어요.',
+        }, status=500)
+
+    msg = f'{invoice.amount:,}원을 환불하고 청구서를 취소했어요.' if refunded else '청구서를 "취소" 상태로 바꿨어요. (환불은 하지 않았어요)'
+    return JsonResponse({'ok': True, 'message': msg})
 
 
 @login_required

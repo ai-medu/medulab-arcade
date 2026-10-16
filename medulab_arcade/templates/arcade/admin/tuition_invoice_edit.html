@@ -48,6 +48,9 @@
                     <option value="canceled" {% if invoice.status == 'canceled' %}selected{% endif %}>취소</option>
                 </select>
                 <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">"완납"으로 바꾸면 결제일이 지금 시각으로 자동 기록됩니다.</div>
+                {% if invoice.status == 'paid' %}
+                <div style="font-size:12px; color:#fbbf24; margin-top:6px; line-height:1.6;">💸 결제한 돈을 <strong>환불</strong>해야 한다면 여기서 상태만 바꾸지 말고, 납부 관리 목록에서 <strong>"✅ 완납"</strong> 버튼을 눌러 취소해 주세요. (여기서 "취소"로 바꾸면 환불 없이 상태만 바뀝니다)</div>
+                {% endif %}
             </div>
 
             <div class="form-group">
