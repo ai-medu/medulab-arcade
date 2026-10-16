@@ -3745,27 +3745,35 @@ def tuition_admin_dashboard(request):
 
     search = request.GET.get('q', '').strip()
 
-    if request.GET.get('view') == 'unpaid':
-        # 월과 상관없이 모든 미납 내역 (오래된 기한부터)
-        all_unpaid_qs = TuitionInvoice.objects.filter(status=TuitionInvoice.STATUS_UNPAID)
-        invoices = all_unpaid_qs.select_related('student__profile', 'school_class').order_by(
-            'due_date', 'school_class__name', 'student__profile__real_name'
+    view_kind = request.GET.get('view')
+    if view_kind in ('unpaid', 'paid'):
+        # 월과 상관없이 모든 미납(오래된 기한순) / 모든 완납(최근 결제순) 내역
+        is_unpaid = view_kind == 'unpaid'
+        all_qs = TuitionInvoice.objects.filter(
+            status=TuitionInvoice.STATUS_UNPAID if is_unpaid else TuitionInvoice.STATUS_PAID
         )
+        invoices = all_qs.select_related('student__profile', 'school_class')
+        if is_unpaid:
+            invoices = invoices.order_by('due_date', 'school_class__name', 'student__profile__real_name')
+        else:
+            invoices = invoices.order_by('-paid_at', '-due_date')
         if search:
             invoices = invoices.filter(
                 Q(student__profile__real_name__icontains=search) | Q(student__username__icontains=search)
             )
         context = {
             'mode': 'month',
-            'all_unpaid': True,
+            'all_view': view_kind,
+            'all_unpaid': is_unpaid,
+            'all_paid': not is_unpaid,
             'invoices': invoices,
             'today': today,
             'search_query': search,
-            'all_unpaid_count': all_unpaid_qs.count(),
-            'all_unpaid_amount': all_unpaid_qs.aggregate(Sum('amount'))['amount__sum'] or 0,
-            'all_unpaid_students': all_unpaid_qs.values('student_id').distinct().count(),
-            'all_overdue_count': all_unpaid_qs.filter(due_date__lt=today).count(),
-            'title': '납부 관리 - 전체 미납',
+            'all_count': all_qs.count(),
+            'all_amount': all_qs.aggregate(Sum('amount'))['amount__sum'] or 0,
+            'all_students': all_qs.values('student_id').distinct().count(),
+            'all_overdue_count': all_qs.filter(due_date__lt=today).count() if is_unpaid else 0,
+            'title': '납부 관리 - 전체 미납' if is_unpaid else '납부 관리 - 전체 완납',
         }
         return render(request, 'arcade/admin/tuition_dashboard.html', context)
 

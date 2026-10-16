@@ -9,8 +9,17 @@
 .pay-title { font: 900 28px 'Orbitron', sans-serif; background: linear-gradient(90deg, var(--accent-green), var(--accent-blue)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; margin-bottom:24px; }
 
 .pay-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:12px; }
-.pay-nav a.nav-arrow { padding:8px 16px; border-radius:10px; background:rgba(255,255,255,0.06); color:#fff; text-decoration:none; font-size:13px; font-weight:700; border:1px solid var(--border); }
-.pay-nav a.nav-arrow:hover { background:rgba(255,255,255,0.1); }
+.pay-nav a.nav-arrow, .pay-nav button.nav-arrow, .pay-views a.nav-arrow { display:inline-flex; align-items:center; justify-content:center; padding:9px 16px; border-radius:10px; background:rgba(255,255,255,0.06); color:#fff; text-decoration:none; font-family:inherit; font-size:13px; font-weight:700; line-height:1.2; border:1px solid var(--border); cursor:pointer; white-space:nowrap; box-sizing:border-box; }
+.pay-nav a.nav-arrow:hover, .pay-nav button.nav-arrow:hover, .pay-views a.nav-arrow:hover { background:rgba(255,255,255,0.12); }
+.pay-nav { justify-content:flex-start; }
+.pay-nav .pay-month { min-width:120px; text-align:center; }
+.pay-nav form { margin:0; margin-left:auto; }
+.pay-views { display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap; }
+.nav-arrow.view-unpaid { background:rgba(251,191,36,0.14) !important; color:#fbbf24 !important; border-color:rgba(251,191,36,0.4) !important; }
+.nav-arrow.view-paid { background:rgba(0,200,150,0.14) !important; color:var(--accent-green) !important; border-color:rgba(0,200,150,0.4) !important; }
+.nav-arrow.view-generate { background:rgba(59,130,246,0.14) !important; color:#93c5fd !important; border-color:rgba(59,130,246,0.4) !important; }
+.nav-arrow.active { box-shadow:0 0 0 2px currentColor inset; }
+.view-badge.paid { background:rgba(0,200,150,0.15); color:var(--accent-green); }
 .pay-month { font-size:18px; font-weight:800; color:#fff; }
 
 .stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
@@ -85,7 +94,6 @@ tr:hover td { background:rgba(255,255,255,0.02); }
 .overdue-tag { font-size:11px; color:#f87171; font-weight:800; margin-top:5px; white-space:nowrap; }
 .date-line.cancel, .date-line.refund { color:#fca5a5; }
 .date-line.refund { margin-top:4px; font-weight:700; }
-.unpaid-link { background:rgba(251,191,36,0.14) !important; color:#fbbf24 !important; border-color:rgba(251,191,36,0.4) !important; }
 .view-badge { display:inline-block; padding:6px 14px; border-radius:20px; background:rgba(251,191,36,0.15); color:#fbbf24; font-weight:800; font-size:13px; }
 
 .cx-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:110; align-items:center; justify-content:center; padding:20px; }
@@ -107,7 +115,7 @@ tr:hover td { background:rgba(255,255,255,0.02); }
 .cx-btns { display:flex; gap:10px; }
 .cx-btn { flex:1; padding:12px; border-radius:10px; font-weight:800; font-size:14px; cursor:pointer; border:none; }
 .cx-btn.close { background:rgba(255,255,255,0.08); color:var(--text-secondary); }
-.cx-btn.go { background:#ef4444; color:#fff; }
+.cx-btn.go { background:#ef4444; color:#fff; line-height:1.5; }
 .cx-btn.go:disabled { opacity:0.4; cursor:not-allowed; }
 .cx-msg { margin-top:12px; font-size:14px; font-weight:700; line-height:1.6; }
 .cx-msg.err { color:#f87171; }
@@ -174,22 +182,35 @@ tr:hover td { background:rgba(255,255,255,0.02); }
     </div>
 
     {% else %}
-    {% if all_unpaid %}
+    {% if all_view %}
     <a href="{% url 'tuition_admin_dashboard' %}" class="back-link">← 월별 현황으로 돌아가기</a>
-    <h1 class="pay-title">💳 납부 관리 · 전체 미납</h1>
+    <h1 class="pay-title">💳 납부 관리 · {% if all_unpaid %}전체 미납{% else %}전체 완납{% endif %}</h1>
 
-    <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);">
-        <div class="stat-card unpaid"><div class="label">전체 미납 금액 (모든 월)</div><div class="value">{{ all_unpaid_amount|intcomma }}원</div></div>
-        <div class="stat-card unpaid"><div class="label">미납 청구서</div><div class="value">{{ all_unpaid_count }}건</div></div>
-        <div class="stat-card"><div class="label">미납 학생</div><div class="value">{{ all_unpaid_students }}명</div></div>
-        <div class="stat-card"><div class="label">기한 지난 미납</div><div class="value" style="color:#f87171;">{{ all_overdue_count }}건</div></div>
+    <div class="pay-views">
+        <a href="?view=unpaid" class="nav-arrow view-unpaid{% if all_unpaid %} active{% endif %}">📋 전체 미납 보기</a>
+        <a href="?view=paid" class="nav-arrow view-paid{% if all_paid %} active{% endif %}">✅ 전체 완납 보기</a>
     </div>
 
+    {% if all_unpaid %}
+    <div class="stat-grid">
+        <div class="stat-card unpaid"><div class="label">전체 미납 금액 (모든 월)</div><div class="value">{{ all_amount|intcomma }}원</div></div>
+        <div class="stat-card unpaid"><div class="label">미납 청구서</div><div class="value">{{ all_count }}건</div></div>
+        <div class="stat-card"><div class="label">미납 학생</div><div class="value">{{ all_students }}명</div></div>
+        <div class="stat-card"><div class="label">기한 지난 미납</div><div class="value" style="color:#f87171;">{{ all_overdue_count }}건</div></div>
+    </div>
+    {% else %}
+    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="stat-card paid"><div class="label">전체 완납 금액 (모든 월)</div><div class="value">{{ all_amount|intcomma }}원</div></div>
+        <div class="stat-card paid"><div class="label">완납 청구서</div><div class="value">{{ all_count }}건</div></div>
+        <div class="stat-card"><div class="label">완납 학생</div><div class="value">{{ all_students }}명</div></div>
+    </div>
+    {% endif %}
+
     <form class="filter-bar" method="GET">
-        <input type="hidden" name="view" value="unpaid">
+        <input type="hidden" name="view" value="{{ all_view }}">
         <input type="text" name="q" placeholder="학생 이름/아이디 검색..." value="{{ search_query }}">
         <button type="submit" class="search-btn">검색</button>
-        <span class="view-badge">미납 {{ invoices|length }}건 표시 · 오래된 기한순</span>
+        <span class="view-badge{% if all_paid %} paid{% endif %}">{% if all_unpaid %}미납 {{ invoices|length }}건 표시 · 오래된 기한순{% else %}완납 {{ invoices|length }}건 표시 · 최근 결제순 · 완납 버튼을 누르면 취소/환불{% endif %}</span>
     </form>
     {% else %}
     <h1 class="pay-title">💳 납부 관리</h1>
@@ -198,13 +219,14 @@ tr:hover td { background:rgba(255,255,255,0.02); }
         <a href="?year={{ prev_year }}&month={{ prev_month }}" class="nav-arrow">← 이전 달</a>
         <span class="pay-month">{{ year }}년 {{ month }}월</span>
         <a href="?year={{ next_year }}&month={{ next_month }}" class="nav-arrow">다음 달 →</a>
-        <a href="?view=unpaid" class="nav-arrow unpaid-link">📋 전체 미납 보기 (월 상관없이)</a>
+        <a href="?view=unpaid" class="nav-arrow view-unpaid">📋 전체 미납 보기</a>
+        <a href="?view=paid" class="nav-arrow view-paid">✅ 전체 완납 보기</a>
         <form method="post" action="{% url 'tuition_generate_invoices_all' %}" onsubmit="return confirm('{{ year }}년 {{ month }}월 청구서를 모든 수업에 대해 일괄 생성할까요? (이미 생성된 청구서는 건너뜁니다)')">
             {% csrf_token %}
             <input type="hidden" name="year" value="{{ year }}">
             <input type="hidden" name="month" value="{{ month }}">
             <input type="hidden" name="next" value="{{ request.get_full_path }}">
-            <button type="submit" class="nav-arrow" style="background:rgba(0,255,180,0.12); color:var(--accent-green); border-color:rgba(0,255,180,0.3); cursor:pointer;">🧾 {{ month }}월 청구서 일괄 생성</button>
+            <button type="submit" class="nav-arrow view-generate">🧾 {{ month }}월 청구서 일괄 생성</button>
         </form>
     </div>
 
@@ -276,7 +298,7 @@ tr:hover td { background:rgba(255,255,255,0.02); }
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:40px;">{% if all_unpaid %}🎉 미납 내역이 없습니다.{% else %}해당 월의 청구서가 없습니다.{% endif %}</td></tr>
+                <tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:40px;">{% if all_unpaid %}🎉 미납 내역이 없습니다.{% elif all_paid %}완납 내역이 없습니다.{% else %}해당 월의 청구서가 없습니다.{% endif %}</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -430,7 +452,7 @@ document.addEventListener('keydown', function (e) {
             document.getElementById('cxOptRefund').classList.toggle('selected', m === 'refund');
             document.getElementById('cxOptStatus').classList.toggle('selected', m === 'status_only');
             var go = document.getElementById('cxGo');
-            go.textContent = m === 'refund' ? '💸 결제 취소하고 ' + won(d.amount) + ' 환불' : '상태만 취소';
+            go.innerHTML = m === 'refund' ? '💸 결제 취소하고<br><span style="font-size:17px;font-weight:900;">' + won(d.amount) + ' 환불</span>' : '상태만 취소';
             go.disabled = !document.getElementById('cxConfirm').checked;
         }
         document.querySelectorAll('input[name=cxMode]').forEach(function (r) { r.addEventListener('change', sync); });
