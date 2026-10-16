@@ -1,0 +1,190 @@
+{% extends 'arcade/base.html' %}
+{% load static %}
+
+{% block title %}AI 웹사이트 만들기 - AI 프롬프트 생성기 - 메듀랩{% endblock %}
+
+{% block extra_css %}
+<style>
+  :root { --c:#2F6BFF; --c2:#8C6BFA; --ink:#2E2A4A; }
+  body { background:linear-gradient(150deg,#EAF1FF 0%,#F1F0FF 45%,#EAF7FF 100%) !important; color:var(--ink); }
+  .tp-wrap { max-width:880px; margin:0 auto; padding:40px 20px 80px; }
+  .tp-back { display:inline-flex; align-items:center; gap:6px; color:var(--c); font-weight:700; font-size:14px; text-decoration:none; margin-bottom:20px; }
+  .tp-back:hover { text-decoration:underline; }
+  .tp-hero { text-align:center; padding:8px 20px 28px; margin-bottom:8px; }
+  .tp-hero .badge { display:inline-block; background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; font-size:13px; font-weight:bold; letter-spacing:1px; padding:5px 16px; border-radius:999px; margin-bottom:16px; }
+  .tp-hero h1 { font-size:30px; font-weight:900; margin:0 0 10px; background:linear-gradient(120deg,var(--c),var(--c2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .tp-hero p { font-size:15px; color:#6a6486; margin:0; line-height:1.7; }
+  .tp-section { background:#fff; border-radius:20px; padding:26px 28px; margin-bottom:18px; box-shadow:0 4px 20px rgba(47,107,255,.08); }
+  .tp-step-label { font-size:16px; font-weight:800; color:var(--ink); margin-bottom:14px; }
+  .tp-step-label .opt { font-size:12px; font-weight:600; color:#b0aac8; }
+  .tp-input { width:100%; box-sizing:border-box; padding:12px 16px; border:2px solid #DCE6FF; border-radius:12px; font-size:14.5px; color:var(--ink); }
+  .tp-input:focus { outline:none; border-color:var(--c); }
+  .tp-input::placeholder { color:#c0bbd8; }
+  .tp-btn-group { display:flex; gap:10px; flex-wrap:wrap; }
+  .tp-choice-btn { padding:10px 22px; border:2px solid #DCE6FF; border-radius:999px; background:#fff; color:var(--ink); font-size:14.5px; font-weight:700; cursor:pointer; transition:all .18s; }
+  .tp-choice-btn:hover { border-color:var(--c); color:var(--c); }
+  .tp-choice-btn.active { background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; border-color:transparent; }
+  .tp-custom-input { margin-top:12px; display:none; }
+  .tp-custom-input.show { display:block; }
+  .tp-generate-wrap { text-align:center; margin:28px 0; }
+  .tp-generate-btn { padding:16px 60px; font-size:19px; font-weight:900; background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; border:none; border-radius:999px; cursor:pointer; box-shadow:0 6px 28px rgba(47,107,255,.35); }
+  .tp-generate-btn:hover { transform:translateY(-3px); box-shadow:0 12px 36px rgba(47,107,255,.45); }
+  .tp-prompt-section.hidden { display:none; }
+  .tp-prompt-section { background:#fff; border-radius:20px; padding:26px 28px; box-shadow:0 4px 20px rgba(47,107,255,.08); border:2px dashed rgba(47,107,255,.25); margin-bottom:18px; }
+  .tp-prompt-header span { font-size:17px; font-weight:800; color:var(--ink); display:block; margin-bottom:4px; }
+  .tp-prompt-header small { color:#9d96bc; font-size:13px; }
+  .tp-prompt-box { background:#F1F6FF; border-radius:12px; padding:16px; font-size:13px; line-height:1.8; color:#5a5475; white-space:pre-wrap; margin:14px 0 16px; border:1px solid #DCE6FF; word-break:break-word; max-height:400px; overflow-y:auto; }
+  .tp-copy-btn { padding:12px 32px; background:linear-gradient(120deg,var(--c2),var(--c)); color:#fff; border:none; border-radius:999px; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 4px 16px rgba(47,107,255,.3); }
+  .tp-copy-btn:hover { transform:translateY(-2px); }
+  .tp-toast { position:fixed; bottom:32px; left:50%; transform:translateX(-50%); background:#1f2430; color:#fff; padding:12px 24px; border-radius:999px; font-size:14px; font-weight:600; z-index:9999; pointer-events:none; opacity:0; transition:opacity .3s; white-space:nowrap; }
+  .tp-toast.show { opacity:1; }
+  @media (max-width:600px) { .tp-hero h1 { font-size:24px; } .tp-section, .tp-prompt-section { padding:20px; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tp-wrap">
+  <a href="{% url 'ai_prompts' %}" class="tp-back">← AI 프롬프트 생성기</a>
+
+  <div class="tp-hero">
+    <div class="badge">💻 바이브코딩</div>
+    <h1>AI 웹사이트 만들기</h1>
+    <p>만들고 싶은 사이트의 목적과 구성, 스타일을 고르면 AI 코딩 도구에 바로 줄 수 있는 제작 프롬프트를 만들어 드려요!</p>
+  </div>
+
+  <div class="tp-section">
+    <div class="tp-step-label">① 나의 학년은?</div>
+    <div class="tp-btn-group" id="levelBtns">
+      <button type="button" class="tp-choice-btn active" data-value="중등">중학생</button>
+      <button type="button" class="tp-choice-btn" data-value="고등">고등학생</button>
+    </div>
+  </div>
+
+  <div class="tp-section">
+    <div class="tp-step-label">② 어떤 웹사이트를 만들고 싶나요?</div>
+    <input type="text" id="purposeInput" class="tp-input" placeholder="예: 우리 반 소개 사이트, 취미 블로그, 동아리 홈페이지, 간단한 투두리스트 앱">
+  </div>
+
+  <div class="tp-section">
+    <div class="tp-step-label">③ 어떤 페이지/기능이 필요한가요? <span class="opt">(선택)</span></div>
+    <input type="text" id="pagesInput" class="tp-input" placeholder="예: 메인, 소개, 갤러리, 방명록 / 또는 클릭하면 숫자가 올라가는 버튼">
+  </div>
+
+  <div class="tp-section">
+    <div class="tp-step-label">④ 어떤 디자인 느낌이 좋을까요?</div>
+    <div class="tp-btn-group" id="styleBtns">
+      <button type="button" class="tp-choice-btn active" data-value="귀엽고 파스텔톤인">🎨 귀엽고 파스텔톤</button>
+      <button type="button" class="tp-choice-btn" data-value="미니멀하고 깔끔한">⬜ 미니멀</button>
+      <button type="button" class="tp-choice-btn" data-value="화려하고 생동감있는">🌈 화려하게</button>
+      <button type="button" class="tp-choice-btn" data-value="다크모드 느낌의 세련된">🌑 다크모드</button>
+      <button type="button" class="tp-choice-btn" data-value="__custom__">✏️ 직접입력</button>
+    </div>
+    <div class="tp-custom-input" id="styleCustomWrap">
+      <input type="text" id="styleCustom" class="tp-input" placeholder="원하는 디자인 느낌을 입력해 주세요">
+    </div>
+  </div>
+
+  <div class="tp-generate-wrap">
+    <button type="button" class="tp-generate-btn" onclick="tpGenerate()">✨ 바이브코딩 프롬프트 만들기</button>
+  </div>
+
+  <div id="tpPromptSection" class="tp-prompt-section hidden">
+    <div class="tp-prompt-header">
+      <span>💻 AI 코딩 도구에 붙여넣을 프롬프트</span>
+      <small>Claude, ChatGPT, Cursor, v0 같은 AI 코딩 도구에 붙여넣고 대화하면서 사이트를 완성해 보세요!</small>
+    </div>
+    <div id="tpPromptBox" class="tp-prompt-box"></div>
+    <button type="button" class="tp-copy-btn" onclick="tpCopyPrompt()">📋 프롬프트 복사하기</button>
+  </div>
+</div>
+<div id="tpToast" class="tp-toast"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let tpLevel = '중등';
+let tpStyle = '귀엽고 파스텔톤인';
+
+function tpSetupChoice(containerId, onSelect, customWrapId, customInputId) {
+  document.querySelectorAll(`#${containerId} .tp-choice-btn`).forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll(`#${containerId} .tp-choice-btn`).forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (btn.dataset.value === '__custom__' && customWrapId) {
+        document.getElementById(customWrapId).classList.add('show');
+        document.getElementById(customInputId).focus();
+      } else {
+        if (customWrapId) document.getElementById(customWrapId).classList.remove('show');
+        onSelect(btn.dataset.value);
+      }
+    });
+  });
+}
+tpSetupChoice('levelBtns', v => tpLevel = v);
+tpSetupChoice('styleBtns', v => tpStyle = v, 'styleCustomWrap', 'styleCustom');
+
+function tpResolve(containerId, fallback, customInputId) {
+  const activeBtn = document.querySelector(`#${containerId} .tp-choice-btn.active`);
+  if (activeBtn && activeBtn.dataset.value === '__custom__') return document.getElementById(customInputId).value.trim();
+  return activeBtn ? activeBtn.dataset.value : fallback;
+}
+
+function tpGenerate() {
+  const purpose = document.getElementById('purposeInput').value.trim();
+  if (!purpose) { tpShowToast('만들고 싶은 웹사이트를 입력해 주세요!'); document.getElementById('purposeInput').focus(); return; }
+  const pages = document.getElementById('pagesInput').value.trim();
+  const style = tpResolve('styleBtns', tpStyle, 'styleCustom');
+  const pagesLine = pages ? `- 필요한 페이지/기능: ${pages}\n` : '- 필요한 페이지/기능: 네가 적절하게 2~4개 구성을 제안해줘\n';
+
+  let prompt;
+  if (tpLevel === '중등') {
+    prompt =
+`나는 코딩을 잘 몰라. 너와 대화하면서 웹사이트를 함께 만들고 싶어.
+
+- 만들고 싶은 사이트: ${purpose}
+${pagesLine}- 디자인 느낌: ${style}
+
+아래처럼 도와줘:
+1. 먼저 HTML/CSS/JavaScript 한 파일로 바로 실행 가능한 기본 버전을 만들어줘.
+2. 코드를 보여줄 때는 각 부분이 어떤 역할을 하는지 쉬운 말로 설명도 같이 해줘.
+3. 완성한 후에는 내가 추가로 바꾸고 싶은 부분(색깔, 글씨, 버튼 등)을 말하면 쉽게 수정할 수 있게 코드를 깔끔하게 짜줘.`;
+  } else {
+    prompt =
+`나는 AI와 함께 바이브 코딩으로 웹사이트를 만들고 싶어. 아래 요구사항에 맞게 개발을 도와줘.
+
+- 목적/주제: ${purpose}
+${pagesLine}- 디자인 방향: ${style}, 반응형(모바일/데스크톱 모두 잘 보이게)
+
+아래 순서로 진행해줘:
+1. 요구사항을 바탕으로 필요한 페이지 구조와 핵심 컴포넌트를 먼저 정리해줘.
+2. 시맨틱한 HTML + CSS(또는 필요하다면 간단한 JavaScript)로 실행 가능한 전체 코드를 작성해줘. 파일을 나눠야 한다면 어떤 파일을 어떻게 나눌지도 설명해줘.
+3. 접근성(alt 텍스트, 적절한 색 대비)과 성능(이미지 최적화, 불필요한 코드 최소화)도 신경 써서 작성해줘.
+4. 완성 후, 내가 추가로 발전시킬 수 있는 기능 아이디어 3가지(예: 다크모드, 폼 유효성 검사, 간단한 애니메이션)를 제안해줘.
+
+코드는 바로 복사해서 실행할 수 있게 전체 코드를 빠짐없이 보여줘.`;
+  }
+
+  document.getElementById('tpPromptBox').textContent = prompt;
+  const section = document.getElementById('tpPromptSection');
+  section.classList.remove('hidden');
+  setTimeout(() => section.scrollIntoView({ behavior:'smooth', block:'start' }), 50);
+}
+
+function tpCopyPrompt() {
+  const text = document.getElementById('tpPromptBox').textContent;
+  navigator.clipboard.writeText(text).catch(() => {
+    const t = document.createElement('textarea');
+    t.value = text; document.body.appendChild(t); t.select();
+    document.execCommand('copy'); document.body.removeChild(t);
+  });
+  tpShowToast('프롬프트 복사 완료! AI 코딩 도구에 붙여넣어 보세요 💻');
+}
+
+function tpShowToast(msg) {
+  const el = document.getElementById('tpToast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+</script>
+{% endblock %}

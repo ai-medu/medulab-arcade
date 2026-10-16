@@ -1,0 +1,212 @@
+{% extends 'arcade/base.html' %}
+{% load static %}
+
+{% block title %}생성형 AI 체험 - AI 프롬프트 생성기 - 메듀랩{% endblock %}
+
+{% block extra_css %}
+<style>
+  :root { --c:#3FA9F5; --c2:#8C6BFA; --ink:#2E2A4A; }
+  body { background:linear-gradient(150deg,#EAF7FF 0%,#F1F0FF 45%,#FFF6FB 100%) !important; color:var(--ink); }
+
+  .tp-wrap { max-width:880px; margin:0 auto; padding:40px 20px 80px; }
+  .tp-back { display:inline-flex; align-items:center; gap:6px; color:var(--c2); font-weight:700; font-size:14px; text-decoration:none; margin-bottom:20px; }
+  .tp-back:hover { text-decoration:underline; }
+
+  .tp-hero { text-align:center; padding:8px 20px 28px; margin-bottom:8px; }
+  .tp-hero .badge { display:inline-block; background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; font-size:13px; font-weight:bold; letter-spacing:1px; padding:5px 16px; border-radius:999px; margin-bottom:16px; }
+  .tp-hero h1 { font-size:30px; font-weight:900; margin:0 0 10px; background:linear-gradient(120deg,var(--c),var(--c2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .tp-hero p { font-size:15px; color:#6a6486; margin:0; line-height:1.7; }
+
+  .tp-section { background:#fff; border-radius:20px; padding:26px 28px; margin-bottom:18px; box-shadow:0 4px 20px rgba(140,107,250,.08); }
+  .tp-step-label { font-size:16px; font-weight:800; color:var(--ink); margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+  .tp-section-note { font-size:12.5px; color:#9d96bc; margin-top:-6px; margin-bottom:14px; }
+
+  .tp-input { width:100%; box-sizing:border-box; padding:12px 16px; border:2px solid #E8E4FF; border-radius:12px; font-size:14.5px; color:var(--ink); transition:border-color .2s; }
+  .tp-input:focus { outline:none; border-color:var(--c2); }
+  .tp-input::placeholder { color:#c0bbd8; }
+
+  .tp-btn-group { display:flex; gap:10px; flex-wrap:wrap; }
+  .tp-choice-btn { padding:10px 22px; border:2px solid #E8E4FF; border-radius:999px; background:#fff; color:var(--ink); font-size:14.5px; font-weight:700; cursor:pointer; transition:all .18s; }
+  .tp-choice-btn:hover { border-color:var(--c2); color:var(--c2); }
+  .tp-choice-btn.active { background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; border-color:transparent; }
+
+  .tp-custom-input { margin-top:12px; display:none; }
+  .tp-custom-input.show { display:block; }
+
+  .tp-generate-wrap { text-align:center; margin:28px 0; }
+  .tp-generate-btn { padding:16px 60px; font-size:19px; font-weight:900; background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; border:none; border-radius:999px; cursor:pointer; box-shadow:0 6px 28px rgba(63,169,245,.35); transition:transform .2s, box-shadow .2s; letter-spacing:.5px; }
+  .tp-generate-btn:hover { transform:translateY(-3px); box-shadow:0 12px 36px rgba(63,169,245,.45); }
+  .tp-generate-btn:active { transform:translateY(0); }
+
+  .tp-prompt-section.hidden { display:none; }
+  .tp-prompt-section { background:#fff; border-radius:20px; padding:26px 28px; box-shadow:0 4px 20px rgba(140,107,250,.08); border:2px dashed rgba(63,169,245,.25); margin-bottom:18px; }
+  .tp-prompt-header span { font-size:17px; font-weight:800; color:var(--ink); display:block; margin-bottom:4px; }
+  .tp-prompt-header small { color:#9d96bc; font-size:13px; }
+  .tp-prompt-box { background:#F3FAFF; border-radius:12px; padding:16px; font-size:13px; line-height:1.8; color:#5a5475; white-space:pre-wrap; margin:14px 0 16px; border:1px solid #DFF0FF; word-break:break-word; max-height:400px; overflow-y:auto; }
+  .tp-copy-btn { padding:12px 32px; background:linear-gradient(120deg,var(--c2),var(--c)); color:#fff; border:none; border-radius:999px; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 4px 16px rgba(63,169,245,.3); transition:transform .2s; }
+  .tp-copy-btn:hover { transform:translateY(-2px); }
+
+  .tp-toast { position:fixed; bottom:32px; left:50%; transform:translateX(-50%); background:#1f2430; color:#fff; padding:12px 24px; border-radius:999px; font-size:14px; font-weight:600; z-index:9999; pointer-events:none; opacity:0; transition:opacity .3s; white-space:nowrap; }
+  .tp-toast.show { opacity:1; }
+
+  @media (max-width:600px) {
+    .tp-hero h1 { font-size:24px; }
+    .tp-section, .tp-prompt-section { padding:20px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tp-wrap">
+  <a href="{% url 'ai_prompts' %}" class="tp-back">← AI 프롬프트 생성기</a>
+
+  <div class="tp-hero">
+    <div class="badge">💡 AI 기초</div>
+    <h1>생성형 AI 체험</h1>
+    <p>궁금한 주제를 고르면, ChatGPT·Gemini에게 바로 물어볼 수 있는 탐구 질문 프롬프트를 만들어 드려요!</p>
+  </div>
+
+  <!-- ① 난이도 -->
+  <div class="tp-section">
+    <div class="tp-step-label">① 나의 학년은?</div>
+    <div class="tp-btn-group" id="levelBtns">
+      <button type="button" class="tp-choice-btn active" data-value="초등">초등학생</button>
+      <button type="button" class="tp-choice-btn" data-value="중등">중학생</button>
+      <button type="button" class="tp-choice-btn" data-value="고등">고등학생</button>
+    </div>
+  </div>
+
+  <!-- ② 궁금한 주제 -->
+  <div class="tp-section">
+    <div class="tp-step-label">② 어떤 주제가 궁금한가요?</div>
+    <div class="tp-btn-group" id="topicBtns" style="margin-bottom:12px;">
+      <button type="button" class="tp-choice-btn active" data-value="우주와 별">🌌 우주와 별</button>
+      <button type="button" class="tp-choice-btn" data-value="동물과 자연">🐾 동물과 자연</button>
+      <button type="button" class="tp-choice-btn" data-value="역사 속 사건">📜 역사 속 사건</button>
+      <button type="button" class="tp-choice-btn" data-value="미래 기술">🚀 미래 기술</button>
+      <button type="button" class="tp-choice-btn" data-value="__custom__">✏️ 직접입력</button>
+    </div>
+    <div class="tp-custom-input" id="topicCustomWrap">
+      <input type="text" id="topicCustom" class="tp-input" placeholder="예: 공룡은 왜 멸종했을까?, 블랙홀의 비밀">
+    </div>
+  </div>
+
+  <!-- ③ 질문 방식 -->
+  <div class="tp-section">
+    <div class="tp-step-label">③ 어떤 방식으로 질문해볼까요?</div>
+    <p class="tp-section-note">질문 방식에 따라 AI의 답변 스타일이 완전히 달라져요!</p>
+    <div class="tp-btn-group" id="styleBtns">
+      <button type="button" class="tp-choice-btn active" data-value="explain">🧒 쉽게 설명해줘</button>
+      <button type="button" class="tp-choice-btn" data-value="compare">⚖️ 두 가지를 비교해줘</button>
+      <button type="button" class="tp-choice-btn" data-value="imagine">🪄 만약에 ~라면?</button>
+      <button type="button" class="tp-choice-btn" data-value="why">❓ 왜 그런지 이유를 알려줘</button>
+    </div>
+  </div>
+
+  <div class="tp-generate-wrap">
+    <button type="button" class="tp-generate-btn" onclick="tpGenerate()">✨ 탐구 질문 프롬프트 만들기</button>
+  </div>
+
+  <div id="tpPromptSection" class="tp-prompt-section hidden">
+    <div class="tp-prompt-header">
+      <span>💬 ChatGPT/Gemini에 붙여넣을 프롬프트</span>
+      <small>아래 프롬프트를 복사해서 AI에게 물어보세요. 답변을 받으면 한 번 더 "왜 그렇게 생각해?"라고 꼭 물어보세요!</small>
+    </div>
+    <div id="tpPromptBox" class="tp-prompt-box"></div>
+    <button type="button" class="tp-copy-btn" onclick="tpCopyPrompt()">📋 프롬프트 복사하기</button>
+  </div>
+</div>
+<div id="tpToast" class="tp-toast"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let tpLevel = '초등';
+let tpTopic = '우주와 별';
+let tpStyle = 'explain';
+
+function tpSetupChoice(containerId, onSelect, customWrapId, customInputId) {
+  document.querySelectorAll(`#${containerId} .tp-choice-btn`).forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll(`#${containerId} .tp-choice-btn`).forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (btn.dataset.value === '__custom__' && customWrapId) {
+        document.getElementById(customWrapId).classList.add('show');
+        document.getElementById(customInputId).focus();
+      } else {
+        if (customWrapId) document.getElementById(customWrapId).classList.remove('show');
+        onSelect(btn.dataset.value);
+      }
+    });
+  });
+}
+
+tpSetupChoice('levelBtns', v => tpLevel = v);
+tpSetupChoice('topicBtns', v => tpTopic = v, 'topicCustomWrap', 'topicCustom');
+tpSetupChoice('styleBtns', v => tpStyle = v);
+
+function tpResolveTopic() {
+  const activeBtn = document.querySelector('#topicBtns .tp-choice-btn.active');
+  if (activeBtn && activeBtn.dataset.value === '__custom__') {
+    return document.getElementById('topicCustom').value.trim();
+  }
+  return activeBtn ? activeBtn.dataset.value : tpTopic;
+}
+
+function tpGenerate() {
+  const topic = tpResolveTopic();
+  if (!topic) { tpShowToast('주제를 입력해 주세요!'); document.getElementById('topicCustom').focus(); return; }
+
+  const styleText = {
+    explain: '쉽고 재미있게, 비유와 예시를 들어서 설명해줘',
+    compare: '관련된 두 가지(또는 두 입장)를 비교해서 공통점과 차이점을 설명해줘',
+    imagine: '"만약에 ~라면 어떻게 될까?"라는 상상 질문으로 답을 풀어줘',
+    why: '왜 그런 일이 일어나는지 원인과 이유를 단계별로 설명해줘',
+  }[tpStyle];
+
+  let prompt;
+  if (tpLevel === '초등') {
+    prompt =
+`나는 초등학생이야. "${topic}"에 대해 알고 싶어.
+
+${styleText}. 초등학생도 이해할 수 있게 어려운 단어는 쓰지 말고, 짧은 문장과 이모지를 섞어서 설명해줘.
+설명 끝에는 내가 더 궁금해할 만한 질문 2개도 함께 추천해줘.`;
+  } else if (tpLevel === '중등') {
+    prompt =
+`나는 중학생이야. "${topic}"에 대해 궁금해서 질문할게.
+
+${styleText}. 배경지식이 없어도 이해할 수 있도록 핵심 개념부터 차근차근 설명해주고, 실생활 예시를 2개 이상 들어줘.
+마지막에는 이 주제와 관련해서 더 깊이 탐구해볼 만한 질문 3개를 제안해줘.`;
+  } else {
+    prompt =
+`나는 고등학생이야. "${topic}"에 대해 깊이 있게 탐구하고 싶어.
+
+${styleText}. 단순한 사실 설명을 넘어서, 서로 다른 관점이나 학설이 있다면 함께 소개해주고, 각 관점의 근거도 알려줘.
+또한 이 설명에 사용한 정보가 과학적으로 얼마나 확실한 것인지(정설/가설/논쟁중 등)도 구분해서 알려주고,
+이 주제를 더 깊게 탐구하려면 어떤 추가 자료나 실험을 찾아보면 좋을지 3가지 제안해줘.`;
+  }
+
+  document.getElementById('tpPromptBox').textContent = prompt;
+  const section = document.getElementById('tpPromptSection');
+  section.classList.remove('hidden');
+  setTimeout(() => section.scrollIntoView({ behavior:'smooth', block:'start' }), 50);
+}
+
+function tpCopyPrompt() {
+  const text = document.getElementById('tpPromptBox').textContent;
+  navigator.clipboard.writeText(text).catch(() => {
+    const t = document.createElement('textarea');
+    t.value = text; document.body.appendChild(t); t.select();
+    document.execCommand('copy'); document.body.removeChild(t);
+  });
+  tpShowToast('프롬프트 복사 완료! AI에게 물어보세요 🚀');
+}
+
+function tpShowToast(msg) {
+  const el = document.getElementById('tpToast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,199 @@
+{% extends 'arcade/base.html' %}
+{% load static %}
+
+{% block title %}AI 광고 크리에이터 - AI 프롬프트 생성기 - 메듀랩{% endblock %}
+
+{% block extra_css %}
+<style>
+  :root { --c:#FF9142; --c2:#FF6FA5; --ink:#2E2A4A; }
+  body { background:linear-gradient(150deg,#FFF3E8 0%,#FFF0F5 45%,#F1F0FF 100%) !important; color:var(--ink); }
+  .tp-wrap { max-width:880px; margin:0 auto; padding:40px 20px 80px; }
+  .tp-back { display:inline-flex; align-items:center; gap:6px; color:var(--c); font-weight:700; font-size:14px; text-decoration:none; margin-bottom:20px; }
+  .tp-back:hover { text-decoration:underline; }
+  .tp-hero { text-align:center; padding:8px 20px 28px; margin-bottom:8px; }
+  .tp-hero .badge { display:inline-block; background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; font-size:13px; font-weight:bold; letter-spacing:1px; padding:5px 16px; border-radius:999px; margin-bottom:16px; }
+  .tp-hero h1 { font-size:30px; font-weight:900; margin:0 0 10px; background:linear-gradient(120deg,var(--c),var(--c2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .tp-hero p { font-size:15px; color:#6a6486; margin:0; line-height:1.7; }
+  .tp-section { background:#fff; border-radius:20px; padding:26px 28px; margin-bottom:18px; box-shadow:0 4px 20px rgba(255,145,66,.08); }
+  .tp-step-label { font-size:16px; font-weight:800; color:var(--ink); margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+  .tp-step-label .opt { font-size:12px; font-weight:600; color:#b0aac8; }
+  .tp-section-note { font-size:12.5px; color:#9d96bc; margin-top:-6px; margin-bottom:14px; }
+  .tp-input { width:100%; box-sizing:border-box; padding:12px 16px; border:2px solid #FFE4D4; border-radius:12px; font-size:14.5px; color:var(--ink); }
+  .tp-input:focus { outline:none; border-color:var(--c); }
+  .tp-input::placeholder { color:#c0bbd8; }
+  .tp-btn-group { display:flex; gap:10px; flex-wrap:wrap; }
+  .tp-choice-btn { padding:10px 22px; border:2px solid #FFE4D4; border-radius:999px; background:#fff; color:var(--ink); font-size:14.5px; font-weight:700; cursor:pointer; transition:all .18s; }
+  .tp-choice-btn:hover { border-color:var(--c); color:var(--c); }
+  .tp-choice-btn.active { background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; border-color:transparent; }
+  .tp-custom-input { margin-top:12px; display:none; }
+  .tp-custom-input.show { display:block; }
+  .tp-generate-wrap { text-align:center; margin:28px 0; }
+  .tp-generate-btn { padding:16px 60px; font-size:19px; font-weight:900; background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; border:none; border-radius:999px; cursor:pointer; box-shadow:0 6px 28px rgba(255,145,66,.35); transition:transform .2s, box-shadow .2s; }
+  .tp-generate-btn:hover { transform:translateY(-3px); box-shadow:0 12px 36px rgba(255,145,66,.45); }
+  .tp-prompt-section.hidden { display:none; }
+  .tp-prompt-section { background:#fff; border-radius:20px; padding:26px 28px; box-shadow:0 4px 20px rgba(255,145,66,.08); border:2px dashed rgba(255,145,66,.25); margin-bottom:18px; }
+  .tp-prompt-header span { font-size:17px; font-weight:800; color:var(--ink); display:block; margin-bottom:4px; }
+  .tp-prompt-header small { color:#9d96bc; font-size:13px; }
+  .tp-prompt-box { background:#FFF6EF; border-radius:12px; padding:16px; font-size:13px; line-height:1.8; color:#5a5475; white-space:pre-wrap; margin:14px 0 16px; border:1px solid #FFE4D4; word-break:break-word; max-height:400px; overflow-y:auto; }
+  .tp-copy-btn { padding:12px 32px; background:linear-gradient(120deg,var(--c2),var(--c)); color:#fff; border:none; border-radius:999px; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 4px 16px rgba(255,145,66,.3); }
+  .tp-copy-btn:hover { transform:translateY(-2px); }
+  .tp-toast { position:fixed; bottom:32px; left:50%; transform:translateX(-50%); background:#1f2430; color:#fff; padding:12px 24px; border-radius:999px; font-size:14px; font-weight:600; z-index:9999; pointer-events:none; opacity:0; transition:opacity .3s; white-space:nowrap; }
+  .tp-toast.show { opacity:1; }
+  @media (max-width:600px) { .tp-hero h1 { font-size:24px; } .tp-section, .tp-prompt-section { padding:20px; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tp-wrap">
+  <a href="{% url 'ai_prompts' %}" class="tp-back">← AI 프롬프트 생성기</a>
+
+  <div class="tp-hero">
+    <div class="badge">📣 콘텐츠 제작</div>
+    <h1>AI 광고 크리에이터</h1>
+    <p>제품/서비스와 타겟, 톤을 고르면 광고 카피와 광고 이미지 프롬프트를 한 번에 만들어 드려요!</p>
+  </div>
+
+  <div class="tp-section">
+    <div class="tp-step-label">① 나의 학년은?</div>
+    <div class="tp-btn-group" id="levelBtns">
+      <button type="button" class="tp-choice-btn active" data-value="중등">중학생</button>
+      <button type="button" class="tp-choice-btn" data-value="고등">고등학생</button>
+    </div>
+  </div>
+
+  <div class="tp-section">
+    <div class="tp-step-label">② 어떤 제품/서비스를 광고할까요?</div>
+    <input type="text" id="productInput" class="tp-input" placeholder="예: 친환경 텀블러, 공부 집중 앱, 반려동물 간식">
+  </div>
+
+  <div class="tp-section">
+    <div class="tp-step-label">③ 타겟 고객은 누구인가요? <span class="opt">(선택)</span></div>
+    <input type="text" id="audienceInput" class="tp-input" placeholder="예: 10대 학생, 바쁜 직장인, 반려동물 키우는 가족">
+  </div>
+
+  <div class="tp-section">
+    <div class="tp-step-label">④ 광고 톤은 어떻게 할까요?</div>
+    <div class="tp-btn-group" id="toneBtns">
+      <button type="button" class="tp-choice-btn active" data-value="재미있고 유쾌한">😄 재미있게</button>
+      <button type="button" class="tp-choice-btn" data-value="감동적이고 따뜻한">🥹 감동적으로</button>
+      <button type="button" class="tp-choice-btn" data-value="신뢰감 있고 전문적인">🧐 신뢰감 있게</button>
+      <button type="button" class="tp-choice-btn" data-value="트렌디하고 힙한">🔥 트렌디하게</button>
+      <button type="button" class="tp-choice-btn" data-value="__custom__">✏️ 직접입력</button>
+    </div>
+    <div class="tp-custom-input" id="toneCustomWrap">
+      <input type="text" id="toneCustom" class="tp-input" placeholder="원하는 톤을 입력해 주세요">
+    </div>
+  </div>
+
+  <div class="tp-generate-wrap">
+    <button type="button" class="tp-generate-btn" onclick="tpGenerate()">✨ 광고 프롬프트 만들기</button>
+  </div>
+
+  <div id="tpPromptSection" class="tp-prompt-section hidden">
+    <div class="tp-prompt-header">
+      <span>💬 ChatGPT/이미지 생성 AI에 붙여넣을 프롬프트</span>
+      <small>광고 카피 문구와 광고 이미지를 각각 생성할 수 있는 프롬프트예요!</small>
+    </div>
+    <div id="tpPromptBox" class="tp-prompt-box"></div>
+    <button type="button" class="tp-copy-btn" onclick="tpCopyPrompt()">📋 프롬프트 복사하기</button>
+  </div>
+</div>
+<div id="tpToast" class="tp-toast"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let tpLevel = '중등';
+let tpTone = '재미있고 유쾌한';
+
+function tpSetupChoice(containerId, onSelect, customWrapId, customInputId) {
+  document.querySelectorAll(`#${containerId} .tp-choice-btn`).forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll(`#${containerId} .tp-choice-btn`).forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (btn.dataset.value === '__custom__' && customWrapId) {
+        document.getElementById(customWrapId).classList.add('show');
+        document.getElementById(customInputId).focus();
+      } else {
+        if (customWrapId) document.getElementById(customWrapId).classList.remove('show');
+        onSelect(btn.dataset.value);
+      }
+    });
+  });
+}
+tpSetupChoice('levelBtns', v => tpLevel = v);
+tpSetupChoice('toneBtns', v => tpTone = v, 'toneCustomWrap', 'toneCustom');
+
+function tpResolve(containerId, fallback, customInputId) {
+  const activeBtn = document.querySelector(`#${containerId} .tp-choice-btn.active`);
+  if (activeBtn && activeBtn.dataset.value === '__custom__') return document.getElementById(customInputId).value.trim();
+  return activeBtn ? activeBtn.dataset.value : fallback;
+}
+
+function tpGenerate() {
+  const product = document.getElementById('productInput').value.trim();
+  if (!product) { tpShowToast('광고할 제품/서비스를 입력해 주세요!'); document.getElementById('productInput').focus(); return; }
+  const audience = document.getElementById('audienceInput').value.trim();
+  const tone = tpResolve('toneBtns', tpTone, 'toneCustom');
+  const audienceLine = audience ? `- 타겟 고객: ${audience}\n` : '';
+
+  let prompt;
+  if (tpLevel === '중등') {
+    prompt =
+`나는 "${product}"를 광고하고 싶어.
+${audienceLine}- 광고 톤: ${tone}
+
+아래 2가지를 만들어줘:
+
+1. 광고 카피 (짝수로 3세트)
+- 눈에 확 들어오는 짧은 메인 문구 1개 + 설명 문구 1개로 된 세트를 3개 만들어줘. 각 세트는 번호를 붙여줘.
+
+2. 광고 이미지 생성 프롬프트
+- 위 제품을 홍보하는 포스터 이미지를 만들 수 있는 프롬프트를 한국어와 영어(English version) 둘 다 작성해줘.
+- 색감, 배치, 분위기를 구체적으로 설명해줘.`;
+  } else {
+    prompt =
+`나는 "${product}"의 광고를 기획하고 있어.
+${audienceLine}- 광고 톤앤매너: ${tone}
+
+아래 항목을 순서대로 작성해줘:
+
+1. 핵심 세일즈 포인트(USP) 3가지
+- 이 제품/서비스만의 차별점을 분석해서 3가지로 정리해줘.
+
+2. 광고 카피 3세트
+- 각 세트는 헤드라인(짧고 강렬한 한 줄) + 서브카피(보완 설명) + CTA(행동 유도 문구)로 구성해줘.
+- 세트마다 소구 방식을 다르게 해줘(예: 감성 소구, 논리/데이터 소구, 유머 소구).
+
+3. 광고 이미지 생성 프롬프트
+- 포스터용 이미지 프롬프트를 한국어 버전과 English version 각각 코드블록(\`\`\`)으로 작성해줘.
+- 카메라 앵글, 조명, 색채 팔레트, 레이아웃(텍스트 들어갈 공간 포함)까지 구체적으로 묘사해줘.
+
+4. 매체 추천
+- 이 타겟/톤에 적합한 광고 채널(인스타, 유튜브 쇼츠, 틱톡 등)을 추천하고 이유를 설명해줘.`;
+  }
+
+  document.getElementById('tpPromptBox').textContent = prompt;
+  const section = document.getElementById('tpPromptSection');
+  section.classList.remove('hidden');
+  setTimeout(() => section.scrollIntoView({ behavior:'smooth', block:'start' }), 50);
+}
+
+function tpCopyPrompt() {
+  const text = document.getElementById('tpPromptBox').textContent;
+  navigator.clipboard.writeText(text).catch(() => {
+    const t = document.createElement('textarea');
+    t.value = text; document.body.appendChild(t); t.select();
+    document.execCommand('copy'); document.body.removeChild(t);
+  });
+  tpShowToast('프롬프트 복사 완료! ChatGPT에 붙여넣어 보세요 📣');
+}
+
+function tpShowToast(msg) {
+  const el = document.getElementById('tpToast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+</script>
+{% endblock %}

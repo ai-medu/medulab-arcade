@@ -1,0 +1,178 @@
+{% extends 'arcade/base.html' %}
+{% load static %}
+
+{% block title %}AI 뉴스 팩트체크 - AI 프롬프트 생성기 - 메듀랩{% endblock %}
+
+{% block extra_css %}
+<style>
+  :root { --c:#5B6EE1; --c2:#3FA9F5; --ink:#2E2A4A; }
+  body { background:linear-gradient(150deg,#ECEEFF 0%,#EAF7FF 45%,#F1F0FF 100%) !important; color:var(--ink); }
+  .tp-wrap { max-width:880px; margin:0 auto; padding:40px 20px 80px; }
+  .tp-back { display:inline-flex; align-items:center; gap:6px; color:var(--c); font-weight:700; font-size:14px; text-decoration:none; margin-bottom:20px; }
+  .tp-back:hover { text-decoration:underline; }
+  .tp-hero { text-align:center; padding:8px 20px 28px; margin-bottom:8px; }
+  .tp-hero .badge { display:inline-block; background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; font-size:13px; font-weight:bold; letter-spacing:1px; padding:5px 16px; border-radius:999px; margin-bottom:16px; }
+  .tp-hero h1 { font-size:30px; font-weight:900; margin:0 0 10px; background:linear-gradient(120deg,var(--c),var(--c2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .tp-hero p { font-size:15px; color:#6a6486; margin:0; line-height:1.7; }
+  .tp-section { background:#fff; border-radius:20px; padding:26px 28px; margin-bottom:18px; box-shadow:0 4px 20px rgba(91,110,225,.1); }
+  .tp-step-label { font-size:16px; font-weight:800; color:var(--ink); margin-bottom:14px; }
+  .tp-step-label .opt { font-size:12px; font-weight:600; color:#b0aac8; }
+  .tp-section-note { font-size:12.5px; color:#9d96bc; margin-top:-6px; margin-bottom:14px; }
+  .tp-input { width:100%; box-sizing:border-box; padding:12px 16px; border:2px solid #DADFFF; border-radius:12px; font-size:14.5px; color:var(--ink); }
+  textarea.tp-input { resize:vertical; min-height:90px; font-family:inherit; }
+  .tp-input:focus { outline:none; border-color:var(--c); }
+  .tp-input::placeholder { color:#c0bbd8; }
+  .tp-btn-group { display:flex; gap:10px; flex-wrap:wrap; }
+  .tp-choice-btn { padding:10px 22px; border:2px solid #DADFFF; border-radius:999px; background:#fff; color:var(--ink); font-size:14.5px; font-weight:700; cursor:pointer; transition:all .18s; }
+  .tp-choice-btn:hover { border-color:var(--c); color:var(--c); }
+  .tp-choice-btn.active { background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; border-color:transparent; }
+  .tp-generate-wrap { text-align:center; margin:28px 0; }
+  .tp-generate-btn { padding:16px 60px; font-size:19px; font-weight:900; background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; border:none; border-radius:999px; cursor:pointer; box-shadow:0 6px 28px rgba(91,110,225,.35); }
+  .tp-generate-btn:hover { transform:translateY(-3px); box-shadow:0 12px 36px rgba(91,110,225,.45); }
+  .tp-prompt-section.hidden { display:none; }
+  .tp-prompt-section { background:#fff; border-radius:20px; padding:26px 28px; box-shadow:0 4px 20px rgba(91,110,225,.1); border:2px dashed rgba(91,110,225,.3); margin-bottom:18px; }
+  .tp-prompt-header span { font-size:17px; font-weight:800; color:var(--ink); display:block; margin-bottom:4px; }
+  .tp-prompt-header small { color:#9d96bc; font-size:13px; }
+  .tp-prompt-box { background:#F2F3FF; border-radius:12px; padding:16px; font-size:13px; line-height:1.8; color:#5a5475; white-space:pre-wrap; margin:14px 0 16px; border:1px solid #DADFFF; word-break:break-word; max-height:400px; overflow-y:auto; }
+  .tp-copy-btn { padding:12px 32px; background:linear-gradient(120deg,var(--c2),var(--c)); color:#fff; border:none; border-radius:999px; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 4px 16px rgba(91,110,225,.3); }
+  .tp-copy-btn:hover { transform:translateY(-2px); }
+  .tp-tips { background:#F8F9FF; border-radius:14px; padding:16px 18px; font-size:12.5px; color:#5a5475; line-height:1.7; margin-top:14px; border:1px solid #E4E8FF; }
+  .tp-tips b { color:var(--c); }
+  .tp-toast { position:fixed; bottom:32px; left:50%; transform:translateX(-50%); background:#1f2430; color:#fff; padding:12px 24px; border-radius:999px; font-size:14px; font-weight:600; z-index:9999; pointer-events:none; opacity:0; transition:opacity .3s; white-space:nowrap; }
+  .tp-toast.show { opacity:1; }
+  @media (max-width:600px) { .tp-hero h1 { font-size:24px; } .tp-section, .tp-prompt-section { padding:20px; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tp-wrap">
+  <a href="{% url 'ai_prompts' %}" class="tp-back">← AI 프롬프트 생성기</a>
+
+  <div class="tp-hero">
+    <div class="badge">📰 AI 윤리·미디어</div>
+    <h1>AI 뉴스 팩트체크</h1>
+    <p>인터넷·SNS에서 본 정보를 입력하면, AI에게 검증을 부탁하는 팩트체크 프롬프트를 만들어 드려요!</p>
+  </div>
+
+  <div class="tp-section">
+    <div class="tp-step-label">① 나의 학년은?</div>
+    <div class="tp-btn-group" id="levelBtns">
+      <button type="button" class="tp-choice-btn active" data-value="중등">중학생</button>
+      <button type="button" class="tp-choice-btn" data-value="고등">고등학생</button>
+    </div>
+  </div>
+
+  <div class="tp-section">
+    <div class="tp-step-label">② 확인하고 싶은 정보/주장은 무엇인가요?</div>
+    <textarea id="claimInput" class="tp-input" placeholder="예: '00을 먹으면 머리가 좋아진다는 글을 봤어요', 'SNS에서 어떤 사건에 대해 본 소문'"></textarea>
+  </div>
+
+  <div class="tp-section">
+    <div class="tp-step-label">③ 어떤 각도로 검증해볼까요?</div>
+    <div class="tp-btn-group" id="angleBtns">
+      <button type="button" class="tp-choice-btn active" data-value="사실 여부 확인">✅ 사실인지 확인</button>
+      <button type="button" class="tp-choice-btn" data-value="출처와 근거 분석">🔍 출처/근거 분석</button>
+      <button type="button" class="tp-choice-btn" data-value="과장/왜곡 여부 분석">⚠️ 과장/왜곡 여부</button>
+      <button type="button" class="tp-choice-btn" data-value="찬반 양측 입장 비교">⚖️ 양측 입장 비교</button>
+    </div>
+  </div>
+
+  <div class="tp-generate-wrap">
+    <button type="button" class="tp-generate-btn" onclick="tpGenerate()">✨ 팩트체크 프롬프트 만들기</button>
+  </div>
+
+  <div id="tpPromptSection" class="tp-prompt-section hidden">
+    <div class="tp-prompt-header">
+      <span>🔎 ChatGPT/Gemini에 붙여넣을 검증 프롬프트</span>
+      <small>AI 답변도 100% 정확하지 않을 수 있어요! 아래 팁과 함께 교차 확인해 보세요.</small>
+    </div>
+    <div id="tpPromptBox" class="tp-prompt-box"></div>
+    <button type="button" class="tp-copy-btn" onclick="tpCopyPrompt()">📋 프롬프트 복사하기</button>
+    <div class="tp-tips">
+      <b>💡 미디어 리터러시 팁</b><br>
+      · 한 곳의 정보만 믿지 말고 여러 출처(뉴스, 공식 기관 등)와 비교해보세요.<br>
+      · "누가, 언제, 왜 이 글을 썼을까?"를 생각해보세요.<br>
+      · 감정을 자극하는 자극적인 제목일수록 더 꼼꼼히 확인해야 해요.<br>
+      · AI도 틀릴 수 있어요 — AI의 답변 역시 하나의 참고 의견으로 여기고 직접 출처를 찾아보는 습관을 길러보세요.
+    </div>
+  </div>
+</div>
+<div id="tpToast" class="tp-toast"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let tpLevel = '중등';
+let tpAngle = '사실 여부 확인';
+
+function tpSetupChoice(containerId, onSelect) {
+  document.querySelectorAll(`#${containerId} .tp-choice-btn`).forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll(`#${containerId} .tp-choice-btn`).forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      onSelect(btn.dataset.value);
+    });
+  });
+}
+tpSetupChoice('levelBtns', v => tpLevel = v);
+tpSetupChoice('angleBtns', v => tpAngle = v);
+
+function tpGenerate() {
+  const claim = document.getElementById('claimInput').value.trim();
+  if (!claim) { tpShowToast('확인하고 싶은 정보를 입력해 주세요!'); document.getElementById('claimInput').focus(); return; }
+
+  let prompt;
+  if (tpLevel === '중등') {
+    prompt =
+`나는 아래 정보를 어디선가(SNS, 인터넷 등)에서 봤는데, 이게 진짜인지 확인하고 싶어.
+
+[확인하고 싶은 내용]
+"${claim}"
+
+[검증 방향] ${tpAngle}
+
+아래 내용을 쉬운 말로 알려줘:
+1. 이 내용이 사실일 가능성이 높은지, 거짓이거나 과장되었을 가능성이 높은지 판단해줘. (확실하지 않으면 "확실하지 않음"이라고 솔직하게 말해줘.)
+2. 그렇게 판단한 이유를 2~3가지로 설명해줘.
+3. 내가 직접 확인해볼 수 있는 방법(어떤 사이트나 기관을 찾아보면 좋을지)을 알려줘.`;
+  } else {
+    prompt =
+`나는 아래 주장(또는 정보)의 신뢰도를 비판적으로 검토하고 싶어.
+
+[검토할 주장]
+"${claim}"
+
+[검증 각도] ${tpAngle}
+
+아래 항목을 체계적으로 분석해줘:
+1. 이 주장의 핵심 전제와 사용된 표현(과장, 생략, 감정적 어휘 등)을 분석해줘.
+2. 이 주장을 뒷받침하거나 반박할 수 있는 근거의 종류(통계, 전문가 의견, 공식 발표 등)를 제시하고, 일반적으로 이런 주장이 어느 정도 신뢰할 수 있는지 평가해줘.
+3. 같은 사안에 대해 서로 다른 입장이 있다면, 각 입장의 논리와 근거를 균형 있게 제시해줘.
+4. 너의 지식이 불완전하거나 최신 정보가 아닐 수 있다는 점을 밝히고, 내가 직접 확인해야 할 1차 출처(공식 기관, 원문 기사 등)를 구체적으로 추천해줘.
+5. 이런 유형의 정보를 접할 때 스스로 점검할 수 있는 체크리스트 3가지를 제안해줘.`;
+  }
+
+  document.getElementById('tpPromptBox').textContent = prompt;
+  const section = document.getElementById('tpPromptSection');
+  section.classList.remove('hidden');
+  setTimeout(() => section.scrollIntoView({ behavior:'smooth', block:'start' }), 50);
+}
+
+function tpCopyPrompt() {
+  const text = document.getElementById('tpPromptBox').textContent;
+  navigator.clipboard.writeText(text).catch(() => {
+    const t = document.createElement('textarea');
+    t.value = text; document.body.appendChild(t); t.select();
+    document.execCommand('copy'); document.body.removeChild(t);
+  });
+  tpShowToast('프롬프트 복사 완료! ChatGPT/Gemini에 붙여넣어 보세요 🔎');
+}
+
+function tpShowToast(msg) {
+  const el = document.getElementById('tpToast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+</script>
+{% endblock %}
