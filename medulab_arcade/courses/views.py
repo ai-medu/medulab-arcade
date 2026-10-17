@@ -1860,6 +1860,33 @@ def course_home(request, program_id):
         "recent_badges": recent_badges,
     })
 
+
+@login_required
+@require_POST
+def reset_program_progress(request, program_id):
+    program = get_object_or_404(LearningProgram, id=program_id)
+
+    deleted_progress, _ = UserProgress.objects.filter(
+        user=request.user,
+        item__chapter__program=program,
+    ).delete()
+
+    OlympiadAnswerSubmission.objects.filter(
+        student=request.user,
+        item__chapter__program=program,
+    ).delete()
+    OlympiadSubAnswer.objects.filter(
+        student=request.user,
+        sub_question__item__chapter__program=program,
+    ).delete()
+
+    from arcade.models import UserBadge
+    program_badge = get_program_completion_badge(program)
+    UserBadge.objects.filter(user=request.user, badge=program_badge).delete()
+
+    messages.success(request, f"'{program.name}' 과정의 학습 기록을 처음부터 다시 시작할 수 있도록 초기화했습니다.")
+    return redirect("course_home", program_id=program.id)
+
 def course_curriculum_preview(request, program_id):
     program = get_object_or_404(LearningProgram, id=program_id)
     chapters = list(Chapter.objects.filter(program=program).order_by("number").prefetch_related('items'))

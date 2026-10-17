@@ -55,6 +55,7 @@ urlpatterns = [
     
     # 학습 흐름
     path('<int:program_id>/', views.course_home, name='course_home'),
+    path('<int:program_id>/reset/', views.reset_program_progress, name='reset_program_progress'),
     path('program/<int:program_id>/curriculum/', views.course_curriculum_preview, name='course_curriculum_preview'),
     path('chapter/<int:chapter_id>/', views.chapter_detail, name='chapter_detail'),
     path('item/<int:item_id>/', views.item_page, name='item_page'),
