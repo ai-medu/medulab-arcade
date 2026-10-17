@@ -918,6 +918,15 @@ def safe_exec(code, input_str=""):
             "zip": zip,
             "input": MockInput(input_str),
             "type": type,
+            "ord": ord,
+            "chr": chr,
+            "bool": bool,
+            "all": all,
+            "any": any,
+            "reversed": reversed,
+            "pow": pow,
+            "divmod": divmod,
+            "isinstance": isinstance,
         }
         exec(code, {"__builtins__": allowed_builtins})
         output = captured.getvalue()
