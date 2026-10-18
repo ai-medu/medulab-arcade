@@ -2074,6 +2074,14 @@ def item_page(request, item_id):
         except (TypeError, ValueError, json.JSONDecodeError):
             feedback_data = None
 
+    chapter_title = item.chapter.title or ""
+    is_mock_exam = "모의고사" in chapter_title
+    exam_minutes = None
+    if is_mock_exam:
+        minute_match = re.search(r"(\d+)\s*분", item.chapter.content or "") or re.search(r"(\d+)\s*분", program.description or "")
+        if minute_match:
+            exam_minutes = int(minute_match.group(1))
+
     return render(request, template_name, {
         "item": item,
         "prev_item": prev_item,
@@ -2099,6 +2107,8 @@ def item_page(request, item_id):
         "olympiad_feedback_sections": olympiad_feedback_sections,
         "sub_questions": sub_questions,
         "no_coding": not item.requires_coding,
+        "is_mock_exam": is_mock_exam,
+        "exam_minutes": exam_minutes,
     })
 
 

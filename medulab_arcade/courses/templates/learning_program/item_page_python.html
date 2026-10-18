@@ -392,6 +392,9 @@
     <section class="panel panel-center">
         <div class="panel-header">
             <span>{% if item.item_type == 'objective' %}OBJECTIVE CHECKER{% else %}PYTHON 3 EDITOR{% endif %}</span>
+            {% if is_mock_exam and exam_minutes %}
+                <span id="exam-timer-badge" style="font-size: 12px; font-weight: 800; color: var(--accent-blue);">⏱ --:--</span>
+            {% endif %}
             {% if user_progress.completed %}
                 <span id="status-text" style="color: var(--accent-green); font-size: 10px;">● COMPLETED</span>
             {% else %}
@@ -461,6 +464,39 @@
 <script>
     const isObjective = {{ is_objective|yesno:'true,false' }};
     const objectiveNextUrl = `{% if next_item %}{% url 'item_page' next_item.id %}{% endif %}`;
+
+    {% if is_mock_exam and exam_minutes %}
+    (function () {
+        const badge = document.getElementById('exam-timer-badge');
+        if (!badge) return;
+        const key = 'examDeadline_{{ item.chapter.id }}';
+        const totalSeconds = {{ exam_minutes }} * 60;
+        let deadline = parseInt(sessionStorage.getItem(key), 10);
+        if (!deadline) {
+            deadline = Date.now() + totalSeconds * 1000;
+            sessionStorage.setItem(key, String(deadline));
+        }
+
+        function pad(n) { return String(n).padStart(2, '0'); }
+
+        function tick() {
+            const remain = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+            const m = Math.floor(remain / 60);
+            const s = remain % 60;
+            badge.textContent = '⏱ ' + pad(m) + ':' + pad(s);
+            if (remain <= 0) {
+                badge.textContent = '⏱ 시험시간 종료';
+                badge.style.color = '#ef4444';
+                clearInterval(timer);
+            } else if (remain <= 300) {
+                badge.style.color = '#f59e0b';
+            }
+        }
+
+        tick();
+        const timer = setInterval(tick, 1000);
+    })();
+    {% endif %}
 
     // Ace Editor 초기화
     var editor = null;
