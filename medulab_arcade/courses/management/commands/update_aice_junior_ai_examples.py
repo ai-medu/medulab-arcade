@@ -40,9 +40,10 @@ OLD_BLOCK = """<div style="display:flex;flex-direction:column;gap:14px;margin:16
 def youtube_embed(video_id):
     return (
         '<div style="position:relative;width:100%;padding-top:56.25%;margin-top:12px;border-radius:10px;overflow:hidden;">'
-        f'<iframe src="https://www.youtube.com/embed/{video_id}" '
+        f'<iframe src="https://www.youtube.com/embed/{video_id}" title="YouTube video player" '
         'style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;" '
         'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" '
+        'referrerpolicy="strict-origin-when-cross-origin" '
         'allowfullscreen loading="lazy"></iframe>'
         "</div>"
     )
