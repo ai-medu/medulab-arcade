@@ -1290,6 +1290,10 @@ def student_course_list(request):
             Q(program_type=coding_type)
             & (Q(name__icontains="로봇") | Q(name__icontains="프로보") | Q(name__icontains="connect") | Q(name__icontains="커넥트") | Q(description__icontains="로봇") | Q(description__icontains="프로보") | Q(description__icontains="connect") | Q(description__icontains="커넥트"))
         )
+    elif selected_program_type == "ai":
+        all_programs = all_programs.filter(
+            Q(name__icontains="ai") | Q(program_type__name__icontains="ai") | Q(description__icontains="ai")
+        )
     elif selected_program_type == "completed":
         pass
     elif selected_program_type.isdigit() and int(selected_program_type) in contest_prep_ids:
@@ -1381,7 +1385,20 @@ def student_course_list(request):
     program_filters = []
     contest_filter_added = False
     contest_type_map = {program_type.id: program_type for program_type in available_program_types}
+    ai_filter_added = False
     for program_type in available_program_types:
+        if program_type.name == "로봇코딩" and not ai_filter_added:
+            program_filters.append({
+                "group_ids": [],
+                "buttons": [
+                    {
+                        "value": "ai",
+                        "label": "AI",
+                        "active": selected_program_type == "ai",
+                    },
+                ],
+            })
+            ai_filter_added = True
         if coding_type and program_type.id == coding_type.id:
             program_filters.append({
                 "group_ids": [program_type.id],

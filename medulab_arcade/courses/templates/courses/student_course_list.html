@@ -368,6 +368,7 @@
         <div class="filter-buttons" id="program-filter-buttons">
             <a href="{% url 'student_course_list' %}{% if viewing_child %}?child_id={{ viewing_child.id }}{% endif %}" class="filter-button {% if not selected_program_type %}active{% endif %}">전체</a>
             <a href="{% url 'student_course_list' %}?program_type=enrolled{% if viewing_child %}&child_id={{ viewing_child.id }}{% endif %}" class="filter-button {% if selected_program_type == 'enrolled' %}active{% endif %}">수강중인 과정</a>
+            <a href="{% url 'student_course_list' %}?program_type=completed{% if viewing_child %}&child_id={{ viewing_child.id }}{% endif %}" class="filter-button {% if selected_program_type == 'completed' %}active{% endif %}">이수과정</a>
             {% for filter_group in program_filters %}
                 <div
                     class="filter-group {% if user.is_staff %}is-draggable{% endif %}"
@@ -381,10 +382,9 @@
                     {% endfor %}
                 </div>
             {% endfor %}
-            <a href="{% url 'student_course_list' %}?program_type=completed{% if viewing_child %}&child_id={{ viewing_child.id }}{% endif %}" class="filter-button {% if selected_program_type == 'completed' %}active{% endif %}">이수과정</a>
         </div>
         {% if user.is_staff %}
-        <div class="admin-sort-note">관리자는 필터 묶음을 드래그해서 순서를 저장할 수 있습니다. `전체`는 맨 앞, `이수과정`은 맨 뒤에 고정됩니다.</div>
+        <div class="admin-sort-note">관리자는 필터 묶음을 드래그해서 순서를 저장할 수 있습니다. `전체`, `수강중인 과정`, `이수과정`은 맨 앞에 고정됩니다.</div>
         {% endif %}
     </section>
     {% endif %}
