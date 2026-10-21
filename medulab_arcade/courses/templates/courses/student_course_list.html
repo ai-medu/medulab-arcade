@@ -367,6 +367,7 @@
         <div class="filter-title">교육프로그램 필터</div>
         <div class="filter-buttons" id="program-filter-buttons">
             <a href="{% url 'student_course_list' %}{% if viewing_child %}?child_id={{ viewing_child.id }}{% endif %}" class="filter-button {% if not selected_program_type %}active{% endif %}">전체</a>
+            <a href="{% url 'student_course_list' %}?program_type=enrolled{% if viewing_child %}&child_id={{ viewing_child.id }}{% endif %}" class="filter-button {% if selected_program_type == 'enrolled' %}active{% endif %}">수강중인 과정</a>
             {% for filter_group in program_filters %}
                 <div
                     class="filter-group {% if user.is_staff %}is-draggable{% endif %}"

@@ -1356,6 +1356,8 @@ def student_course_list(request):
 
     if selected_program_type == "completed":
         all_programs = all_programs.filter(id__in=completed_program_ids)
+    elif selected_program_type == "enrolled":
+        all_programs = all_programs.filter(id__in=enrolled_ids)
 
     programs = list(all_programs)
     for program in programs:
