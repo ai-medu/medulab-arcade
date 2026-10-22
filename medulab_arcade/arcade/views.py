@@ -27,7 +27,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required, user_passes_test
 from .badge_service import get_active_badges_with_user_state, get_recent_user_badges, get_user_badge_count
-from .models import Badge, Project, Category, Like, Bookmark, Tag, UserProfile, EmailChangeRequest, SignupEmailVerification, ScheduleAttachment, ScheduleEvent, Notice, Award, Certification, CertInfo, CompetitionType, Contest, SchoolClass, ClassEnrollment, ParentChildLink, TuitionInvoice, ClassAttendance, TuitionBatchPayment, InstagramConfig, InstagramPost, InstagramUploadDraft, InstagramUploadDraftItem, FutureCareerSave, ContentFinderSubmission, ContentIdeaThumbnailSubmission, AIPromptCardOrder, ContentFinderDraft, ContentIdeaFinderDraft, ContentPlanDraft, ChannelBrandingDraft
+from .models import ClassDiscountType, Badge, Project, Category, Like, Bookmark, Tag, UserProfile, EmailChangeRequest, SignupEmailVerification, ScheduleAttachment, ScheduleEvent, Notice, Award, Certification, CertInfo, CompetitionType, Contest, SchoolClass, ClassEnrollment, ParentChildLink, TuitionInvoice, ClassAttendance, TuitionBatchPayment, InstagramConfig, InstagramPost, InstagramUploadDraft, InstagramUploadDraftItem, FutureCareerSave, ContentFinderSubmission, ContentIdeaThumbnailSubmission, AIPromptCardOrder, ContentFinderDraft, ContentIdeaFinderDraft, ContentPlanDraft, ChannelBrandingDraft
 from .forms import ProjectUploadForm, SignUpForm, AdminUserForm, AdminUserProfileForm, BadgeForm, ScheduleEventForm, TimetableForm, UserProfileUpdateForm, MedulabParentUpgradeForm, SocialOnboardingForm, SchoolClassForm
 from .holiday_utils import ensure_holidays
 
@@ -3525,6 +3525,7 @@ def _class_modal_payload(school_class):
     ]
     return {
         'ok': True,
+        'discount_types': _discount_types_payload(),
         'class': {'id': school_class.id, 'name': school_class.name, 'tuition_fee': school_class.tuition_fee},
         'enrollments': enrollments,
         'invoices': invoices,
@@ -3547,18 +3548,18 @@ def _json_body(request):
         return {}
 
 
-# 배정 시 입력받는 할인 (사유 → 고정 금액). None 이면 금액을 직접 입력
-CLASS_DISCOUNT_FIXED = {'2인이상': 10000, '형제할인': 10000}
 CLASS_DISCOUNT_MAX = 10_000_000
 
 
 def _clean_enroll_discount(reason, amount):
-    """할인 사유/금액 검증. (사유, 금액, 오류메시지) — 사유가 비면 할인 없음(0원)"""
+    """할인 사유/금액 검증. (사유, 금액, 오류메시지) — 사유가 비면 할인 없음(0원).
+    관리자가 등록한 할인 사유 중 금액이 정해진 것은 그 금액으로 고정한다."""
     reason = (reason or '').strip()[:50]
     if not reason:
         return '', 0, None
-    if reason in CLASS_DISCOUNT_FIXED:
-        return reason, CLASS_DISCOUNT_FIXED[reason], None
+    fixed_amount = ClassDiscountType.objects.filter(name=reason, amount__gt=0).values_list('amount', flat=True).first()
+    if fixed_amount:
+        return reason, fixed_amount, None
     try:
         amount = int(str(amount).replace(',', '').strip() or 0)
     except (TypeError, ValueError):
@@ -3568,6 +3569,10 @@ def _clean_enroll_discount(reason, amount):
     if amount == 0:
         return '', 0, '할인 금액을 입력해 주세요. (할인이 없으면 사유를 "할인 없음"으로 두세요)'
     return reason, amount, None
+
+
+def _discount_types_payload():
+    return [{'id': t.id, 'name': t.name, 'amount': t.amount} for t in ClassDiscountType.objects.all()]
 
 
 @login_required
@@ -3621,6 +3626,85 @@ def class_modal_enrollment_discount(request, class_id, enrollment_id):
     payload = _class_modal_payload(school_class)
     payload['message'] = (f'할인을 저장했습니다. ({reason} -{amount:,}원) 다음 청구서 생성부터 반영돼요.'
                           if amount else '할인을 없앴습니다.')
+    return JsonResponse(payload)
+
+
+def _discount_manage_payload():
+    usage = dict(
+        ClassEnrollment.objects.filter(is_active=True).exclude(discount_reason='')
+        .values_list('discount_reason').annotate(n=Count('id')).values_list('discount_reason', 'n')
+    )
+    return {
+        'ok': True,
+        'types': [
+            {'id': t.id, 'name': t.name, 'amount': t.amount, 'usage': usage.get(t.name, 0)}
+            for t in ClassDiscountType.objects.all()
+        ],
+    }
+
+
+@login_required
+@user_passes_test(staff_check)
+def class_discount_list(request):
+    """할인 관리 창에 보여줄 할인 사유 목록(JSON)"""
+    return JsonResponse(_discount_manage_payload())
+
+
+@login_required
+@user_passes_test(staff_check)
+@require_POST
+def class_discount_save(request):
+    """할인 사유 추가(id 없음) / 수정(id 있음). 금액 0 = 배정할 때 직접 입력."""
+    body = _json_body(request)
+    name = (body.get('name') or '').strip()[:30]
+    if not name:
+        return JsonResponse({'ok': False, 'error': '할인 사유 이름을 입력해 주세요.'}, status=400)
+    if name in ('직접입력', '__custom'):
+        return JsonResponse({'ok': False, 'error': '"직접입력"은 기본으로 들어 있어서 따로 만들 수 없어요.'}, status=400)
+    try:
+        amount = int(str(body.get('amount') or 0).replace(',', '').strip() or 0)
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': '할인 금액을 숫자로 입력해 주세요.'}, status=400)
+    if amount < 0 or amount > CLASS_DISCOUNT_MAX:
+        return JsonResponse({'ok': False, 'error': '할인 금액이 올바르지 않습니다.'}, status=400)
+
+    type_id = body.get('id')
+    if type_id:
+        dtype = get_object_or_404(ClassDiscountType, pk=type_id)
+        if ClassDiscountType.objects.filter(name=name).exclude(pk=dtype.pk).exists():
+            return JsonResponse({'ok': False, 'error': '같은 이름의 할인 사유가 이미 있어요.'}, status=400)
+        old_name, old_amount = dtype.name, dtype.amount
+        dtype.name, dtype.amount = name, amount
+        dtype.save()
+        msg = f'"{name}"을 수정했습니다.'
+        # 이름이 바뀌면 이미 배정된 학생의 사유 표시도 함께 바꾼다
+        if old_name != name:
+            ClassEnrollment.objects.filter(discount_reason=old_name).update(discount_reason=name)
+        # 금액이 정해진 유형은 원하면 기존 배정 학생에게도 새 금액을 적용
+        if body.get('apply_existing') and amount:
+            n = ClassEnrollment.objects.filter(discount_reason=name, is_active=True).update(discount_amount=amount)
+            msg += f' (기존 배정 {n}명에게도 {amount:,}원을 적용했어요. 이미 만든 청구서는 그대로예요.)'
+    else:
+        if ClassDiscountType.objects.filter(name=name).exists():
+            return JsonResponse({'ok': False, 'error': '같은 이름의 할인 사유가 이미 있어요.'}, status=400)
+        last = ClassDiscountType.objects.order_by('-display_order').values_list('display_order', flat=True).first() or 0
+        ClassDiscountType.objects.create(name=name, amount=amount, display_order=last + 1)
+        msg = f'할인 사유 "{name}"을 추가했습니다.'
+    payload = _discount_manage_payload()
+    payload['message'] = msg
+    return JsonResponse(payload)
+
+
+@login_required
+@user_passes_test(staff_check)
+@require_POST
+def class_discount_delete(request, type_id):
+    """할인 사유 삭제 (이미 배정된 학생의 할인 기록은 그대로 남는다)"""
+    dtype = get_object_or_404(ClassDiscountType, pk=type_id)
+    name = dtype.name
+    dtype.delete()
+    payload = _discount_manage_payload()
+    payload['message'] = f'"{name}"을 삭제했습니다. (이미 배정된 학생의 할인은 그대로 유지돼요)'
     return JsonResponse(payload)
 
 

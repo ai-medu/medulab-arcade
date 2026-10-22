@@ -155,7 +155,10 @@
 <div class="admin-wrap">
     <div class="page-header">
         <h1 class="page-title">🏫 수업 관리</h1>
-        <a href="{% url 'class_admin_create' %}" class="add-btn">+ 신규 수업 등록</a>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button type="button" class="add-btn" style="background:rgba(244,114,182,0.15); color:#f472b6; border:1px solid rgba(244,114,182,0.4); cursor:pointer;" onclick="openDiscountManager()">💸 할인 관리</button>
+            <a href="{% url 'class_admin_create' %}" class="add-btn">+ 신규 수업 등록</a>
+        </div>
     </div>
 
     <form class="filter-bar" method="GET" id="class-filter-form">
@@ -274,6 +277,30 @@
             </tbody>
             {% endfor %}
         </table>
+    </div>
+</div>
+
+<div class="cm-overlay" id="dmOverlay" onclick="if(event.target===this) closeDiscountManager();">
+    <div class="cm-box" style="max-width:640px;">
+        <button type="button" class="cm-close" onclick="closeDiscountManager()">×</button>
+        <h3 class="cm-title">💸 할인 관리</h3>
+        <p class="cm-sub">학생을 수업에 배정할 때 고를 수 있는 <strong>할인 사유</strong>를 추가·수정·삭제해요. 금액을 비우면(0) 배정할 때 금액을 직접 입력해요.</p>
+        <div class="cm-msg" id="dmMsg"></div>
+        <div class="cm-disc-box">
+            <div class="cm-disc-title">＋ 새 할인 사유 추가</div>
+            <div class="cm-disc-row">
+                <div><label>사유 이름</label><input type="text" id="dmNewName" class="cm-input" maxlength="30" placeholder="예: 형제할인"></div>
+                <div><label>고정 금액(원) <span style="font-weight:500;">· 비우면 직접 입력</span></label><input type="number" id="dmNewAmount" class="cm-input" min="0" step="1000" placeholder="예: 20000"></div>
+                <div style="display:flex; align-items:flex-end;"><button type="button" class="cm-btn primary" style="width:100%;" onclick="dmAdd()">추가</button></div>
+            </div>
+        </div>
+        <div class="cm-tbl-scroll">
+            <table class="cm-table cm-enroll-table">
+                <thead><tr><th>할인 사유</th><th>금액</th><th>적용 중 학생</th><th></th></tr></thead>
+                <tbody id="dmBody"></tbody>
+            </table>
+        </div>
+        <p class="cm-disc-hint" style="margin-top:12px;">· 사유를 <strong>삭제해도</strong> 이미 배정된 학생의 할인은 그대로 남아요.<br>· 금액을 바꾸면 <strong>새로 배정하는 학생</strong>부터 적용돼요. (기존 학생에게도 적용할지는 수정할 때 고를 수 있어요)</p>
     </div>
 </div>
 
@@ -400,17 +427,13 @@ document.addEventListener('DOMContentLoaded', function () {
 (function () {
     var CSRF = '{{ csrf_token }}';
     var cur = null, data = null, editingId = null, selected = new Map(), timer = null, editingDiscId = null;
-    // 할인 사유 프리셋: amt 가 있으면 고정 금액, 없으면 금액을 직접 입력 (custom=사유도 직접 입력)
-    var DISC = [
-        { key: '', label: '할인 없음' },
-        { key: '2인이상', label: '2인이상 (10,000원)', amt: 10000 },
-        { key: '형제할인', label: '형제할인 (10,000원)', amt: 10000 },
-        { key: '친구소개', label: '친구소개' },
-        { key: '장기수강', label: '장기수강' },
-        { key: '조기등록', label: '조기등록' },
-        { key: '장학/특별', label: '장학/특별' },
-        { key: '__custom', label: '직접입력', custom: true }
-    ];
+    // 할인 사유 목록은 서버(할인 관리)에서 받아 온다. amt 가 있으면 고정 금액, 없으면 금액 직접 입력, custom=사유까지 직접 입력
+    var DISC = [{ key: '', label: '할인 없음' }, { key: '__custom', label: '직접입력', custom: true }];
+    function buildDisc(types) {
+        DISC = [{ key: '', label: '할인 없음' }].concat((types || []).map(function (t) {
+            return t.amount ? { key: t.name, label: t.name + ' (' + Number(t.amount).toLocaleString('ko-KR') + '원)', amt: t.amount } : { key: t.name, label: t.name };
+        })).concat([{ key: '__custom', label: '직접입력', custom: true }]);
+    }
     function discOptions(selectedKey) {
         return DISC.map(function (d) { return '<option value="' + esc(d.key) + '"' + (d.key === selectedKey ? ' selected' : '') + '>' + esc(d.label) + '</option>'; }).join('');
     }
@@ -449,6 +472,7 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     function render() {
+        buildDisc(data.discount_types);
         $('cmTitle').textContent = data.class.name;
         $('cmSub').textContent = '수업비 ' + won(data.class.tuition_fee) + ' · 배정 ' + data.enrollments.length + '명 · 청구서 ' + data.invoices.length + '건';
         $('cmEnrollBody').innerHTML = data.enrollments.map(function (e) {
@@ -468,7 +492,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 '<td>' + discCell + '</td>' +
                 '<td style="text-align:right"><button class="cm-btn sm danger" onclick="cmUnenroll(' + e.id + ')">해제</button></td></tr>';
         }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px;">배정된 학생이 없습니다.</td></tr>';
-        if (!$('cmDiscReason').options.length) { $('cmDiscReason').innerHTML = discOptions(''); newDiscSync(); }
+        buildDisc(data.discount_types);
+        $('cmDiscReason').innerHTML = discOptions(''); newDiscSync();
 
         $('cmInvStudent').innerHTML = data.enrollments.map(function (e) { return '<option value="' + e.student_id + '">' + esc(e.name) + '</option>'; }).join('');
         $('cmInvBody').innerHTML = data.invoices.map(function (v) {
@@ -589,6 +614,47 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && $('classModalOverlay').classList.contains('show')) closeClassModal(); });
+
+    // ───────── 할인 관리 ─────────
+    var dm = { types: [], editing: null };
+    function dmSay(text, isErr) { var m = $('dmMsg'); m.textContent = text || ''; m.className = 'cm-msg' + (isErr ? ' err' : ''); }
+    function dmRender() {
+        $('dmBody').innerHTML = dm.types.map(function (t) {
+            if (dm.editing === t.id) {
+                return '<tr><td><input type="text" class="cm-input" id="dmEdName" maxlength="30" value="' + esc(t.name) + '" style="height:32px;"></td>' +
+                    '<td><input type="number" class="cm-input" id="dmEdAmount" min="0" step="1000" value="' + (t.amount || '') + '" placeholder="직접 입력" style="height:32px;min-width:110px;">' +
+                    '<label style="display:flex;gap:6px;align-items:center;font-size:12px;margin-top:6px;white-space:normal;"><input type="checkbox" id="dmEdApply"> 기존 배정 학생(' + t.usage + '명)에게도 적용</label></td>' +
+                    '<td>' + t.usage + '명</td>' +
+                    '<td style="text-align:right;"><button class="cm-btn sm primary" onclick="dmSave(' + t.id + ')">저장</button> <button class="cm-btn sm" onclick="dmEdit(null)">취소</button></td></tr>';
+            }
+            return '<tr><td><strong>' + esc(t.name) + '</strong></td>' +
+                '<td>' + (t.amount ? '<span class="disc-chip">−' + won(t.amount) + '</span>' : '<span class="disc-none">직접 입력</span>') + '</td>' +
+                '<td>' + t.usage + '명</td>' +
+                '<td style="text-align:right;white-space:nowrap;"><button class="cm-btn sm" onclick="dmEdit(' + t.id + ')">수정</button> <button class="cm-btn sm danger" onclick="dmDelete(' + t.id + ')">삭제</button></td></tr>';
+        }).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:24px;">등록된 할인 사유가 없습니다. 위에서 추가해 주세요.</td></tr>';
+    }
+    function dmDone(j) { dm.types = j.types; dm.editing = null; dmRender(); dmSay(j.message || ''); }
+    function dmFail(e) { dmSay(e.message, true); }
+    window.openDiscountManager = function () {
+        dmSay(''); dm.editing = null;
+        $('dmOverlay').classList.add('show');
+        api('/admin-services/classes/discounts/').then(dmDone).catch(dmFail);
+    };
+    window.closeDiscountManager = function () { $('dmOverlay').classList.remove('show'); };
+    window.dmEdit = function (id) { dm.editing = id; dmRender(); };
+    window.dmAdd = function () {
+        api('/admin-services/classes/discounts/save/', { name: $('dmNewName').value, amount: $('dmNewAmount').value })
+            .then(function (j) { $('dmNewName').value = ''; $('dmNewAmount').value = ''; dmDone(j); }).catch(dmFail);
+    };
+    window.dmSave = function (id) {
+        api('/admin-services/classes/discounts/save/', { id: id, name: $('dmEdName').value, amount: $('dmEdAmount').value, apply_existing: $('dmEdApply').checked }).then(dmDone).catch(dmFail);
+    };
+    window.dmDelete = function (id) {
+        var t = dm.types.filter(function (x) { return x.id === id; })[0];
+        if (!confirm('"' + (t ? t.name : '') + '" 할인 사유를 삭제할까요?\n(이미 배정된 학생의 할인은 그대로 유지됩니다)')) return;
+        api('/admin-services/classes/discounts/' + id + '/delete/', {}).then(dmDone).catch(dmFail);
+    };
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && $('dmOverlay').classList.contains('show')) closeDiscountManager(); });
 })();
 </script>
 {% endblock %}

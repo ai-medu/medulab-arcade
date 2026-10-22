@@ -525,6 +525,22 @@ class ClassEnrollment(models.Model):
         return f'{self.student.username} - {self.school_class.name}'
 
 
+class ClassDiscountType(models.Model):
+    """수업 배정 시 고르는 할인 사유 (관리자가 추가/수정/삭제). amount 가 0이면 금액을 직접 입력받는 유형."""
+    name = models.CharField('할인 사유', max_length=30, unique=True)
+    amount = models.PositiveIntegerField('할인 금액(원)', default=0, help_text='0이면 배정할 때 금액을 직접 입력합니다.')
+    display_order = models.PositiveIntegerField('표시 순서', default=0)
+    created_at = models.DateTimeField('등록일', auto_now_add=True)
+
+    class Meta:
+        verbose_name = '할인 사유'
+        verbose_name_plural = '할인 사유'
+        ordering = ['display_order', 'id']
+
+    def __str__(self):
+        return f'{self.name} ({self.amount:,}원)' if self.amount else f'{self.name} (직접 입력)'
+
+
 class ClassAttendance(models.Model):
     enrollment = models.ForeignKey(ClassEnrollment, on_delete=models.CASCADE, related_name='attendance_records', verbose_name='수업 배정')
     date = models.DateField('수업일')
