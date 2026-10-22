@@ -2915,7 +2915,17 @@ def member_edit(request, user_id):
         children_rows.append({'info': child, 'link': match})
     extra_links = [l for l in child_links if l.id not in matched_link_ids]
 
+    # 자녀 추가 직후 '저장하고 바로 매칭'으로 넘어온 경우 해당 자녀의 매칭 창을 바로 연다
+    auto_match = None
+    try:
+        match_idx = int(request.GET.get('match_idx', ''))
+        if 0 <= match_idx < len(children_info):
+            auto_match = children_info[match_idx]
+    except (TypeError, ValueError):
+        pass
+
     context = {
+        'auto_match': auto_match,
         'user_form': user_form,
         'profile_form': profile_form,
         'target_user': target_user,
@@ -2999,6 +3009,57 @@ def member_create_child(request, user_id):
         parent=parent_user, child=child_user, defaults={'linked_by': request.user}
     )
     messages.success(request, f'"{child_name or username}" 학생 계정을 새로 만들어 연결했습니다.')
+    return redirect('member_edit', user_id=parent_user.id)
+
+
+@login_required
+@user_passes_test(staff_check)
+@require_POST
+def member_add_child_info(request, user_id):
+    """학부모 계정에 자녀 정보(이름·생년월일·학교·학년)를 관리자가 직접 추가"""
+    parent_user = get_object_or_404(User, pk=user_id)
+    profile, _ = UserProfile.objects.get_or_create(user=parent_user)
+    if profile.user_type not in ('parent', 'medulab_parent'):
+        messages.error(request, '학부모 계정에서만 자녀를 추가할 수 있습니다.')
+        return redirect('member_edit', user_id=parent_user.id)
+
+    name = (request.POST.get('name') or '').strip()[:50]
+    if not name:
+        messages.error(request, '자녀 이름을 입력해 주세요.')
+        return redirect('member_edit', user_id=parent_user.id)
+
+    children = list(profile.children_info) if isinstance(profile.children_info, list) else []
+    children.append({
+        'name': name,
+        'birth_date': (request.POST.get('birth_date') or '').strip()[:20],
+        'school': (request.POST.get('school') or '').strip()[:50],
+        'grade': (request.POST.get('grade') or '').strip()[:10],
+    })
+    profile.children_info = children
+    profile.save(update_fields=['children_info'])
+    messages.success(request, f'자녀 "{name}" 정보를 추가했습니다.')
+
+    url = reverse('member_edit', args=[parent_user.id])
+    if request.POST.get('then') == 'match':
+        url += f'?match_idx={len(children) - 1}'
+    return redirect(url)
+
+
+@login_required
+@user_passes_test(staff_check)
+@require_POST
+def member_remove_child_info(request, user_id, index):
+    """학부모 계정의 자녀 정보 한 줄 삭제 (이미 연결된 학생 계정은 그대로 유지)"""
+    parent_user = get_object_or_404(User, pk=user_id)
+    profile, _ = UserProfile.objects.get_or_create(user=parent_user)
+    children = list(profile.children_info) if isinstance(profile.children_info, list) else []
+    if 0 <= index < len(children):
+        removed = children.pop(index)
+        profile.children_info = children or None
+        profile.save(update_fields=['children_info'])
+        messages.success(request, f'자녀 정보 "{removed.get("name", "")}"를 삭제했습니다. (연결된 학생 계정은 그대로예요)')
+    else:
+        messages.error(request, '삭제할 자녀 정보를 찾을 수 없습니다.')
     return redirect('member_edit', user_id=parent_user.id)
 
 
