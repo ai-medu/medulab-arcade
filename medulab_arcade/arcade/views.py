@@ -6758,7 +6758,7 @@ def _render_staff_student_dashboard(request):
                 'show_assign': bool(all_classes),
             })
 
-    total_students = len(students)
+    total_students = len(assigned_student_ids)  # 수강중(활성 수업 배정이 있는) 학생 수
     today_attended_count = len(today_attended_ids)
     today_scheduled_count = len(today_scheduled_ids)
     pending_approval_count = UserProfile.objects.filter(
