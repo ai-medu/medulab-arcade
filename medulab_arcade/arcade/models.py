@@ -976,6 +976,20 @@ class AvatarDraft(models.Model):
         return f"{self.user.username} 아바타 초안"
 
 
+class SelfExplorationDraft(models.Model):
+    """'자기탐색' 도구 임시저장 (my_avatar/AvatarDraft를 복제한 독립 페이지, 서로 영향 없음)"""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='self_exploration_draft')
+    data = models.JSONField(default=dict)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = '자기탐색 임시저장'
+        verbose_name_plural = '자기탐색 임시저장'
+
+    def __str__(self):
+        return f"{self.user.username} 자기탐색 초안"
+
+
 # '학원입니까?' 모달은 로그인 시점이 아니라 매 요청마다 arcade.context_processors.checkin_modal에서
 # "오늘 출석 기록이 아직 없는가"를 직접 확인해 표시 여부를 정한다(새로고침으로 건너뛰지 못하도록).
 # 로그인 자체는 더 이상 어떤 출석 기록도 만들지 않는다.

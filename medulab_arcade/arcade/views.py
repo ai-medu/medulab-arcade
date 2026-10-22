@@ -100,6 +100,16 @@ AI_PROMPT_CARDS = [
         'desc': '나의 성격·꿈·취미를 입력하면 나만의 아바타 이미지 프롬프트가 완성돼요.',
     },
     {
+        'key': 'self_exploration', 'url_name': 'self_exploration', 'icon_class': 'icon-avatar', 'icon': '🧭',
+        'title': '자기탐색',
+        'desc': '질문에 답하며 나를 더 잘 알아가는 자기탐색 결과와 프롬프트가 완성돼요.',
+    },
+    {
+        'key': 'gwangju_view', 'url_name': 'gwangju_view', 'icon_class': 'icon-local', 'icon': '🏙️',
+        'title': '광주를 본다',
+        'desc': 'AI와 광주 AI 산업, 지역자원을 소개하고 알아보는 페이지예요.',
+    },
+    {
         'key': 'team_name', 'url_name': 'team_name', 'icon_class': 'icon-team', 'icon': '🔤',
         'title': '조이름 만들기',
         'desc': '팀의 특징과 키워드를 입력하면 멋진 조이름 후보를 만들어 드려요.',
@@ -1373,6 +1383,39 @@ def api_avatar_draft_save(request):
         return JsonResponse({'ok': False, 'error': 'invalid json'}, status=400)
     AvatarDraft.objects.update_or_create(user=request.user, defaults={'data': data})
     return JsonResponse({'ok': True})
+
+
+def self_exploration(request):
+    """'자기탐색' - my_avatar를 복제한 독립 페이지 (수정해도 AI 아바타 만들기에 영향 없음)"""
+    from .models import SelfExplorationDraft
+    draft_data = {}
+    if request.user.is_authenticated:
+        try:
+            draft_data = request.user.self_exploration_draft.data
+        except SelfExplorationDraft.DoesNotExist:
+            pass
+    return render(request, 'arcade/self_exploration.html', {
+        'draft_data': json.dumps(draft_data),
+        'user_authenticated': request.user.is_authenticated,
+    })
+
+
+@require_POST
+def api_self_exploration_draft_save(request):
+    from .models import SelfExplorationDraft
+    if not request.user.is_authenticated:
+        return JsonResponse({'ok': False, 'error': 'login required'}, status=401)
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'invalid json'}, status=400)
+    SelfExplorationDraft.objects.update_or_create(user=request.user, defaults={'data': data})
+    return JsonResponse({'ok': True})
+
+
+def gwangju_view(request):
+    """'광주를 본다' - 광주 AI 산업/지역자원 소개 페이지 (준비 중, 빈 페이지)"""
+    return render(request, 'arcade/gwangju_view.html')
 
 
 def schedule_view(request):

@@ -10,7 +10,7 @@ FEATURED_PROGRAM = {
     'title': 'AI로 발견하는 광주 미래직업 지역문제 해결캠프', 'tag': '캠프', 'icon': '🏕️',
     'grades': '중·고', 'duration': '90분~2시간',
     'desc': '광주 지역의 문제를 AI로 분석하고, 나의 미래직업과 연결지어 해결 아이디어를 기획하는 캠프 프로그램입니다.',
-    'tools': ['my_avatar', 'local_problem_finder', 'camp_planner', 'ai_website_builder'],
+    'tools': ['gwangju_view', 'local_problem_finder', 'self_exploration', 'camp_planner', 'ai_website_builder'],
 }
 
 AI_PROGRAMS = [

@@ -1,0 +1,28 @@
+{% extends 'arcade/base.html' %}
+{% load static %}
+
+{% block title %}광주를 본다 - AI 프롬프트 생성기 - 메듀랩{% endblock %}
+
+{% block extra_css %}
+<style>
+  :root { --purple:#8C6BFA; --blue:#3FA9F5; --ink:#2E2A4A; }
+  body { background: linear-gradient(150deg, #FFF6FB 0%, #F1F0FF 45%, #EAF7FF 100%) !important; color: var(--ink); }
+  .gv-wrap { max-width: 720px; margin: 0 auto; padding: 60px 20px 100px; text-align: center; }
+  .gv-back { display:inline-flex; align-items:center; gap:6px; color:var(--purple); font-weight:700; font-size:14px; text-decoration:none; margin-bottom:30px; }
+  .gv-back:hover { text-decoration:underline; }
+  .gv-badge { display:inline-block; background:linear-gradient(120deg,var(--purple),var(--blue)); color:#fff; font-size:13px; font-weight:bold; letter-spacing:1px; padding:5px 16px; border-radius:999px; margin-bottom:20px; }
+  .gv-icon { font-size:64px; margin-bottom:16px; }
+  .gv-title { font-size:28px; font-weight:900; margin:0 0 14px; color:var(--ink); }
+  .gv-desc { font-size:15px; color:#7a7498; line-height:1.8; margin:0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="gv-wrap">
+  <a href="{% url 'ai_prompts' %}" class="gv-back">← AI 프롬프트 생성기</a>
+  <div class="gv-badge">🏙️ GWANGJU</div>
+  <div class="gv-icon">🏙️</div>
+  <h1 class="gv-title">광주를 본다</h1>
+  <p class="gv-desc">AI와 광주 AI 산업, 지역자원을 소개하고 알아보는 페이지를 준비하고 있어요.<br>조금만 기다려 주세요!</p>
+</div>
+{% endblock %}
