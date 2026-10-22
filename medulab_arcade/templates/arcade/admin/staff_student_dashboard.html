@@ -51,12 +51,12 @@
     .iv-chip-abs { color:#d97706; font-weight:800; } .iv-chip-disc { color:#ec4899; font-weight:800; }
     .iv-disc-box { padding:10px 12px; border:1px dashed rgba(236,72,153,0.5); border-radius:12px; background:rgba(236,72,153,0.05); }
     .iv-edit-note { font-size:12px; line-height:1.6; color:#d97706; background:rgba(251,191,36,0.12); border-radius:10px; padding:8px 12px; margin-bottom:12px; }
-    .iv-btns { display:flex; gap:10px; }
+    .iv-btns { display:flex; gap:10px; position:sticky; bottom:-26px; margin:0 -26px -26px; padding:12px 26px 18px; background:var(--bg-card); border-top:1px solid var(--border); z-index:2; }
     .iv-btn { flex:1; height:42px; border:none; border-radius:10px; font-weight:800; font-size:14px; cursor:pointer; font-family:inherit; }
     .iv-btn.go { background:var(--accent-green); color:#03140e; }
     .iv-btn.go:disabled { opacity:.5; cursor:not-allowed; }
     .iv-btn.cancel { background:rgba(120,120,160,0.14); color:var(--text-secondary); }
-    .iv-msg { margin-top:10px; font-size:13px; font-weight:700; line-height:1.5; }
+    .iv-msg { margin-top:12px; padding-bottom:6px; font-size:13px; font-weight:700; line-height:1.5; }
     .iv-msg.err { color:#ef4444; } .iv-msg.ok { color:var(--accent-green); }
     .class-chip { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border); background:rgba(255,255,255,0.04); color:inherit; padding:5px 10px; border-radius:10px; font-size:12px; cursor:pointer; font-family:inherit; text-align:left; max-width:290px; }
     .class-chip:hover { border-color:var(--accent-green); background:rgba(0,255,180,0.08); }
@@ -100,7 +100,7 @@
 
     .qp-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; align-items:center; justify-content:center; padding:20px; }
     .qp-modal-overlay.show { display:flex; }
-    .qp-modal-box { background:var(--bg-card); border:1px solid var(--border); border-radius:18px; padding:26px; max-width:400px; width:100%; box-sizing:border-box; position:relative; }
+    .qp-modal-box { background:var(--bg-card); border:1px solid var(--border); border-radius:18px; padding:26px; max-width:400px; width:100%; box-sizing:border-box; position:relative; max-height:92vh; overflow-y:auto; overscroll-behavior:contain; }
     .qp-modal-close { position:absolute; top:14px; right:16px; background:none; border:none; color:var(--text-muted); font-size:20px; cursor:pointer; line-height:1; }
     .qp-modal-close:hover { color:#fff; }
     .qp-modal-box h3 { font-size:15px; font-weight:800; color:#fff; margin-bottom:14px; }
@@ -318,9 +318,9 @@
             {% include 'arcade/admin/_invoice_disc_box.html' with p='iv' %}
             <div class="iv-field"><label>금액(원) <span style="font-weight:500;">· 자동 계산된 값이에요. 필요하면 직접 고칠 수 있어요</span></label><input type="number" id="ivAmount" class="iv-input" min="0"></div>
             <div class="iv-edit-note" id="ivEditNote" style="display:none;">💸 이미 결제된 돈을 <strong>환불</strong>해야 한다면 상태만 바꾸지 말고 <a href="{% url 'tuition_admin_dashboard' %}" style="color:inherit;text-decoration:underline;">납부 관리</a>에서 <strong>"✅ 완납"</strong> 버튼으로 취소해 주세요. (여기서 "취소"로 바꾸면 환불 없이 상태만 바뀝니다)</div>
+            <div class="iv-msg" id="ivMsg"></div>
             <div class="iv-btns"><button type="button" class="iv-btn cancel" onclick="closeInvoiceModal()">닫기</button><button type="button" class="iv-btn go" id="ivSave" onclick="ivSave()">청구서 생성</button></div>
         </div>
-        <div class="iv-msg" id="ivMsg"></div>
     </div>
 </div>
 
