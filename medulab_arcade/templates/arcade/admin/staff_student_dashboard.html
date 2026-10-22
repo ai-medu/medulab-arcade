@@ -49,6 +49,7 @@
     .iv-calc .r { display:flex; justify-content:space-between; gap:10px; }
     .iv-calc .r.total { border-top:1px solid var(--border); margin-top:4px; padding-top:6px; font-weight:900; font-size:14.5px; }
     .iv-chip-abs { color:#d97706; font-weight:800; } .iv-chip-disc { color:#ec4899; font-weight:800; }
+    .iv-disc-box { padding:10px 12px; border:1px dashed rgba(236,72,153,0.5); border-radius:12px; background:rgba(236,72,153,0.05); }
     .iv-btns { display:flex; gap:10px; }
     .iv-btn { flex:1; height:42px; border:none; border-radius:10px; font-weight:800; font-size:14px; cursor:pointer; font-family:inherit; }
     .iv-btn.go { background:var(--accent-green); color:#03140e; }
@@ -311,8 +312,15 @@
             <div class="iv-calc" id="ivCalc">
                 <div class="r"><span>수업비</span><span id="ivBase">-</span></div>
                 <div class="r"><span>전월 결석 차감</span><span id="ivAbs" class="iv-chip-abs">-</span></div>
-                <div class="r"><span>할인</span><span id="ivDisc" class="iv-chip-disc">-</span></div>
                 <div class="r total"><span>청구 금액</span><span id="ivTotal">-</span></div>
+            </div>
+            <div class="iv-field iv-disc-box">
+                <label>💸 할인 <span style="font-weight:500;">· 학생에게 정해진 할인이 기본으로 들어가요. 이번 청구서에서 고칠 수 있어요</span></label>
+                <div class="iv-row">
+                    <select id="ivDiscSel" class="iv-input" onchange="ivDiscChange()"></select>
+                    <input type="number" id="ivDiscAmt" class="iv-input" min="0" step="1000" placeholder="할인 금액(원)" oninput="ivRecalc()">
+                </div>
+                <input type="text" id="ivDiscCustom" class="iv-input" maxlength="50" placeholder="할인 사유를 직접 입력" style="display:none; margin-top:8px;">
             </div>
             <div class="iv-field"><label>금액(원) <span style="font-weight:500;">· 자동 계산된 값이에요. 필요하면 직접 고칠 수 있어요</span></label><input type="number" id="ivAmount" class="iv-input" min="0"></div>
             <div class="iv-btns"><button type="button" class="iv-btn cancel" onclick="closeInvoiceModal()">취소</button><button type="button" class="iv-btn go" id="ivSave" onclick="ivSave()">청구서 생성</button></div>
@@ -493,6 +501,27 @@ function closeInvoiceModal() {
     document.getElementById('invoiceOverlay').classList.remove('show');
     ivStudentId = null;
 }
+const IV_TYPES = {{ discount_types_json|safe }};
+let ivBase = 0, ivAbs = 0;
+function ivDiscOptions(sel) {
+    return '<option value="">할인 없음</option>' + IV_TYPES.map(function (t) {
+        return '<option value="' + t.name.replace(/"/g, '&quot;') + '"' + (t.name === sel ? ' selected' : '') + '>' + t.name.replace(/</g, '&lt;') + (t.amount ? ' (' + ivWon(t.amount) + ')' : '') + '</option>';
+    }).join('') + '<option value="__custom"' + (sel === '__custom' ? ' selected' : '') + '>직접입력</option>';
+}
+function ivRecalc() {
+    const room = Math.max(ivBase - ivAbs, 0);
+    let d = parseInt(document.getElementById('ivDiscAmt').value, 10) || 0;
+    d = Math.max(0, Math.min(d, room));
+    document.getElementById('ivTotal').textContent = ivWon(ivBase - ivAbs - d);
+    document.getElementById('ivAmount').value = ivBase - ivAbs - d;
+}
+function ivDiscChange() {
+    const key = document.getElementById('ivDiscSel').value, amt = document.getElementById('ivDiscAmt');
+    document.getElementById('ivDiscCustom').style.display = key === '__custom' ? '' : 'none';
+    if (key === '') amt.value = '';
+    else if (key !== '__custom') { const t = IV_TYPES.filter(function (x) { return x.name === key; })[0]; if (t && t.amount) amt.value = t.amount; else amt.value = ''; }
+    ivRecalc();
+}
 function ivPreview() {
     const cid = document.getElementById('ivClass').value, due = document.getElementById('ivDue').value;
     if (!cid || !due || !ivStudentId) return;
@@ -501,12 +530,18 @@ function ivPreview() {
         .then(function (r) { return r.json().then(function (j) { if (!r.ok || j.ok === false) throw new Error(j.error || '계산하지 못했어요.'); return j; }); })
         .then(function (p) {
             if (seq !== ivSeq) return;
-            ivCalc = p;
+            ivCalc = p; ivBase = p.base_amount; ivAbs = p.absence_deduction;
             document.getElementById('ivBase').textContent = ivWon(p.base_amount);
             document.getElementById('ivAbs').textContent = p.absence_deduction ? '결석 ' + p.absence_count + '회 · −' + ivWon(p.absence_deduction) : '-';
-            document.getElementById('ivDisc').textContent = p.discount_amount ? p.discount_reason + ' · −' + ivWon(p.discount_amount) : '-';
-            document.getElementById('ivTotal').textContent = ivWon(p.amount);
-            document.getElementById('ivAmount').value = p.amount;
+            // 학생에게 정해진 할인을 기본값으로 채운다 (목록에 있는 사유면 선택, 없으면 직접입력)
+            const reason = p.discount_reason || '';
+            const known = IV_TYPES.some(function (t) { return t.name === reason; });
+            const key = !reason ? '' : (known ? reason : '__custom');
+            document.getElementById('ivDiscSel').innerHTML = ivDiscOptions(key);
+            document.getElementById('ivDiscCustom').value = key === '__custom' ? reason : '';
+            document.getElementById('ivDiscCustom').style.display = key === '__custom' ? '' : 'none';
+            document.getElementById('ivDiscAmt').value = p.discount_amount || '';
+            ivRecalc();
             ivSay('');
         })
         .catch(function (e) { if (seq === ivSeq) ivSay(e.message, 'err'); });
@@ -520,6 +555,8 @@ function ivSave() {
         body: JSON.stringify({
             student_id: ivStudentId, amount: document.getElementById('ivAmount').value,
             due_date: document.getElementById('ivDue').value, status: document.getElementById('ivStatus').value,
+            discount_reason: (function () { const k = document.getElementById('ivDiscSel').value; return k === '__custom' ? (document.getElementById('ivDiscCustom').value.trim() || '직접입력') : k; })(),
+            discount_amount: document.getElementById('ivDiscAmt').value || '0',
         }),
     }).then(function (r) { return r.json().then(function (j) { if (!r.ok || j.ok === false) throw new Error(j.error || '생성하지 못했어요.'); return j; }); })
       .then(function () { ivSay('✅ 청구서를 만들었어요!', 'ok'); setTimeout(function () { location.reload(); }, 800); })

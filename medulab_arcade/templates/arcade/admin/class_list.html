@@ -139,6 +139,8 @@
     .cm-disc-row label { display: block; font-size: 11px; color: var(--text-muted); font-weight: 700; margin-bottom: 4px; }
     .cm-inv-disc-cell { min-height: 38px; display: flex; align-items: center; }
     .cm-inv-disc-cell { font-size: 12.5px; }
+    #cmInvDiscCell { flex-direction: column; align-items: stretch; gap: 4px; }
+    #cmInvDiscCell .cm-select, #cmInvDiscCell .cm-input { height: 30px; padding: 0 8px; font-size: 12px; }
     .cm-inv-disc-cell label { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 12.5px; font-weight: 700; color: #f472b6; cursor: pointer; white-space: nowrap; }
     .cm-inv-disc-cell input { accent-color: #f472b6; width: 16px; height: 16px; }
     .cm-disc-hint { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
@@ -592,10 +594,31 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 학생/납부 기한을 고르면 서버가 전월 결석 차감 + 학생 할인을 계산해 금액을 채운다 (납부관리의 일괄 생성과 같은 계산)
     var previewSeq = 0;
-    function setInvCells(abs, disc) {
+    var invBase = 0, invAbs = 0;
+    function setInvCells(abs, disc, editable) {
         $('cmInvAbsCell').innerHTML = abs && abs.deduction ? '<span class="abs-chip">결석 ' + abs.count + '회 · −' + won(abs.deduction) + '</span>' : '<span class="disc-none">-</span>';
-        $('cmInvDiscCell').innerHTML = disc && disc.amount ? '<span class="disc-chip">' + esc(disc.reason) + ' · −' + won(disc.amount) + '</span>' : '<span class="disc-none">-</span>';
+        if (editable) {
+            // 새 청구서를 만들 때: 할인 사유/금액을 이번 청구서에서 고칠 수 있다
+            var reason = (disc && disc.reason) || '', key = discKeyOf(reason);
+            $('cmInvDiscCell').innerHTML =
+                '<select id="cmInvDiscSel" class="cm-select" onchange="cmInvDiscChange()">' + discOptions(key) + '</select>' +
+                '<input type="text" id="cmInvDiscCustom" class="cm-input" maxlength="50" placeholder="사유 직접 입력" value="' + (key === '__custom' ? esc(reason) : '') + '" style="display:' + (key === '__custom' ? '' : 'none') + ';">' +
+                '<input type="number" id="cmInvDiscAmt" class="cm-input" min="0" step="1000" placeholder="할인 금액" value="' + ((disc && disc.amount) || '') + '" oninput="cmInvDiscRecalc()">';
+        } else {
+            $('cmInvDiscCell').innerHTML = disc && disc.amount ? '<span class="disc-chip">' + esc(disc.reason) + ' · −' + won(disc.amount) + '</span>' : '<span class="disc-none">-</span>';
+        }
     }
+    window.cmInvDiscRecalc = function () {
+        var amt = $('cmInvDiscAmt'); if (!amt) return;
+        var d = Math.max(0, Math.min(parseInt(amt.value, 10) || 0, Math.max(invBase - invAbs, 0)));
+        $('cmInvAmount').value = invBase - invAbs - d;
+    };
+    window.cmInvDiscChange = function () {
+        var key = $('cmInvDiscSel').value, d = discInfo(key), amt = $('cmInvDiscAmt');
+        $('cmInvDiscCustom').style.display = d.custom ? '' : 'none';
+        if (key === '') amt.value = ''; else if (d.amt) amt.value = d.amt; else if (!d.custom) amt.value = '';
+        cmInvDiscRecalc();
+    };
     window.cmInvSync = function () {
         if (editingId) return;   // 기존 청구서를 수정할 때는 금액을 그대로 둔다
         var sid = $('cmInvStudent').value, due = $('cmInvDue').value;
@@ -603,8 +626,9 @@ document.addEventListener('DOMContentLoaded', function () {
         var seq = ++previewSeq;
         api(base('modal-invoice/preview/') + '?student_id=' + encodeURIComponent(sid) + '&due_date=' + encodeURIComponent(due)).then(function (p) {
             if (seq !== previewSeq || editingId) return;
+            invBase = p.base_amount; invAbs = p.absence_deduction;
             $('cmInvAmount').value = p.amount;
-            setInvCells({ count: p.absence_count, deduction: p.absence_deduction }, { reason: p.discount_reason, amount: p.discount_amount });
+            setInvCells({ count: p.absence_count, deduction: p.absence_deduction }, { reason: p.discount_reason, amount: p.discount_amount }, true);
         }).catch(function (e) { if (seq === previewSeq) say(e.message, true); });
     };
     window.cmInvoiceReset = function () {
@@ -615,7 +639,7 @@ document.addEventListener('DOMContentLoaded', function () {
         $('cmInvStudent').disabled = false;
         $('cmInvSaveBtn').textContent = '생성';
         $('cmInvCancelBtn').style.display = 'none';
-        setInvCells(null, null);
+        setInvCells(null, null, true);
         cmInvSync();
     };
     window.cmInvoiceEdit = function (id) {
@@ -633,6 +657,8 @@ document.addEventListener('DOMContentLoaded', function () {
         api(base('modal-invoice/save/'), {
             id: editingId, student_id: $('cmInvStudent').value, amount: $('cmInvAmount').value,
             due_date: $('cmInvDue').value, status: $('cmInvStatus').value,
+            discount_reason: (function () { var s = $('cmInvDiscSel'); if (!s || editingId) return undefined; return s.value === '__custom' ? (($('cmInvDiscCustom').value || '').trim() || '직접입력') : s.value; })(),
+            discount_amount: (function () { var a = $('cmInvDiscAmt'); if (!a || editingId) return undefined; return a.value || '0'; })(),
         }).then(done).catch(fail);
     };
     window.cmInvoiceDelete = function (id) {

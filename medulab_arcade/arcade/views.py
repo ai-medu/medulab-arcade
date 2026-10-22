@@ -3800,7 +3800,11 @@ def class_modal_invoice_save(request, class_id):
                                  base_amount=school_class.tuition_fee)
         # 자동 계산(전월 결석 차감 + 학생 할인) 금액 그대로 생성하면 그 내역(결석/할인)도 함께 기록한다.
         # 금액을 직접 고쳐서 만든 경우에는 금액만 기록한다.
-        calc = compute_invoice_amounts(school_class, enrollment, due_date)
+        try:
+            override = _parse_discount_override(data.get('discount_reason'), data.get('discount_amount'))
+        except ValueError as exc:
+            return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+        calc = compute_invoice_amounts(school_class, enrollment, due_date, discount_override=override)
         if amount == calc['amount']:
             for key in ('absence_count', 'absence_deduction', 'discount_reason', 'discount_amount'):
                 setattr(invoice, key, calc[key])
@@ -3831,7 +3835,11 @@ def class_modal_invoice_preview(request, class_id):
         due_date = timezone.datetime.strptime(str(request.GET.get('due_date', '')), '%Y-%m-%d').date()
     except ValueError:
         return JsonResponse({'ok': False, 'error': '납부 기한 형식이 올바르지 않습니다.'}, status=400)
-    calc = compute_invoice_amounts(school_class, enrollment, due_date)
+    try:
+        override = _parse_discount_override(request.GET.get('discount_reason'), request.GET.get('discount_amount'))
+    except ValueError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    calc = compute_invoice_amounts(school_class, enrollment, due_date, discount_override=override)
     calc['ok'] = True
     return JsonResponse(calc)
 
@@ -3869,7 +3877,7 @@ def _month_due_date(today=None):
     return today.replace(day=last_day)
 
 
-def compute_invoice_amounts(school_class, enrollment, due_date):
+def compute_invoice_amounts(school_class, enrollment, due_date, discount_override=None):
     """한 학생의 청구 금액 계산 — 일괄 생성(납부관리/수업관리)과 수업관리의 직접 생성이 모두 이 함수를 쓴다.
     ① 전월 결석 횟수 × 회당 단가를 차감  ② 배정 시 입력한 할인(2인이상/형제할인 등)을 추가 차감 (0원 미만 방지)"""
     fee = school_class.tuition_fee
@@ -3881,15 +3889,37 @@ def compute_invoice_amounts(school_class, enrollment, due_date):
         enrollment=enrollment, is_present=False, date__in=scheduled,
     ).count()
     deduction = min(school_class.per_session_fee * absence_count, fee)
-    discount = min(enrollment.discount_amount or 0, fee - deduction)
+    if discount_override is not None:
+        # 청구서를 만들 때 할인 사유/금액을 직접 고친 경우 (이번 청구서에만 적용, 학생 배정 정보는 그대로)
+        reason, amount = discount_override
+        discount = max(0, min(int(amount or 0), fee - deduction))
+        reason = (reason or '').strip()[:50] or '직접입력'
+    else:
+        discount = min(enrollment.discount_amount or 0, fee - deduction)
+        reason = enrollment.discount_reason
     return {
         'base_amount': fee,
         'absence_count': absence_count,
         'absence_deduction': deduction,
-        'discount_reason': enrollment.discount_reason if discount else '',
+        'discount_reason': reason if discount else '',
         'discount_amount': discount,
         'amount': fee - deduction - discount,
     }
+
+
+def _parse_discount_override(reason, amount):
+    """요청에서 받은 할인 사유/금액 → (사유, 금액) 또는 None(보내지 않음). 잘못된 값이면 ValueError"""
+    if amount is None or str(amount).strip() == '':
+        if (reason or '').strip():
+            raise ValueError('할인 금액을 입력해 주세요.')
+        return None if amount is None else ('', 0)
+    try:
+        value = int(str(amount).replace(',', '').strip())
+    except (TypeError, ValueError):
+        raise ValueError('할인 금액을 숫자로 입력해 주세요.')
+    if value < 0 or value > CLASS_DISCOUNT_MAX:
+        raise ValueError('할인 금액이 올바르지 않습니다.')
+    return ((reason or '').strip(), value)
 
 
 def generate_invoices_for_class(school_class, due_date=None):
@@ -6577,6 +6607,7 @@ def _render_staff_student_dashboard(request):
         'current_month': current_month,
         'all_classes': all_classes,
         'default_due_date': _month_due_date(today).strftime('%Y-%m-%d'),
+        'discount_types_json': json.dumps(_discount_types_payload(), ensure_ascii=False),
     }
     return render(request, 'arcade/admin/staff_student_dashboard.html', context)
 
