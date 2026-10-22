@@ -6502,6 +6502,14 @@ def _build_report_context(user, view_year=None, view_month=None):
     return context
 
 
+def _class_time_range(start, end):
+    """수업 시간 표시용: '16:00~18:00' (종료 시간이 없으면 시작 시간만)"""
+    if not start:
+        return ''
+    text = start.strftime('%H:%M')
+    return f'{text}~{end.strftime("%H:%M")}' if end else text
+
+
 def _render_staff_student_dashboard(request):
     """관리자(직원)용 메듀랩 학생회원 현황 대시보드 (요약 통계 + 학생 목록)"""
     from django.utils import timezone
@@ -6527,7 +6535,7 @@ def _render_staff_student_dashboard(request):
     today_attended_ids = {
         uid for uid, t in today_attendance_types.items() if t in (Attendance.TYPE_PRESENT, Attendance.TYPE_MAKEUP)
     }
-    # 이번 달 출석 횟수 = 출석 + 보강 (접속만 한 날은 제외), 접속 횟수 = 접속/출석 기록이 있는 모든 날
+    # 이번 달 출석 횟수 = 출석 + 보강, 접속 횟수 = '접속'으로만 기록된 날 (서로 겹치지 않는다)
     month_attendance_counts = {}
     month_access_counts = {}
     for row in (
@@ -6535,11 +6543,11 @@ def _render_staff_student_dashboard(request):
         .values('user_id')
         .annotate(
             attended=Count('id', filter=Q(attendance_type__in=(Attendance.TYPE_PRESENT, Attendance.TYPE_MAKEUP))),
-            total=Count('id'),
+            access=Count('id', filter=Q(attendance_type=Attendance.TYPE_ACCESS)),
         )
     ):
         month_attendance_counts[row['user_id']] = row['attended']
-        month_access_counts[row['user_id']] = row['total']
+        month_access_counts[row['user_id']] = row['access']
 
     # 이번 달 청구서 상세 (완납/미납 칸을 눌러 수정하는 창에 사용)
     month_invoice_rows = {}
@@ -6576,7 +6584,7 @@ def _render_staff_student_dashboard(request):
     code_for_py_weekday = {0: '1', 1: '2', 2: '3', 3: '4', 4: '5', 5: '6', 6: '0'}
     today_code = code_for_py_weekday[today.weekday()]
     today_scheduled_ids = set()
-    today_class_info = {}  # student_id -> (start_time, class_name) — 여러 수업이면 가장 이른 시간
+    today_class_info = {}  # student_id -> (start_time, class_name, end_time) — 여러 수업이면 가장 이른 시간
     enrolled_class_names = {}  # student_id -> [class_name, ...] — 오늘 여부와 무관하게 배정된 모든 수업
     enrolled_class_ids = {}  # student_id -> [class_id, ...]
     per_day_entries = {}  # day_code -> [(start_time, class_name, student_id), ...] — 수업요일별 보기용
@@ -6594,9 +6602,9 @@ def _render_staff_student_dashboard(request):
             today_scheduled_ids.add(enrollment.student_id)
             existing = today_class_info.get(enrollment.student_id)
             if existing is None or (sc.start_time and sc.start_time < existing[0]):
-                today_class_info[enrollment.student_id] = (sc.start_time, sc.name)
+                today_class_info[enrollment.student_id] = (sc.start_time, sc.name, sc.end_time)
         for code in codes:
-            per_day_entries.setdefault(code, []).append((sc.start_time, sc.name, enrollment.student_id, sc.id))
+            per_day_entries.setdefault(code, []).append((sc.start_time, sc.name, enrollment.student_id, sc.id, sc.end_time))
 
     all_classes = list(
         SchoolClass.objects.filter(is_active=True)
@@ -6631,6 +6639,7 @@ def _render_staff_student_dashboard(request):
         info = today_class_info.get(s.id)
         s.today_class_name = info[1] if info else ''
         s.today_class_time = info[0] if info else None
+        s.today_class_end = info[2] if info else None
         s.enrolled_class_names = enrolled_class_names.get(s.id, [])
         s.parent_link = s.parent_links.all()[0] if s.parent_links.all() else None
 
@@ -6651,7 +6660,8 @@ def _render_staff_student_dashboard(request):
     if sort_mode == 'name':
         for s in sorted(students, key=lambda s: (s.profile.real_name or s.username)):
             if s.today_class_time:
-                row = {'time_label': s.today_class_time.strftime('%H:%M'), 'class_name': s.today_class_name, 'class_note': ''}
+                row = {'time_label': s.today_class_time.strftime('%H:%M'), 'time_range': _class_time_range(s.today_class_time, s.today_class_end),
+                       'class_name': s.today_class_name, 'class_note': ''}
             elif s.enrolled_class_names:
                 row = {'time_label': '', 'class_name': ', '.join(s.enrolled_class_names), 'class_note': '(오늘 수업 없음)'}
             else:
@@ -6673,11 +6683,12 @@ def _render_staff_student_dashboard(request):
                 t[0] is None, t[0],
                 students_by_id[t[2]].profile.real_name or students_by_id[t[2]].username,
             ))
-            for start_time, class_name, sid, class_id in entries:
+            for start_time, class_name, sid, class_id, end_time in entries:
                 student_rows.append({
                     'student': students_by_id[sid],
                     'day_label': f'{SchoolClass.DAY_LABELS[code]}요일',
                     'time_label': start_time.strftime('%H:%M') if start_time else '',
+                    'time_range': _class_time_range(start_time, end_time),
                     'class_name': class_name, 'class_note': '', 'show_assign': False,
                     'class_id': class_id, 'can_assign': bool(all_classes),
                 })
