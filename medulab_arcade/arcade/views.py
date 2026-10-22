@@ -3288,17 +3288,33 @@ def class_admin_list(request):
     classes = SchoolClass.objects.select_related('teacher__profile').prefetch_related('enrollments').annotate(
         invoice_total=Count('invoices', distinct=True),
         invoice_unpaid=Count('invoices', filter=Q(invoices__status=TuitionInvoice.STATUS_UNPAID), distinct=True),
+        active_students=Count('enrollments', filter=Q(enrollments__is_active=True), distinct=True),
     )
     search = request.GET.get('q', '').strip()
     if search:
         classes = classes.filter(name__icontains=search)
+    assigned_only = request.GET.get('assigned') == '1'
+    if assigned_only:
+        classes = classes.filter(active_students__gt=0)
     classes_list = list(classes)
 
     preset_queries = {full_query for _, full_query, _, _ in CLASS_PRESET_GROUPS}
-    is_grouped_view = (not search) or (search in preset_queries)
+    is_grouped_view = ((not search) or (search in preset_queries)) and not assigned_only
 
     groups = []
-    if is_grouped_view:
+    if assigned_only:
+        # 배정 인원이 있는 수업만, 요일(월~일) → 시간 오름차순 (요일/시간이 없는 수업은 맨 뒤)
+        day_rank = {'1': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5, '0': 6}
+
+        def schedule_key(c):
+            codes = [day_rank[d] for d in (c.days_of_week or '').split(',') if d in day_rank]
+            if not codes or not c.start_time:
+                return (1, 0, 0, c.name)
+            return (0, min(codes), c.start_time.hour * 60 + c.start_time.minute, c.name)
+
+        classes_list.sort(key=schedule_key)
+        groups = [{'label': None, 'css_class': '', 'rank': None, 'classes': classes_list}] if classes_list else []
+    elif is_grouped_view:
         used_ids = set()
         for short_label, full_query, css_class, rank in CLASS_PRESET_GROUPS:
             if search and search != full_query:
@@ -3323,6 +3339,8 @@ def class_admin_list(request):
     context = {
         'groups': groups,
         'search_query': search,
+        'assigned_only': assigned_only,
+        'assigned_class_count': len(classes_list) if assigned_only else 0,
         'reorder_enabled': is_grouped_view,
         'title': '수업 관리',
     }

@@ -23,6 +23,9 @@
     .filter-preset-btn.preset-blue { --preset-color: #3b82f6; }
     .filter-preset-btn.preset-amber { --preset-color: #f59e0b; }
     .filter-preset-btn.preset-purple { --preset-color: #a855f7; }
+    .filter-preset-btn.preset-green { --preset-color: #10b981; border-color: rgba(16,185,129,0.45); color: #10b981; }
+    .filter-preset-btn.preset-green:hover { background: rgba(16,185,129,0.14); }
+    .filter-preset-btn.preset-green.active { background: #10b981; color: #fff; border-color: #10b981; }
     .filter-preset-btn.preset-blue:hover, .filter-preset-btn.preset-amber:hover, .filter-preset-btn.preset-purple:hover {
         background: color-mix(in srgb, var(--preset-color) 16%, transparent); color: var(--preset-color); border-color: var(--preset-color);
     }
@@ -141,7 +144,9 @@
             <span>🔍</span>
             <input type="text" name="q" id="class-search-input" placeholder="수업명 검색..." value="{{ search_query }}" onkeypress="if(event.key === 'Enter') this.form.submit();">
         </div>
+        <input type="hidden" name="assigned" id="class-assigned-input" value="{% if assigned_only %}1{% endif %}">
         <div class="filter-preset-row">
+            <button type="button" class="filter-preset-btn preset-green{% if assigned_only %} active{% endif %}" id="class-assigned-btn" title="배정된 학생이 있는 수업만 요일·시간 순으로 보기">👥 배정인원</button>
             <button type="button" class="filter-preset-btn preset-blue{% if search_query == 'AI로봇코딩 맞춤성장' %} active{% endif %}" data-query="AI로봇코딩 맞춤성장">AI로봇코딩 맞춤성장</button>
             <button type="button" class="filter-preset-btn preset-amber{% if search_query == 'AI로봇코딩 집중성장' %} active{% endif %}" data-query="AI로봇코딩 집중성장">AI로봇코딩 집중성장</button>
             <button type="button" class="filter-preset-btn preset-purple{% if search_query == 'AI로봇코딩 융합성장' %} active{% endif %}" data-query="AI로봇코딩 융합성장">AI로봇코딩 융합성장</button>
@@ -150,7 +155,9 @@
             {% endif %}
         </div>
     </form>
-    {% if not reorder_enabled %}
+    {% if assigned_only %}
+    <p style="color: var(--text-muted); font-size: 12px; margin: -14px 0 18px;">👥 배정 인원이 있는 수업 <strong>{{ assigned_class_count }}개</strong>를 요일(월→일)·시간 오름차순으로 보고 있어요. 순서 변경은 "배정인원"을 다시 눌러 끈 뒤 전체보기에서 할 수 있어요.</p>
+    {% elif not reorder_enabled %}
     <p style="color: var(--text-muted); font-size: 12px; margin: -14px 0 18px;">🔒 검색/필터 중에는 순서를 변경할 수 없습니다. 순서를 바꾸려면 전체보기 상태에서 진행해 주세요.</p>
     {% endif %}
 
@@ -304,7 +311,15 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     var searchInput = document.getElementById('class-search-input');
-    document.querySelectorAll('.filter-preset-btn').forEach(function (btn) {
+    var assignedInput = document.getElementById('class-assigned-input');
+    var assignedBtn = document.getElementById('class-assigned-btn');
+    if (assignedBtn) {
+        assignedBtn.addEventListener('click', function () {
+            assignedInput.value = assignedInput.value === '1' ? '' : '1';
+            document.getElementById('class-filter-form').submit();
+        });
+    }
+    document.querySelectorAll('.filter-preset-btn[data-query]').forEach(function (btn) {
         btn.addEventListener('click', function () {
             searchInput.value = btn.dataset.query;
             document.getElementById('class-filter-form').submit();
