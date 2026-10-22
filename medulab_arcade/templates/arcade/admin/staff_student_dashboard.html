@@ -59,6 +59,13 @@
     .day-filter-bar { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
     .day-filter-btn { border:1px solid var(--border); background:rgba(255,255,255,0.05); color:var(--text-secondary); padding:5px 11px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; }
     .day-filter-btn:hover { background:rgba(255,255,255,0.1); }
+    .prog-filter-bar { margin-top: -6px; }
+    .prog-filter-btn { border:1px solid var(--border); background:rgba(255,255,255,0.05); color:var(--text-secondary); padding:5px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; }
+    .prog-filter-btn:hover { background:rgba(255,255,255,0.1); }
+    .prog-filter-btn.prog-blue { --pc:#3b82f6; } .prog-filter-btn.prog-amber { --pc:#f59e0b; } .prog-filter-btn.prog-purple { --pc:#a855f7; }
+    .prog-filter-btn[data-prog]:not([data-prog="all"]) { color:var(--pc); border-color:color-mix(in srgb, var(--pc) 45%, transparent); }
+    .prog-filter-btn.active { background:rgba(0,255,180,0.15); color:var(--accent-green); border-color:rgba(0,255,180,0.3); }
+    .prog-filter-btn[data-prog]:not([data-prog="all"]).active { background:var(--pc); color:#fff; border-color:var(--pc); }
     .day-filter-btn.active { background:rgba(0,255,180,0.15); color:var(--accent-green); border-color:rgba(0,255,180,0.3); }
     .class-assign-list { max-height:320px; overflow-y:auto; display:flex; flex-direction:column; gap:2px; }
     .class-list-item { display:flex; align-items:center; flex-wrap:wrap; }
@@ -243,11 +250,17 @@
             <button type="button" class="day-filter-btn" data-day="5" onclick="filterClassList('5', this)">금</button>
             <button type="button" class="day-filter-btn" data-day="6" onclick="filterClassList('6', this)">토</button>
         </div>
+        <div class="day-filter-bar prog-filter-bar">
+            <button type="button" class="prog-filter-btn active" data-prog="all" onclick="filterClassProgram('all', this)">전체 과정</button>
+            <button type="button" class="prog-filter-btn prog-blue" data-prog="맞춤성장" onclick="filterClassProgram('맞춤성장', this)">맞춤성장</button>
+            <button type="button" class="prog-filter-btn prog-amber" data-prog="집중성장" onclick="filterClassProgram('집중성장', this)">집중성장</button>
+            <button type="button" class="prog-filter-btn prog-purple" data-prog="융합성장" onclick="filterClassProgram('융합성장', this)">융합성장</button>
+        </div>
         <div id="classAssignList" class="class-assign-list">
             {% for c in all_classes %}
-            <div class="qp-result-item class-list-item" data-days="{{ c.days_of_week }}" onclick="selectClassToAssign({{ c.id }}, '{{ c.name|escapejs }}')">
+            <div class="qp-result-item class-list-item" data-days="{{ c.days_of_week }}" data-program="{% if '맞춤성장' in c.name %}맞춤성장{% elif '집중성장' in c.name %}집중성장{% elif '융합성장' in c.name %}융합성장{% endif %}" onclick="selectClassToAssign({{ c.id }}, '{{ c.name|escapejs }}')">
                 <span style="font-weight:700;">{{ c.name }}</span>
-                <span style="color:var(--text-muted); font-size:11px; margin-left:6px;">{{ c.days_display|default:"-" }} {{ c.start_time|time:"H:i"|default:"" }}</span>
+                <span style="color:var(--text-muted); font-size:11px; margin-left:6px;">{{ c.days_display|default:"-" }}{% if c.start_time %} {{ c.start_time|time:"H:i" }}{% if c.end_time %}~{{ c.end_time|time:"H:i" }}{% endif %}{% endif %}</span>
             </div>
             {% empty %}
             <div class="qp-empty">등록된 수업이 없습니다.</div>
@@ -350,12 +363,22 @@ function selectParent(parentId, parentName) {
 
 // ── 수업 빠른 배정 ──
 let qaCurrentStudentId = null;
+let qaDay = 'all', qaProgram = 'all';
+function applyClassFilters() {
+    document.querySelectorAll('.class-list-item').forEach(function (el) {
+        const days = (el.dataset.days || '').split(',');
+        const dayOk = qaDay === 'all' || days.indexOf(qaDay) !== -1;
+        const progOk = qaProgram === 'all' || el.dataset.program === qaProgram;
+        el.style.display = (dayOk && progOk) ? '' : 'none';
+    });
+}
 function openClassAssignModal(studentId, studentName) {
     qaCurrentStudentId = studentId;
+    qaDay = 'all'; qaProgram = 'all';
     document.getElementById('classAssignTitle').textContent = studentName + ' - 수업 배정';
-    document.querySelectorAll('.day-filter-btn').forEach(function (b) { b.classList.remove('active'); });
-    document.querySelector('.day-filter-btn[data-day="all"]').classList.add('active');
-    document.querySelectorAll('.class-list-item').forEach(function (el) { el.style.display = ''; });
+    document.querySelectorAll('.day-filter-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.day === 'all'); });
+    document.querySelectorAll('.prog-filter-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.prog === 'all'); });
+    applyClassFilters();
     document.getElementById('classAssignOverlay').classList.add('show');
 }
 function closeClassAssignModal() {
@@ -363,13 +386,16 @@ function closeClassAssignModal() {
     qaCurrentStudentId = null;
 }
 function filterClassList(day, btn) {
+    qaDay = day;
     document.querySelectorAll('.day-filter-btn').forEach(function (b) { b.classList.remove('active'); });
     btn.classList.add('active');
-    document.querySelectorAll('.class-list-item').forEach(function (el) {
-        if (day === 'all') { el.style.display = ''; return; }
-        const days = (el.dataset.days || '').split(',');
-        el.style.display = days.indexOf(day) !== -1 ? '' : 'none';
-    });
+    applyClassFilters();
+}
+function filterClassProgram(prog, btn) {
+    qaProgram = prog;
+    document.querySelectorAll('.prog-filter-btn').forEach(function (b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    applyClassFilters();
 }
 function selectClassToAssign(classId, className) {
     if (!qaCurrentStudentId) return;
