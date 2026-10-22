@@ -165,24 +165,6 @@
     <span class="ap-count">현재 이용 가능 {{ ready_count }} / 20 프로그램 · 나머지는 차근차근 준비 중이에요</span>
   </div>
 
-  {% if featured_program %}
-  <div class="pg-card pg-featured">
-    <div class="pg-head">
-      <span class="pg-no">✨</span>
-      <span class="pg-title">{{ featured_program.title }}</span>
-    </div>
-    <div><span class="pg-tag">{{ featured_program.tag }}</span></div>
-    <div class="pg-icon">{{ featured_program.icon }}</div>
-    <p class="pg-desc">{{ featured_program.desc }}</p>
-    <div class="pg-meta"><span>👤 {{ featured_program.grades }}</span><span>🕒 {{ featured_program.duration }}</span></div>
-    {% if featured_program.tool_cards %}
-    <div class="pg-tools">
-      {% for t in featured_program.tool_cards %}<a class="pg-tool" href="{% url t.url_name %}">{{ t.icon }} {{ t.title }}</a>{% endfor %}
-    </div>
-    {% endif %}
-  </div>
-  {% endif %}
-
   {% if user.is_staff %}
   <div class="ap-arrange-bar">
     <button type="button" id="pgArrangeToggle" class="ap-arrange-btn" onclick="pgToggleArrange()">🔀 프로그램 순서 편집</button>
@@ -192,9 +174,9 @@
 
   <div class="ap-program-grid" id="pgGrid">
     {% for p in programs %}
-    <div class="pg-card" data-no="{{ p.no }}" style="--c: {% cycle '#2F6BFF' '#7C4DFF' '#FF8A3D' '#17B890' %};">
+    <div class="pg-card{% if p.featured %} pg-featured{% endif %}" data-no="{{ p.no }}" style="--c: {% cycle '#2F6BFF' '#7C4DFF' '#FF8A3D' '#17B890' %};">
       <div class="pg-head">
-        <span class="pg-no">{{ p.no|stringformat:"02d" }}</span>
+        <span class="pg-no">{{ forloop.counter|stringformat:"02d" }}</span>
         <span class="pg-title">{{ p.title }}</span>
       </div>
       <div><span class="pg-tag">{{ p.tag }}</span></div>

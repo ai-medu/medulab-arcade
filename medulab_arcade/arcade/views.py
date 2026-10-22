@@ -246,11 +246,11 @@ def ai_prompts(request):
     remaining_keys = [k for k in cards_by_key if k not in ordered_keys]
     cards = [cards_by_key[k] for k in ordered_keys + remaining_keys]
 
-    # 20선 프로그램: 이미 만들어진 도구 중 관련 있는 것을 연결, 없으면 '준비 중' 카드
+    # 20선 프로그램 + 맨 앞 강조 캠프 카드: 이미 만들어진 도구 중 관련 있는 것을 연결, 없으면 '준비 중' 카드
     from .ai_program_catalog import AI_PROGRAMS, FEATURED_PROGRAM
     mapped_keys = set()
     programs_by_no = {}
-    for program in AI_PROGRAMS:
+    for program in [FEATURED_PROGRAM] + AI_PROGRAMS:
         tools = [cards_by_key[k] for k in program['tools'] if k in cards_by_key]
         mapped_keys.update(c['key'] for c in tools)
         programs_by_no[program['no']] = {**program, 'tool_cards': tools}
@@ -258,16 +258,16 @@ def ai_prompts(request):
     program_order = (order_obj.program_order if order_obj else []) or []
     ordered_nos = [n for n in program_order if n in programs_by_no]
     remaining_nos = [n for n in programs_by_no if n not in ordered_nos]
+    if not program_order:
+        # 저장된 순서가 없으면 캠프 카드를 맨 앞에 기본 배치
+        remaining_nos.sort(key=lambda n: (n != 0, n))
     programs = [programs_by_no[n] for n in ordered_nos + remaining_nos]
-
-    featured_program = {**FEATURED_PROGRAM, 'tool_cards': [cards_by_key[k] for k in FEATURED_PROGRAM['tools'] if k in cards_by_key]}
-    mapped_keys.update(c['key'] for c in featured_program['tool_cards'])
 
     # 20선과 관련 없는 기존 도구는 맨 뒤 '기타 도구'로 (관리자가 정한 순서 유지)
     other_cards = [c for c in cards if c['key'] not in mapped_keys]
     return render(request, 'arcade/ai_prompts.html', {
-        'featured_program': featured_program, 'programs': programs, 'other_cards': other_cards,
-        'ready_count': sum(1 for p in programs if p['tool_cards']),
+        'programs': programs, 'other_cards': other_cards,
+        'ready_count': sum(1 for p in programs if p['tool_cards'] and not p.get('featured')),
     })
 
 
@@ -303,7 +303,7 @@ def ai_prompts_reorder(request):
 @require_POST
 def ai_prompts_program_reorder(request):
     """관리자용 - AI 교육 프로그램 20선 카드 순서 저장"""
-    from .ai_program_catalog import AI_PROGRAMS
+    from .ai_program_catalog import AI_PROGRAMS, FEATURED_PROGRAM
     try:
         payload = json.loads(request.body)
     except (ValueError, TypeError):
@@ -313,7 +313,7 @@ def ai_prompts_program_reorder(request):
     if not isinstance(order, list) or not all(isinstance(n, int) for n in order):
         return JsonResponse({'success': False, 'error': '순서 데이터가 올바르지 않습니다.'}, status=400)
 
-    valid_nos = {p['no'] for p in AI_PROGRAMS}
+    valid_nos = {p['no'] for p in AI_PROGRAMS} | {FEATURED_PROGRAM['no']}
     order = [n for n in order if n in valid_nos]
 
     order_obj = AIPromptCardOrder.objects.order_by('id').first()
