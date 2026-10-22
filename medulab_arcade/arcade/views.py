@@ -2819,13 +2819,21 @@ def member_list(request):
         u.children_list = children if isinstance(children, list) else []
         u.signup_providers = ', '.join(sorted({a.get_provider().name for a in u.socialaccount_set.all()})) or '이메일/아이디 가입'
 
+    # 필터 버튼 표시 순서 (메듀랩 회원 먼저, 그다음 일반 가입 유형, 레거시 유형은 맨 뒤)
+    type_filter_order = [
+        'medulab_member', 'medulab_parent', 'medulab_staff', 'medulab_inactive',
+        'student', 'parent', 'teacher', 'general', 'medulab_teacher',
+    ]
+    type_labels = dict(UserProfile.USER_TYPE_CHOICES)
+    ordered_codes = [c for c in type_filter_order if c in type_labels]
+    ordered_codes += [c for c in type_labels if c not in ordered_codes]
     type_filters = [
         {
             'code': code,
-            'label': label,
+            'label': type_labels[code],
             'active': user_type == code,
         }
-        for code, label in UserProfile.USER_TYPE_CHOICES
+        for code in ordered_codes
     ]
         
     context = {

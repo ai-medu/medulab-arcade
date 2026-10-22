@@ -41,8 +41,8 @@
     .era-chip form { display:inline; }
     .era-chip button { background: none; border: none; color: #a78bfa; cursor: pointer; font-size: 14px; padding: 0; line-height: 1; }
     .era-search-wrap { position: relative; }
-    .era-dropdown { display: none; position: absolute; top: 100%; left: 0; right: 0; background: #1e1b4b; border: 1px solid var(--border); border-radius: 10px; z-index: 100; max-height: 220px; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,0.5); margin-top: 6px; }
-    .era-dropdown-item { padding: 10px 14px; cursor: pointer; font-size: 13px; color: #e0e0e0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .era-dropdown { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; z-index: 100; max-height: 220px; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,0.25); margin-top: 6px; }
+    .era-dropdown-item { padding: 10px 14px; cursor: pointer; font-size: 13px; color: var(--text-primary, #e0e0e0); border-bottom: 1px solid rgba(120,120,160,0.18); }
     .era-dropdown-item:hover { background: rgba(124,58,237,0.25); }
 
     .btn-match { background: rgba(124,58,237,0.18); border: 1px solid rgba(167,139,250,0.3); color: #c4b5fd; border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
@@ -50,11 +50,12 @@
 
     .match-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
     .match-modal-overlay.show { display: flex; }
-    .match-modal-box { background: #1e1b2e; border: 1px solid var(--border); border-radius: 20px; padding: 28px; width: 100%; max-width: 400px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
-    .match-modal-box h3 { font-size: 17px; font-weight: 800; color: #fff; margin-bottom: 6px; }
+    .match-modal-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 28px; width: 100%; max-width: 400px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.35); }
+    .match-modal-box h3 { font-size: 17px; font-weight: 800; color: var(--text-primary, #fff); margin-bottom: 6px; }
+    .match-modal-box label { color: var(--text-secondary); font-weight: 700; }
     .match-modal-box p { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
     .match-modal-close { text-align: right; margin-top: 16px; }
-    .match-modal-close button { background: rgba(255,255,255,0.06); border: none; color: var(--text-secondary); border-radius: 10px; padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer; }
+    .match-modal-close button { background: rgba(120,120,160,0.14); border: none; color: var(--text-secondary); border-radius: 10px; padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer; }
     .match-modal-close button:hover { background: rgba(255,255,255,0.1); color: #fff; }
 
     .child-add-bar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:16px; padding-top:14px; border-top:1px solid var(--border); }
@@ -327,7 +328,7 @@
                             dropdownEl.innerHTML = items.map(m =>
                                 `<div class="era-dropdown-item" data-member='${JSON.stringify(m)}'>
                                     <strong>${m.real_name || m.username}</strong>
-                                    <span style="color:rgba(255,255,255,0.4); font-size:11px; margin-left:6px;">@${m.username}</span>
+                                    <span style="color:var(--text-muted); font-size:11px; margin-left:6px;">@${m.username}</span>
                                 </div>`
                             ).join('');
                             dropdownEl.style.display = 'block';
