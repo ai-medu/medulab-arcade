@@ -127,6 +127,16 @@
     .cm-chip button { background: transparent; border: none; color: inherit; cursor: pointer; font-size: 14px; }
     .cm-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; align-items: end; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
     .cm-form-grid label { display: block; font-size: 11px; color: var(--text-muted); font-weight: 700; margin-bottom: 4px; }
+    .cm-disc-box { border: 1px dashed var(--border); border-radius: 12px; padding: 12px 14px; margin: 0 0 12px; background: rgba(120,120,160,0.05); }
+    .cm-disc-title { font-weight: 800; font-size: 13px; margin-bottom: 8px; }
+    .cm-disc-title span { font-weight: 500; font-size: 12px; color: var(--text-muted); }
+    .cm-disc-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+    .cm-disc-row label { display: block; font-size: 11px; color: var(--text-muted); font-weight: 700; margin-bottom: 4px; }
+    .cm-disc-hint { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+    .disc-chip { display: inline-block; padding: 3px 10px; border-radius: 999px; background: rgba(244,114,182,0.15); color: #f472b6; font-weight: 700; font-size: 12px; white-space: nowrap; }
+    .disc-none { color: var(--text-muted); }
+    .cm-disc-edit { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .cm-disc-edit .cm-select, .cm-disc-edit .cm-input { padding: 6px 8px; font-size: 12px; width: auto; min-width: 90px; }
     .st-unpaid { color: #fca5a5; } .st-paid { color: var(--accent-green); } .st-canceled { color: var(--text-muted); }
     @media (max-width: 640px) { .cm-box { padding: 18px; } .cm-table th, .cm-table td { padding: 8px 4px; font-size: 12px; } }
 </style>
@@ -144,7 +154,7 @@
             <span>🔍</span>
             <input type="text" name="q" id="class-search-input" placeholder="수업명 검색..." value="{{ search_query }}" onkeypress="if(event.key === 'Enter') this.form.submit();">
         </div>
-        <input type="hidden" name="assigned" id="class-assigned-input" value="{% if assigned_only %}1{% endif %}">
+        <input type="hidden" name="assigned" id="class-assigned-input" value="{% if assigned_only %}1{% else %}0{% endif %}">
         <div class="filter-preset-row">
             <button type="button" class="filter-preset-btn preset-green{% if assigned_only %} active{% endif %}" id="class-assigned-btn" title="배정된 학생이 있는 수업만 요일·시간 순으로 보기">👥 배정인원</button>
             <button type="button" class="filter-preset-btn preset-blue{% if search_query == 'AI로봇코딩 맞춤성장' %} active{% endif %}" data-query="AI로봇코딩 맞춤성장">AI로봇코딩 맞춤성장</button>
@@ -156,7 +166,7 @@
         </div>
     </form>
     {% if assigned_only %}
-    <p style="color: var(--text-muted); font-size: 12px; margin: -14px 0 18px;">👥 배정 인원이 있는 수업 <strong>{{ assigned_class_count }}개</strong>를 요일(월→일)·시간 오름차순으로 보고 있어요. 순서 변경은 "배정인원"을 다시 눌러 끈 뒤 전체보기에서 할 수 있어요.</p>
+    <p style="color: var(--text-muted); font-size: 12px; margin: -14px 0 18px;">👥 배정 인원이 있는 수업 <strong>{{ assigned_class_count }}개</strong>를 요일(월→일)·시간 오름차순으로 보고 있어요. 배정이 없는 수업까지 보거나 순서를 바꾸려면 "배정인원"을 눌러 끄세요.</p>
     {% elif not reorder_enabled %}
     <p style="color: var(--text-muted); font-size: 12px; margin: -14px 0 18px;">🔒 검색/필터 중에는 순서를 변경할 수 없습니다. 순서를 바꾸려면 전체보기 상태에서 진행해 주세요.</p>
     {% endif %}
@@ -275,9 +285,18 @@
                 <div class="cm-dropdown" id="cmDropdown"></div>
             </div>
             <div class="cm-chips" id="cmChips"></div>
+            <div class="cm-disc-box">
+                <div class="cm-disc-title">💸 할인 (선택) <span>· 선택한 학생 모두에게 적용돼요</span></div>
+                <div class="cm-disc-row">
+                    <div><label>할인 사유</label><select id="cmDiscReason" class="cm-select"></select></div>
+                    <div id="cmDiscCustomWrap" style="display:none;"><label>사유 직접 입력</label><input type="text" id="cmDiscCustom" class="cm-input" maxlength="50" placeholder="예: 원장 승인"></div>
+                    <div><label>할인 금액(원)</label><input type="number" id="cmDiscAmount" class="cm-input" min="0" step="1000" placeholder="0"></div>
+                </div>
+                <div class="cm-disc-hint" id="cmDiscHint">할인은 다음 청구서를 만들 때부터 매달 반영돼요.</div>
+            </div>
             <button type="button" class="cm-btn primary" onclick="cmEnroll()">＋ 선택한 학생 배정하기</button>
             <table class="cm-table">
-                <thead><tr><th>학생</th><th>아이디</th><th>배정일</th><th></th></tr></thead>
+                <thead><tr><th>학생</th><th>아이디</th><th>배정일</th><th>할인</th><th></th></tr></thead>
                 <tbody id="cmEnrollBody"></tbody>
             </table>
         </div>
@@ -315,7 +334,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var assignedBtn = document.getElementById('class-assigned-btn');
     if (assignedBtn) {
         assignedBtn.addEventListener('click', function () {
-            assignedInput.value = assignedInput.value === '1' ? '' : '1';
+            assignedInput.value = assignedInput.value === '1' ? '0' : '1';
             document.getElementById('class-filter-form').submit();
         });
     }
@@ -367,7 +386,29 @@ document.addEventListener('DOMContentLoaded', function () {
 <script>
 (function () {
     var CSRF = '{{ csrf_token }}';
-    var cur = null, data = null, editingId = null, selected = new Map(), timer = null;
+    var cur = null, data = null, editingId = null, selected = new Map(), timer = null, editingDiscId = null;
+    // 할인 사유 프리셋: amt 가 있으면 고정 금액, 없으면 금액을 직접 입력 (custom=사유도 직접 입력)
+    var DISC = [
+        { key: '', label: '할인 없음' },
+        { key: '2인이상', label: '2인이상 (10,000원)', amt: 10000 },
+        { key: '형제할인', label: '형제할인 (10,000원)', amt: 10000 },
+        { key: '친구소개', label: '친구소개' },
+        { key: '장기수강', label: '장기수강' },
+        { key: '조기등록', label: '조기등록' },
+        { key: '장학/특별', label: '장학/특별' },
+        { key: '__custom', label: '직접입력', custom: true }
+    ];
+    function discOptions(selectedKey) {
+        return DISC.map(function (d) { return '<option value="' + esc(d.key) + '"' + (d.key === selectedKey ? ' selected' : '') + '>' + esc(d.label) + '</option>'; }).join('');
+    }
+    function discKeyOf(reason) {
+        if (!reason) return '';
+        return DISC.some(function (d) { return d.key === reason; }) ? reason : '__custom';
+    }
+    function discInfo(key) { return DISC.filter(function (d) { return d.key === key; })[0] || DISC[0]; }
+    function discChip(e) {
+        return e.discount_amount ? '<span class="disc-chip">' + esc(e.discount_reason) + ' · −' + won(e.discount_amount) + '</span>' : '<span class="disc-none">-</span>';
+    }
     var $ = function (id) { return document.getElementById(id); };
     function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
     function won(n) { return Number(n).toLocaleString('ko-KR') + '원'; }
@@ -398,13 +439,28 @@ document.addEventListener('DOMContentLoaded', function () {
         $('cmTitle').textContent = data.class.name;
         $('cmSub').textContent = '수업비 ' + won(data.class.tuition_fee) + ' · 배정 ' + data.enrollments.length + '명 · 청구서 ' + data.invoices.length + '건';
         $('cmEnrollBody').innerHTML = data.enrollments.map(function (e) {
+            var discCell;
+            if (editingDiscId === e.id) {
+                var k = discKeyOf(e.discount_reason);
+                discCell = '<div class="cm-disc-edit">' +
+                    '<select class="cm-select" id="cmEdReason" onchange="cmEdSync()">' + discOptions(k) + '</select>' +
+                    '<input type="text" class="cm-input" id="cmEdCustom" maxlength="50" placeholder="사유" value="' + (k === '__custom' ? esc(e.discount_reason) : '') + '" style="display:' + (k === '__custom' ? '' : 'none') + '">' +
+                    '<input type="number" class="cm-input" id="cmEdAmount" min="0" step="1000" placeholder="금액" value="' + (e.discount_amount || '') + '">' +
+                    '<button class="cm-btn primary" onclick="cmDiscSave(' + e.id + ')">저장</button>' +
+                    '<button class="cm-btn" onclick="cmDiscEdit(null)">취소</button></div>';
+            } else {
+                discCell = discChip(e) + ' <button class="cm-btn" style="padding:2px 8px;font-size:11px;" onclick="cmDiscEdit(' + e.id + ')">' + (e.discount_amount ? '수정' : '＋ 설정') + '</button>';
+            }
             return '<tr><td><strong>' + esc(e.name) + '</strong></td><td style="color:var(--text-muted)">@' + esc(e.username) + '</td><td>' + esc(e.enrolled_at) + '</td>' +
+                '<td>' + discCell + '</td>' +
                 '<td style="text-align:right"><button class="cm-btn danger" onclick="cmUnenroll(' + e.id + ')">해제</button></td></tr>';
-        }).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:24px;">배정된 학생이 없습니다.</td></tr>';
+        }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px;">배정된 학생이 없습니다.</td></tr>';
+        if (!$('cmDiscReason').options.length) { $('cmDiscReason').innerHTML = discOptions(''); newDiscSync(); }
 
         $('cmInvStudent').innerHTML = data.enrollments.map(function (e) { return '<option value="' + e.student_id + '">' + esc(e.name) + '</option>'; }).join('');
         $('cmInvBody').innerHTML = data.invoices.map(function (v) {
-            return '<tr><td><strong>' + esc(v.student_name) + '</strong></td><td>' + esc(v.period) + '</td><td>' + won(v.amount) + '</td><td>' + esc(v.due_date) + '</td>' +
+            var vd = v.discount_amount ? '<div style="font-size:11px;color:#f472b6;">할인 ' + esc(v.discount_reason) + ' −' + won(v.discount_amount) + '</div>' : '';
+            return '<tr><td><strong>' + esc(v.student_name) + '</strong></td><td>' + esc(v.period) + '</td><td>' + won(v.amount) + vd + '</td><td>' + esc(v.due_date) + '</td>' +
                 '<td class="st-' + v.status + '">' + esc(v.status_label) + '</td>' +
                 '<td style="text-align:right"><button class="cm-btn" onclick="cmInvoiceEdit(' + v.id + ')">수정</button> <button class="cm-btn danger" onclick="cmInvoiceDelete(' + v.id + ')">삭제</button></td></tr>';
         }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px;">청구서가 없습니다.</td></tr>';
@@ -442,9 +498,43 @@ document.addEventListener('DOMContentLoaded', function () {
     function done(j) { data = j; render(); say(j.message || ''); }
     function fail(e) { say(e.message, true); }
 
+    // 새로 배정할 때의 할인 입력 (사유 선택 → 금액 자동/직접)
+    function newDiscSync() {
+        var d = discInfo($('cmDiscReason').value), amt = $('cmDiscAmount');
+        $('cmDiscCustomWrap').style.display = d.custom ? '' : 'none';
+        if (d.key === '') { amt.value = ''; amt.readOnly = true; amt.placeholder = '0'; }
+        else if (d.amt) { amt.value = d.amt; amt.readOnly = true; }
+        else { if (amt.readOnly) amt.value = ''; amt.readOnly = false; amt.placeholder = '금액 직접 입력'; }
+        var hint = '할인은 다음 청구서를 만들 때부터 매달 반영돼요.';
+        if (d.amt) hint = d.label.split(' ')[0] + '은(는) 월 ' + won(d.amt) + '이 자동으로 들어가요. ' + hint;
+        $('cmDiscHint').textContent = hint;
+    }
+    $('cmDiscReason').addEventListener('change', newDiscSync);
+    window.cmEdSync = function () {
+        var d = discInfo($('cmEdReason').value), amt = $('cmEdAmount');
+        $('cmEdCustom').style.display = d.custom ? '' : 'none';
+        if (d.key === '') { amt.value = ''; amt.readOnly = true; }
+        else if (d.amt) { amt.value = d.amt; amt.readOnly = true; }
+        else { if (amt.readOnly) amt.value = ''; amt.readOnly = false; }
+    };
+    window.cmDiscEdit = function (id) { editingDiscId = id; render(); if (id) cmEdSync(); };
+    function discPayload(selId, customId, amtId) {
+        var key = $(selId).value, d = discInfo(key), reason = key;
+        if (d.custom) reason = ($(customId).value || '').trim() || '직접입력';
+        return { discount_reason: reason, discount_amount: $(amtId).value };
+    }
+    window.cmDiscSave = function (id) {
+        var p = discPayload('cmEdReason', 'cmEdCustom', 'cmEdAmount');
+        api(base('modal-enrollment/' + id + '/discount/'), p).then(function (j) { editingDiscId = null; done(j); }).catch(fail);
+    };
+
     window.cmEnroll = function () {
         if (!selected.size) { say('배정할 학생을 먼저 검색해서 선택해 주세요.', true); return; }
-        api(base('modal-enroll/'), { student_ids: Array.from(selected.keys()) }).then(function (j) { selected.clear(); done(j); }).catch(fail);
+        var body = discPayload('cmDiscReason', 'cmDiscCustom', 'cmDiscAmount');
+        body.student_ids = Array.from(selected.keys());
+        api(base('modal-enroll/'), body).then(function (j) {
+            selected.clear(); $('cmDiscReason').value = ''; $('cmDiscCustom').value = ''; newDiscSync(); done(j);
+        }).catch(fail);
     };
     window.cmUnenroll = function (id) {
         if (!confirm('이 학생의 수업 배정을 해제할까요?')) return;

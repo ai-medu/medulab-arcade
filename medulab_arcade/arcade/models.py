@@ -512,6 +512,8 @@ class ClassEnrollment(models.Model):
     student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='class_enrollments', verbose_name='학생')
     enrolled_at = models.DateField('배정일', auto_now_add=True)
     is_active = models.BooleanField('수강 중', default=True)
+    discount_reason = models.CharField('할인 사유', max_length=50, blank=True)
+    discount_amount = models.PositiveIntegerField('할인 금액(원)', default=0, help_text='청구서 생성 시 매달 차감됩니다.')
 
     class Meta:
         verbose_name = '수업 배정'
@@ -562,6 +564,8 @@ class TuitionInvoice(models.Model):
     paid_at = models.DateTimeField('결제 완료 일시', null=True, blank=True)
     portone_payment_id = models.CharField('포트원 결제건 ID', max_length=100, unique=True, blank=True)
     portone_pay_method = models.CharField('결제 수단', max_length=30, blank=True)
+    discount_reason = models.CharField('할인 사유', max_length=50, blank=True)
+    discount_amount = models.PositiveIntegerField('할인 금액(원)', default=0)
     canceled_at = models.DateTimeField('취소 일시', null=True, blank=True)
     cancel_reason = models.CharField('취소 사유', max_length=100, blank=True)
     refunded_amount = models.PositiveIntegerField('환불 금액(원)', default=0)

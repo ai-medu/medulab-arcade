@@ -3293,7 +3293,8 @@ def class_admin_list(request):
     search = request.GET.get('q', '').strip()
     if search:
         classes = classes.filter(name__icontains=search)
-    assigned_only = request.GET.get('assigned') == '1'
+    # 기본은 배정 인원이 있는 수업만 (assigned=0 이면 전체)
+    assigned_only = request.GET.get('assigned', '1') != '0'
     if assigned_only:
         classes = classes.filter(active_students__gt=0)
     classes_list = list(classes)
@@ -3506,6 +3507,8 @@ def _class_modal_payload(school_class):
             'username': e.student.username,
             'enrolled_at': e.enrolled_at.strftime('%Y.%m.%d'),
             'is_active': e.is_active,
+            'discount_reason': e.discount_reason,
+            'discount_amount': e.discount_amount,
         }
         for e in school_class.enrollments.select_related('student__profile').order_by('-enrolled_at')
     ]
@@ -3516,6 +3519,7 @@ def _class_modal_payload(school_class):
             'amount': inv.amount, 'due_date': inv.due_date.strftime('%Y-%m-%d'),
             'status': inv.status, 'status_label': inv.get_status_display(),
             'period': inv.billing_period_label,
+            'discount_reason': inv.discount_reason, 'discount_amount': inv.discount_amount,
         }
         for inv in school_class.invoices.select_related('student__profile').order_by('-due_date', '-created_at')
     ]
@@ -3543,27 +3547,80 @@ def _json_body(request):
         return {}
 
 
+# 배정 시 입력받는 할인 (사유 → 고정 금액). None 이면 금액을 직접 입력
+CLASS_DISCOUNT_FIXED = {'2인이상': 10000, '형제할인': 10000}
+CLASS_DISCOUNT_MAX = 10_000_000
+
+
+def _clean_enroll_discount(reason, amount):
+    """할인 사유/금액 검증. (사유, 금액, 오류메시지) — 사유가 비면 할인 없음(0원)"""
+    reason = (reason or '').strip()[:50]
+    if not reason:
+        return '', 0, None
+    if reason in CLASS_DISCOUNT_FIXED:
+        return reason, CLASS_DISCOUNT_FIXED[reason], None
+    try:
+        amount = int(str(amount).replace(',', '').strip() or 0)
+    except (TypeError, ValueError):
+        return '', 0, '할인 금액을 숫자로 입력해 주세요.'
+    if amount < 0 or amount > CLASS_DISCOUNT_MAX:
+        return '', 0, '할인 금액이 올바르지 않습니다.'
+    if amount == 0:
+        return '', 0, '할인 금액을 입력해 주세요. (할인이 없으면 사유를 "할인 없음"으로 두세요)'
+    return reason, amount, None
+
+
 @login_required
 @user_passes_test(staff_check)
 @require_POST
 def class_modal_enroll(request, class_id):
-    """모달에서 학생 배정 추가"""
+    """모달에서 학생 배정 추가 (할인 사유/금액을 함께 받아 배정 정보에 저장)"""
     school_class = get_object_or_404(SchoolClass, pk=class_id)
+    body = _json_body(request)
+    reason, amount, err = _clean_enroll_discount(body.get('discount_reason'), body.get('discount_amount'))
+    if err:
+        return JsonResponse({'ok': False, 'error': err}, status=400)
     added = 0
-    for sid in _json_body(request).get('student_ids', []):
+    for sid in body.get('student_ids', []):
         student = User.objects.filter(pk=sid).first()
         if not student:
             continue
         enrollment, created = ClassEnrollment.objects.get_or_create(
-            school_class=school_class, student=student, defaults={'is_active': True})
+            school_class=school_class, student=student,
+            defaults={'is_active': True, 'discount_reason': reason, 'discount_amount': amount})
         if created:
             added += 1
         elif not enrollment.is_active:
             enrollment.is_active = True
-            enrollment.save(update_fields=['is_active'])
+            enrollment.discount_reason = reason
+            enrollment.discount_amount = amount
+            enrollment.save(update_fields=['is_active', 'discount_reason', 'discount_amount'])
             added += 1
     payload = _class_modal_payload(school_class)
-    payload['message'] = f'{added}명을 배정했습니다.' if added else '새로 배정된 학생이 없습니다.'
+    msg = f'{added}명을 배정했습니다.' if added else '새로 배정된 학생이 없습니다.'
+    if added and amount:
+        msg += f' (할인 {reason} -{amount:,}원)'
+    payload['message'] = msg
+    return JsonResponse(payload)
+
+
+@login_required
+@user_passes_test(staff_check)
+@require_POST
+def class_modal_enrollment_discount(request, class_id, enrollment_id):
+    """모달에서 이미 배정된 학생의 할인 사유/금액 수정"""
+    school_class = get_object_or_404(SchoolClass, pk=class_id)
+    enrollment = get_object_or_404(ClassEnrollment, pk=enrollment_id, school_class=school_class)
+    body = _json_body(request)
+    reason, amount, err = _clean_enroll_discount(body.get('discount_reason'), body.get('discount_amount'))
+    if err:
+        return JsonResponse({'ok': False, 'error': err}, status=400)
+    enrollment.discount_reason = reason
+    enrollment.discount_amount = amount
+    enrollment.save(update_fields=['discount_reason', 'discount_amount'])
+    payload = _class_modal_payload(school_class)
+    payload['message'] = (f'할인을 저장했습니다. ({reason} -{amount:,}원) 다음 청구서 생성부터 반영돼요.'
+                          if amount else '할인을 없앴습니다.')
     return JsonResponse(payload)
 
 
@@ -3681,12 +3738,16 @@ def generate_invoices_for_class(school_class, due_date=None):
             date__in=prev_month_scheduled_dates,
         ).count()
         deduction = min(per_session * absence_count, school_class.tuition_fee)
-        amount = school_class.tuition_fee - deduction
+        # 배정 시 입력한 할인(2인이상/형제할인 등)을 결석 차감 후 금액에서 추가로 차감 (0원 미만 방지)
+        discount = min(enrollment.discount_amount or 0, school_class.tuition_fee - deduction)
+        amount = school_class.tuition_fee - deduction - discount
 
         TuitionInvoice.objects.create(
             student=enrollment.student, school_class=school_class,
             amount=amount, base_amount=school_class.tuition_fee,
             absence_count=absence_count, absence_deduction=deduction,
+            discount_reason=enrollment.discount_reason if discount else '',
+            discount_amount=discount,
             due_date=due_date,
         )
         created += 1
