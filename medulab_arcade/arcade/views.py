@@ -3567,6 +3567,8 @@ def _class_modal_payload(school_class):
             'period': inv.billing_period_label,
             'discount_reason': inv.discount_reason, 'discount_amount': inv.discount_amount,
             'absence_count': inv.absence_count, 'absence_deduction': inv.absence_deduction,
+            'extra_discount_reason': inv.extra_discount_reason, 'extra_discount_amount': inv.extra_discount_amount,
+            'extra_absence_count': inv.extra_absence_count,
         }
         for inv in school_class.invoices.select_related('student__profile').order_by('-due_date', '-created_at')
     ]
@@ -3604,6 +3606,8 @@ def _clean_enroll_discount(reason, amount):
     reason = (reason or '').strip()[:50]
     if not reason:
         return '', 0, None
+    if ClassDiscountType.objects.filter(name=reason, is_absence=True).exists():
+        return '', 0, '"결석차감"은 청구서의 추가할인(이번 달만)에서만 쓸 수 있어요.'
     fixed_amount = ClassDiscountType.objects.filter(name=reason, amount__gt=0).values_list('amount', flat=True).first()
     if fixed_amount:
         return reason, fixed_amount, None
@@ -3619,7 +3623,7 @@ def _clean_enroll_discount(reason, amount):
 
 
 def _discount_types_payload():
-    return [{'id': t.id, 'name': t.name, 'amount': t.amount} for t in ClassDiscountType.objects.all()]
+    return [{'id': t.id, 'name': t.name, 'amount': t.amount, 'is_absence': t.is_absence} for t in ClassDiscountType.objects.all()]
 
 
 @login_required
@@ -3684,7 +3688,7 @@ def _discount_manage_payload():
     return {
         'ok': True,
         'types': [
-            {'id': t.id, 'name': t.name, 'amount': t.amount, 'usage': usage.get(t.name, 0)}
+            {'id': t.id, 'name': t.name, 'amount': t.amount, 'is_absence': t.is_absence, 'usage': usage.get(t.name, 0)}
             for t in ClassDiscountType.objects.all()
         ],
     }
@@ -3721,6 +3725,8 @@ def class_discount_save(request):
         if ClassDiscountType.objects.filter(name=name).exclude(pk=dtype.pk).exists():
             return JsonResponse({'ok': False, 'error': '같은 이름의 할인 사유가 이미 있어요.'}, status=400)
         old_name, old_amount = dtype.name, dtype.amount
+        if dtype.is_absence:
+            amount = 0          # 결석차감 유형은 '결석 횟수 × 1회 수업비'로 계산하므로 고정 금액이 없다
         dtype.name, dtype.amount = name, amount
         dtype.save()
         msg = f'"{name}"을 수정했습니다.'
@@ -3792,17 +3798,37 @@ def class_modal_invoice_save(request, class_id):
     if invoice_id:
         invoice = get_object_or_404(TuitionInvoice, pk=invoice_id, school_class=school_class)
         # 할인 사유/금액을 함께 보낸 경우(학생 현황의 수정 창) 청구서에 기록된 할인도 수정한다
-        if 'discount_amount' in data:
+        #  · 기본할인(discount_*): 이 청구서 + 학생의 수업 배정 정보(앞으로의 청구서)에 반영
+        #  · 추가할인(extra_*): 이 청구서에만 반영
+        if 'discount_amount' in data or 'extra_reason' in data or 'extra_amount' in data:
             try:
-                override = _parse_discount_override(data.get('discount_reason'), data.get('discount_amount'))
+                override = _parse_discount_override(data.get('discount_reason'), data.get('discount_amount')) if 'discount_amount' in data else None
+                extra_req = _parse_extra_discount(data.get('extra_reason'), data.get('extra_amount'), data.get('extra_sessions'))
             except ValueError as exc:
                 return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+            fee_base = invoice.base_amount or school_class.tuition_fee
             if override is not None:
                 reason, value = override
-                if invoice.base_amount:
-                    value = max(0, min(value, invoice.base_amount - invoice.absence_deduction))
+                value = max(0, min(value, fee_base - invoice.absence_deduction))
                 invoice.discount_amount = value
                 invoice.discount_reason = ((reason or '').strip()[:50] or '직접입력') if value else ''
+                _persist_base_discount(
+                    ClassEnrollment.objects.filter(school_class=school_class, student=invoice.student).select_related('school_class').first(),
+                    override)
+            if 'extra_reason' in data or 'extra_amount' in data:
+                room = fee_base - invoice.absence_deduction - invoice.discount_amount
+                if extra_req is None:
+                    invoice.extra_discount_reason, invoice.extra_discount_amount, invoice.extra_absence_count = '', 0, 0
+                else:
+                    e_reason, e_amount, e_sessions = extra_req
+                    sessions = 0
+                    if e_reason in _absence_type_names():
+                        sessions = e_sessions
+                        e_amount = sessions * (max(fee_base - invoice.discount_amount, 0) // 4)
+                    e_amount = max(0, min(e_amount, room))
+                    invoice.extra_discount_amount = e_amount
+                    invoice.extra_discount_reason = (e_reason[:50] or '직접입력') if e_amount else ''
+                    invoice.extra_absence_count = sessions if e_amount else 0
     else:
         enrollment = ClassEnrollment.objects.filter(
             school_class=school_class, student_id=data.get('student_id')).select_related('student').first()
@@ -3814,12 +3840,16 @@ def class_modal_invoice_save(request, class_id):
         # 금액을 직접 고쳐서 만든 경우에는 금액만 기록한다.
         try:
             override = _parse_discount_override(data.get('discount_reason'), data.get('discount_amount'))
+            extra_req = _parse_extra_discount(data.get('extra_reason'), data.get('extra_amount'), data.get('extra_sessions'))
         except ValueError as exc:
             return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
-        calc = compute_invoice_amounts(school_class, enrollment, due_date, discount_override=override)
+        calc = compute_invoice_amounts(school_class, enrollment, due_date, discount_override=override, extra=extra_req)
         if amount == calc['amount']:
-            for key in ('absence_count', 'absence_deduction', 'discount_reason', 'discount_amount'):
+            for key in ('absence_count', 'absence_deduction', 'discount_reason', 'discount_amount',
+                        'extra_discount_reason', 'extra_discount_amount', 'extra_absence_count'):
                 setattr(invoice, key, calc[key])
+        # 기본할인은 학생의 배정 정보에도 저장해서 앞으로의 청구서에 계속 적용한다
+        _persist_base_discount(enrollment, override)
 
     invoice.amount = amount
     invoice.due_date = due_date
@@ -3849,9 +3879,10 @@ def class_modal_invoice_preview(request, class_id):
         return JsonResponse({'ok': False, 'error': '납부 기한 형식이 올바르지 않습니다.'}, status=400)
     try:
         override = _parse_discount_override(request.GET.get('discount_reason'), request.GET.get('discount_amount'))
+        extra_req = _parse_extra_discount(request.GET.get('extra_reason'), request.GET.get('extra_amount'), request.GET.get('extra_sessions'))
     except ValueError as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
-    calc = compute_invoice_amounts(school_class, enrollment, due_date, discount_override=override)
+    calc = compute_invoice_amounts(school_class, enrollment, due_date, discount_override=override, extra=extra_req)
     calc['ok'] = True
     return JsonResponse(calc)
 
@@ -3889,9 +3920,17 @@ def _month_due_date(today=None):
     return today.replace(day=last_day)
 
 
-def compute_invoice_amounts(school_class, enrollment, due_date, discount_override=None):
-    """한 학생의 청구 금액 계산 — 일괄 생성(납부관리/수업관리)과 수업관리의 직접 생성이 모두 이 함수를 쓴다.
-    ① 전월 결석 횟수 × 회당 단가를 차감  ② 배정 시 입력한 할인(2인이상/형제할인 등)을 추가 차감 (0원 미만 방지)"""
+def _absence_type_names():
+    return set(ClassDiscountType.objects.filter(is_absence=True).values_list('name', flat=True))
+
+
+def compute_invoice_amounts(school_class, enrollment, due_date, discount_override=None, extra=None):
+    """한 학생의 청구 금액 계산 — 일괄 생성(납부관리/수업관리)과 직접 생성이 모두 이 함수를 쓴다.
+    ① 전월 결석(출석 기록) 횟수 × 회당 단가를 차감
+    ② 기본할인(배정 시 정한 할인, 매달 적용)을 차감   — discount_override=(사유, 금액) 으로 바꿔서 계산 가능
+    ③ 추가할인(이번 달만)을 차감                         — extra=(사유, 금액, 결석횟수)
+       사유가 '결석차감' 유형이면 금액 = 결석 횟수 × (기본할인 적용된 수업비 ÷ 4)
+    모두 0원 미만으로는 내려가지 않는다."""
     fee = school_class.tuition_fee
     period_start = due_date.replace(day=1)
     prev_month_last_day = period_start - timedelta(days=1)
@@ -3901,22 +3940,71 @@ def compute_invoice_amounts(school_class, enrollment, due_date, discount_overrid
         enrollment=enrollment, is_present=False, date__in=scheduled,
     ).count()
     deduction = min(school_class.per_session_fee * absence_count, fee)
+
     if discount_override is not None:
-        # 청구서를 만들 때 할인 사유/금액을 직접 고친 경우 (이번 청구서에만 적용, 학생 배정 정보는 그대로)
         reason, amount = discount_override
         discount = max(0, min(int(amount or 0), fee - deduction))
         reason = (reason or '').strip()[:50] or '직접입력'
     else:
         discount = min(enrollment.discount_amount or 0, fee - deduction)
         reason = enrollment.discount_reason
+
+    extra_reason, extra_amount, extra_sessions = '', 0, 0
+    if extra is not None:
+        e_reason, e_amount, e_sessions = extra
+        e_reason = (e_reason or '').strip()[:50]
+        if e_reason in _absence_type_names():
+            extra_sessions = max(int(e_sessions or 1), 1)
+            per_session = max(fee - discount, 0) // 4          # 할인된 수업비 ÷ 4 = 1회 수업비
+            e_amount = extra_sessions * per_session
+        room = fee - deduction - discount
+        extra_amount = max(0, min(int(e_amount or 0), room))
+        extra_reason = (e_reason or '직접입력') if extra_amount else ''
+        if not extra_amount:
+            extra_sessions = 0
+
     return {
         'base_amount': fee,
         'absence_count': absence_count,
         'absence_deduction': deduction,
         'discount_reason': reason if discount else '',
         'discount_amount': discount,
-        'amount': fee - deduction - discount,
+        'extra_discount_reason': extra_reason,
+        'extra_discount_amount': extra_amount,
+        'extra_absence_count': extra_sessions,
+        'amount': fee - deduction - discount - extra_amount,
     }
+
+
+def _parse_extra_discount(reason, amount, sessions):
+    """추가할인 요청값 → (사유, 금액, 결석횟수) 또는 None(없음). 잘못된 값이면 ValueError"""
+    reason = (reason or '').strip()
+    if not reason and (amount is None or str(amount).strip() in ('', '0')):
+        return None
+    is_absence = reason in _absence_type_names()
+    try:
+        sessions_v = int(str(sessions or 1).strip() or 1)
+        amount_v = 0 if is_absence else int(str(amount or 0).replace(',', '').strip() or 0)
+    except (TypeError, ValueError):
+        raise ValueError('추가할인 금액/횟수를 숫자로 입력해 주세요.')
+    if sessions_v < 1 or sessions_v > 31 or amount_v < 0 or amount_v > CLASS_DISCOUNT_MAX:
+        raise ValueError('추가할인 금액/횟수가 올바르지 않습니다.')
+    if not is_absence and amount_v == 0:
+        if reason:
+            raise ValueError('추가할인 금액을 입력해 주세요.')
+        return None
+    return (reason, amount_v, sessions_v)
+
+
+def _persist_base_discount(enrollment, override):
+    """기본할인(매달 적용)을 학생의 수업 배정 정보에 저장한다. 금액이 0이면 기본할인을 없앤다."""
+    if enrollment is None or override is None:
+        return
+    reason, value = override
+    value = max(0, min(int(value or 0), enrollment.school_class.tuition_fee))
+    enrollment.discount_amount = value
+    enrollment.discount_reason = ((reason or '').strip()[:50] or '직접입력') if value else ''
+    enrollment.save(update_fields=['discount_reason', 'discount_amount'])
 
 
 def _parse_discount_override(reason, amount):
@@ -6466,6 +6554,8 @@ def _render_staff_student_dashboard(request):
             'amount': inv.amount, 'base_amount': inv.base_amount or inv.amount,
             'absence_count': inv.absence_count, 'absence_deduction': inv.absence_deduction,
             'discount_reason': inv.discount_reason, 'discount_amount': inv.discount_amount,
+            'extra_discount_reason': inv.extra_discount_reason, 'extra_discount_amount': inv.extra_discount_amount,
+            'extra_absence_count': inv.extra_absence_count,
             'due_date': inv.due_date.strftime('%Y-%m-%d'), 'status': inv.status,
         })
 

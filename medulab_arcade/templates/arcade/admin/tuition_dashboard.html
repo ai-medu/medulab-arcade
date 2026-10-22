@@ -44,6 +44,7 @@ tr:hover td { background:rgba(255,255,255,0.02); }
 .amount-base { font-size:11px; color:var(--text-muted); text-decoration:line-through; }
 .amount-deduction { font-size:11px; color:#fbbf24; }
 .amount-discount { font-size:11px; color:#f472b6; font-weight:700; }
+.amount-discount.extra { color:#f59e0b; }
 .date-line { font-size:11px; color:var(--text-secondary); white-space:nowrap; }
 .date-line + .date-line { margin-top:3px; }
 .date-line .dl-label { color:var(--text-muted); margin-right:4px; }
@@ -151,10 +152,11 @@ tr:hover td { background:rgba(255,255,255,0.02); }
                     <td><button type="button" class="att-link" onclick="openAttendanceModal({{ inv.id }})">{{ inv.attended_count }}/{{ inv.school_class.monthly_sessions }}</button></td>
                     <td>
                         <div class="amount-final">{{ inv.amount|intcomma }}원</div>
-                        {% if inv.absence_deduction or inv.discount_amount %}
+                        {% if inv.absence_deduction or inv.discount_amount or inv.extra_discount_amount %}
                         <div class="amount-base">{{ inv.base_amount|intcomma }}원</div>
                         {% if inv.absence_deduction %}<div class="amount-deduction">결석 {{ inv.absence_count }}회 -{{ inv.absence_deduction|intcomma }}원</div>{% endif %}
-                        {% if inv.discount_amount %}<div class="amount-discount">할인 {{ inv.discount_reason }} -{{ inv.discount_amount|intcomma }}원</div>{% endif %}
+                        {% if inv.discount_amount %}<div class="amount-discount">기본할인 {{ inv.discount_reason }} -{{ inv.discount_amount|intcomma }}원</div>{% endif %}
+                        {% if inv.extra_discount_amount %}<div class="amount-discount extra">추가할인 {{ inv.extra_discount_reason }}{% if inv.extra_absence_count %} {{ inv.extra_absence_count }}회{% endif %} -{{ inv.extra_discount_amount|intcomma }}원</div>{% endif %}
                         {% endif %}
                     </td>
                     <td>{% include 'arcade/admin/_tuition_status_cell.html' with inv=inv today=today %}</td>
@@ -275,10 +277,11 @@ tr:hover td { background:rgba(255,255,255,0.02); }
                     <td><button type="button" class="att-link" onclick="openAttendanceModal({{ inv.id }})">{{ inv.attended_count }}/{{ inv.school_class.monthly_sessions }}</button></td>
                     <td>
                         <div class="amount-final">{{ inv.amount|intcomma }}원</div>
-                        {% if inv.absence_deduction or inv.discount_amount %}
+                        {% if inv.absence_deduction or inv.discount_amount or inv.extra_discount_amount %}
                         <div class="amount-base">{{ inv.base_amount|intcomma }}원</div>
                         {% if inv.absence_deduction %}<div class="amount-deduction">결석 {{ inv.absence_count }}회 -{{ inv.absence_deduction|intcomma }}원</div>{% endif %}
-                        {% if inv.discount_amount %}<div class="amount-discount">할인 {{ inv.discount_reason }} -{{ inv.discount_amount|intcomma }}원</div>{% endif %}
+                        {% if inv.discount_amount %}<div class="amount-discount">기본할인 {{ inv.discount_reason }} -{{ inv.discount_amount|intcomma }}원</div>{% endif %}
+                        {% if inv.extra_discount_amount %}<div class="amount-discount extra">추가할인 {{ inv.extra_discount_reason }}{% if inv.extra_absence_count %} {{ inv.extra_absence_count }}회{% endif %} -{{ inv.extra_discount_amount|intcomma }}원</div>{% endif %}
                         {% endif %}
                     </td>
                     <td>{% include 'arcade/admin/_tuition_status_cell.html' with inv=inv today=today %}</td>

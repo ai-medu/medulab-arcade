@@ -315,14 +315,7 @@
                 <div class="r"><span>전월 결석 차감</span><span id="ivAbs" class="iv-chip-abs">-</span></div>
                 <div class="r total"><span>청구 금액</span><span id="ivTotal">-</span></div>
             </div>
-            <div class="iv-field iv-disc-box">
-                <label>💸 할인 <span style="font-weight:500;">· 학생에게 정해진 할인이 기본으로 들어가요. 이번 청구서에서 고칠 수 있어요</span></label>
-                <div class="iv-row">
-                    <select id="ivDiscSel" class="iv-input" onchange="ivDiscChange()"></select>
-                    <input type="number" id="ivDiscAmt" class="iv-input" min="0" step="1000" placeholder="할인 금액(원)" oninput="ivRecalc()">
-                </div>
-                <input type="text" id="ivDiscCustom" class="iv-input" maxlength="50" placeholder="할인 사유를 직접 입력" style="display:none; margin-top:8px;">
-            </div>
+            {% include 'arcade/admin/_invoice_disc_box.html' with p='iv' %}
             <div class="iv-field"><label>금액(원) <span style="font-weight:500;">· 자동 계산된 값이에요. 필요하면 직접 고칠 수 있어요</span></label><input type="number" id="ivAmount" class="iv-input" min="0"></div>
             <div class="iv-edit-note" id="ivEditNote" style="display:none;">💸 이미 결제된 돈을 <strong>환불</strong>해야 한다면 상태만 바꾸지 말고 <a href="{% url 'tuition_admin_dashboard' %}" style="color:inherit;text-decoration:underline;">납부 관리</a>에서 <strong>"✅ 완납"</strong> 버튼으로 취소해 주세요. (여기서 "취소"로 바꾸면 환불 없이 상태만 바뀝니다)</div>
             <div class="iv-btns"><button type="button" class="iv-btn cancel" onclick="closeInvoiceModal()">닫기</button><button type="button" class="iv-btn go" id="ivSave" onclick="ivSave()">청구서 생성</button></div>
@@ -394,6 +387,7 @@
     <input type="hidden" name="mode" id="quickAssignMode" value="add">
     <input type="hidden" name="next" value="{{ request.get_full_path }}">
 </form>
+{% include 'arcade/admin/_invoice_disc_js.html' %}
 <script>
 const allPanelIds = ['certPanel', 'awardPanel', 'examPanel'];
 const allStatIds = ['todayAttendStat', 'certStat', 'awardStat', 'examStat'];
@@ -529,17 +523,12 @@ function openInvoiceEdit(studentId, studentName, btn) {
 function ivLoadInvoice(k) {
     const v = ivInvoices[k]; if (!v) return;
     ivBase = v.base_amount; ivAbs = v.absence_deduction;
+    ivEd.setCtx(v.base_amount, v.absence_deduction);
     document.getElementById('ivDue').value = v.due_date;
     document.getElementById('ivStatus').value = v.status;
     document.getElementById('ivBase').textContent = ivWon(v.base_amount);
     document.getElementById('ivAbs').textContent = v.absence_deduction ? '결석 ' + v.absence_count + '회 · −' + ivWon(v.absence_deduction) : '-';
-    const reason = v.discount_reason || '';
-    const known = IV_TYPES.some(function (t) { return t.name === reason; });
-    const key = !reason ? '' : (known ? reason : '__custom');
-    document.getElementById('ivDiscSel').innerHTML = ivDiscOptions(key);
-    document.getElementById('ivDiscCustom').value = key === '__custom' ? reason : '';
-    document.getElementById('ivDiscCustom').style.display = key === '__custom' ? '' : 'none';
-    document.getElementById('ivDiscAmt').value = v.discount_amount || '';
+    ivEd.fill(v.discount_reason, v.discount_amount, v.extra_discount_reason, v.extra_discount_amount, v.extra_absence_count || 1, true);
     document.getElementById('ivAmount').value = v.amount;      // 저장된 금액 그대로 (할인을 바꾸면 다시 계산)
     document.getElementById('ivTotal').textContent = ivWon(v.amount);
     ivSay('');
@@ -552,25 +541,11 @@ function closeInvoiceModal() {
 }
 const IV_TYPES = {{ discount_types_json|safe }};
 let ivBase = 0, ivAbs = 0;
-function ivDiscOptions(sel) {
-    return '<option value="">할인 없음</option>' + IV_TYPES.map(function (t) {
-        return '<option value="' + t.name.replace(/"/g, '&quot;') + '"' + (t.name === sel ? ' selected' : '') + '>' + t.name.replace(/</g, '&lt;') + (t.amount ? ' (' + ivWon(t.amount) + ')' : '') + '</option>';
-    }).join('') + '<option value="__custom"' + (sel === '__custom' ? ' selected' : '') + '>직접입력</option>';
-}
-function ivRecalc() {
-    const room = Math.max(ivBase - ivAbs, 0);
-    let d = parseInt(document.getElementById('ivDiscAmt').value, 10) || 0;
-    d = Math.max(0, Math.min(d, room));
-    document.getElementById('ivTotal').textContent = ivWon(ivBase - ivAbs - d);
-    document.getElementById('ivAmount').value = ivBase - ivAbs - d;
-}
-function ivDiscChange() {
-    const key = document.getElementById('ivDiscSel').value, amt = document.getElementById('ivDiscAmt');
-    document.getElementById('ivDiscCustom').style.display = key === '__custom' ? '' : 'none';
-    if (key === '') amt.value = '';
-    else if (key !== '__custom') { const t = IV_TYPES.filter(function (x) { return x.name === key; })[0]; if (t && t.amount) amt.value = t.amount; else amt.value = ''; }
-    ivRecalc();
-}
+// 기본할인(매달) + 추가할인(이번 달만, 결석차감 포함) 입력기. 바뀔 때마다 청구 금액을 다시 계산한다
+const ivEd = DiscEditor('iv', function () { return IV_TYPES; }, function (r) {
+    document.getElementById('ivTotal').textContent = ivWon(r.total);
+    document.getElementById('ivAmount').value = r.total;
+});
 function ivPreview() {
     const cid = document.getElementById('ivClass').value, due = document.getElementById('ivDue').value;
     if (!cid || !due || !ivStudentId) return;
@@ -580,17 +555,11 @@ function ivPreview() {
         .then(function (p) {
             if (seq !== ivSeq) return;
             ivCalc = p; ivBase = p.base_amount; ivAbs = p.absence_deduction;
+            ivEd.setCtx(p.base_amount, p.absence_deduction);
             document.getElementById('ivBase').textContent = ivWon(p.base_amount);
             document.getElementById('ivAbs').textContent = p.absence_deduction ? '결석 ' + p.absence_count + '회 · −' + ivWon(p.absence_deduction) : '-';
-            // 학생에게 정해진 할인을 기본값으로 채운다 (목록에 있는 사유면 선택, 없으면 직접입력)
-            const reason = p.discount_reason || '';
-            const known = IV_TYPES.some(function (t) { return t.name === reason; });
-            const key = !reason ? '' : (known ? reason : '__custom');
-            document.getElementById('ivDiscSel').innerHTML = ivDiscOptions(key);
-            document.getElementById('ivDiscCustom').value = key === '__custom' ? reason : '';
-            document.getElementById('ivDiscCustom').style.display = key === '__custom' ? '' : 'none';
-            document.getElementById('ivDiscAmt').value = p.discount_amount || '';
-            ivRecalc();
+            // 학생에게 정해진 기본할인을 채우고, 추가할인은 비운다
+            ivEd.fill(p.discount_reason, p.discount_amount, '', 0, 1);
             ivSay('');
         })
         .catch(function (e) { if (seq === ivSeq) ivSay(e.message, 'err'); });
@@ -607,8 +576,7 @@ function ivSave() {
             id: editing ? inv.id : undefined,
             student_id: ivStudentId, amount: document.getElementById('ivAmount').value,
             due_date: document.getElementById('ivDue').value, status: document.getElementById('ivStatus').value,
-            discount_reason: (function () { const k = document.getElementById('ivDiscSel').value; return k === '__custom' ? (document.getElementById('ivDiscCustom').value.trim() || '직접입력') : k; })(),
-            discount_amount: document.getElementById('ivDiscAmt').value || '0',
+            ...ivEd.values(),
         }),
     }).then(function (r) { return r.json().then(function (j) { if (!r.ok || j.ok === false) throw new Error(j.error || '생성하지 못했어요.'); return j; }); })
       .then(function () { ivSay(editing ? '✅ 청구서를 수정했어요!' : '✅ 청구서를 만들었어요!', 'ok'); setTimeout(function () { location.reload(); }, 800); })

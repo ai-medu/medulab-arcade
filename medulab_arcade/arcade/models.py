@@ -530,6 +530,8 @@ class ClassDiscountType(models.Model):
     name = models.CharField('할인 사유', max_length=30, unique=True)
     amount = models.PositiveIntegerField('할인 금액(원)', default=0, help_text='0이면 배정할 때 금액을 직접 입력합니다.')
     display_order = models.PositiveIntegerField('표시 순서', default=0)
+    is_absence = models.BooleanField('결석차감 유형', default=False,
+                                     help_text='체크하면 금액 대신 "결석 횟수 × 1회 수업비"로 계산합니다. (추가할인에서만 사용)')
     created_at = models.DateTimeField('등록일', auto_now_add=True)
 
     class Meta:
@@ -580,8 +582,11 @@ class TuitionInvoice(models.Model):
     paid_at = models.DateTimeField('결제 완료 일시', null=True, blank=True)
     portone_payment_id = models.CharField('포트원 결제건 ID', max_length=100, unique=True, blank=True)
     portone_pay_method = models.CharField('결제 수단', max_length=30, blank=True)
-    discount_reason = models.CharField('할인 사유', max_length=50, blank=True)
-    discount_amount = models.PositiveIntegerField('할인 금액(원)', default=0)
+    discount_reason = models.CharField('기본할인 사유', max_length=50, blank=True)
+    discount_amount = models.PositiveIntegerField('기본할인 금액(원)', default=0)
+    extra_discount_reason = models.CharField('추가할인 사유(이번 달만)', max_length=50, blank=True)
+    extra_discount_amount = models.PositiveIntegerField('추가할인 금액(원)', default=0)
+    extra_absence_count = models.PositiveIntegerField('추가할인 결석 횟수', default=0)
     canceled_at = models.DateTimeField('취소 일시', null=True, blank=True)
     cancel_reason = models.CharField('취소 사유', max_length=100, blank=True)
     refunded_amount = models.PositiveIntegerField('환불 금액(원)', default=0)
