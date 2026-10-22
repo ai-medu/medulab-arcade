@@ -75,6 +75,8 @@
     .assign-mode { display:flex; gap:8px; margin:0 0 12px; flex-wrap:wrap; }
     .assign-mode label { display:flex; align-items:center; gap:6px; padding:7px 12px; border:1px solid var(--border); border-radius:10px; font-size:12.5px; font-weight:700; cursor:pointer; }
     .assign-mode label.on { border-color:var(--accent-green); background:rgba(0,255,180,0.10); color:var(--accent-green); }
+    .assign-unassign { display:flex; align-items:center; gap:6px; padding:7px 12px; border:1px solid rgba(239,68,68,0.45); border-radius:10px; background:rgba(239,68,68,0.07); color:#ef4444; font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit; }
+    .assign-unassign:hover { background:rgba(239,68,68,0.15); }
     .assign-from { font-size:12.5px; margin:0 0 10px; padding:8px 12px; border-radius:10px; background:rgba(120,120,160,0.10); }
     .class-list-item.current { opacity:.55; cursor:not-allowed; }
     .class-list-item .now-tag { margin-left:8px; font-size:10.5px; font-weight:800; color:var(--accent-green); border:1px solid var(--accent-green); border-radius:6px; padding:1px 6px; }
@@ -349,6 +351,7 @@
             <div class="assign-mode">
                 <label class="on" id="modeMoveLabel"><input type="radio" name="assignMode" value="move" checked onchange="setAssignMode('move')"> 🔄 이 수업에서 <strong>변경</strong></label>
                 <label id="modeAddLabel"><input type="radio" name="assignMode" value="add" onchange="setAssignMode('add')"> ➕ 수업 <strong>추가</strong></label>
+                <button type="button" class="assign-unassign" onclick="unassignClass()">⛔ <strong>미배정</strong>으로 변경</button>
             </div>
         </div>
         <div class="day-filter-bar">
@@ -648,6 +651,16 @@ function filterClassProgram(prog, btn) {
     document.querySelectorAll('.prog-filter-btn').forEach(function (b) { b.classList.remove('active'); });
     btn.classList.add('active');
     applyClassFilters();
+}
+function unassignClass() {
+    if (!qaCurrentStudentId || !qaFromClassId) return;
+    if (!confirm('"' + qaFromClassName + '" 배정을 해제하고 미배정으로 바꿀까요?
+(수강 중단으로 바뀌고 출석 기록은 보존돼요)')) return;
+    document.getElementById('quickAssignStudentId').value = qaCurrentStudentId;
+    document.getElementById('quickAssignToClass').value = '';
+    document.getElementById('quickAssignFromClass').value = qaFromClassId;
+    document.getElementById('quickAssignMode').value = 'unassign';
+    document.getElementById('quickAssignForm').submit();
 }
 function selectClassToAssign(classId, className) {
     if (!qaCurrentStudentId) return;

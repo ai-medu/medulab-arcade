@@ -3496,12 +3496,25 @@ def class_move_student(request):
     next_url = request.POST.get('next') or reverse('my_report')
     student = User.objects.filter(pk=request.POST.get('student_id') or 0).first()
     to_class = SchoolClass.objects.filter(pk=request.POST.get('to_class_id') or 0).first()
-    if not student or not to_class:
+    if not student or (not to_class and request.POST.get('mode') != 'unassign'):
         messages.error(request, '학생 또는 수업을 찾을 수 없습니다.')
         return redirect(next_url)
 
     mode = request.POST.get('mode') or 'add'
     old = None
+    if mode == 'unassign':
+        # 미배정으로 변경: 배정을 삭제하지 않고 '수강 중단'으로 바꿔 출석 기록을 보존한다
+        target = ClassEnrollment.objects.filter(
+            student=student, school_class_id=request.POST.get('from_class_id') or 0, is_active=True
+        ).select_related('school_class').first()
+        if not target:
+            messages.error(request, '해제할 수업 배정을 찾을 수 없습니다.')
+        else:
+            target.is_active = False
+            target.save(update_fields=['is_active'])
+            name = student.profile.real_name or student.username
+            messages.success(request, f'{name} 학생의 "{target.school_class.name}" 배정을 해제했습니다.')
+        return redirect(next_url)
     if mode == 'move':
         old = ClassEnrollment.objects.filter(
             student=student, school_class_id=request.POST.get('from_class_id') or 0, is_active=True
