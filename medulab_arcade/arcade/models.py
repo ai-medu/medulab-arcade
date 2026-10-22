@@ -1452,6 +1452,7 @@ class ContentFinderSubmission(models.Model):
 class AIPromptCardOrder(models.Model):
     """AI 프롬프트 생성기 허브 페이지의 카드 노출 순서 (관리자 드래그앤드롭으로 설정, 싱글턴)"""
     order = models.JSONField('카드 순서(키 목록)', default=list, blank=True)
+    program_order = models.JSONField('20선 프로그램 순서(번호 목록)', default=list, blank=True)
     updated_at = models.DateTimeField('마지막 수정 시각', auto_now=True)
 
     class Meta:

@@ -247,18 +247,26 @@ def ai_prompts(request):
     cards = [cards_by_key[k] for k in ordered_keys + remaining_keys]
 
     # 20선 프로그램: 이미 만들어진 도구 중 관련 있는 것을 연결, 없으면 '준비 중' 카드
-    from .ai_program_catalog import AI_PROGRAMS
+    from .ai_program_catalog import AI_PROGRAMS, FEATURED_PROGRAM
     mapped_keys = set()
-    programs = []
+    programs_by_no = {}
     for program in AI_PROGRAMS:
         tools = [cards_by_key[k] for k in program['tools'] if k in cards_by_key]
         mapped_keys.update(c['key'] for c in tools)
-        programs.append({**program, 'tool_cards': tools})
+        programs_by_no[program['no']] = {**program, 'tool_cards': tools}
+
+    program_order = (order_obj.program_order if order_obj else []) or []
+    ordered_nos = [n for n in program_order if n in programs_by_no]
+    remaining_nos = [n for n in programs_by_no if n not in ordered_nos]
+    programs = [programs_by_no[n] for n in ordered_nos + remaining_nos]
+
+    featured_program = {**FEATURED_PROGRAM, 'tool_cards': [cards_by_key[k] for k in FEATURED_PROGRAM['tools'] if k in cards_by_key]}
+    mapped_keys.update(c['key'] for c in featured_program['tool_cards'])
 
     # 20선과 관련 없는 기존 도구는 맨 뒤 '기타 도구'로 (관리자가 정한 순서 유지)
     other_cards = [c for c in cards if c['key'] not in mapped_keys]
     return render(request, 'arcade/ai_prompts.html', {
-        'programs': programs, 'other_cards': other_cards,
+        'featured_program': featured_program, 'programs': programs, 'other_cards': other_cards,
         'ready_count': sum(1 for p in programs if p['tool_cards']),
     })
 
@@ -286,6 +294,34 @@ def ai_prompts_reorder(request):
         order_obj.save(update_fields=['order'])
     else:
         AIPromptCardOrder.objects.create(order=order)
+
+    return JsonResponse({'success': True})
+
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+@require_POST
+def ai_prompts_program_reorder(request):
+    """관리자용 - AI 교육 프로그램 20선 카드 순서 저장"""
+    from .ai_program_catalog import AI_PROGRAMS
+    try:
+        payload = json.loads(request.body)
+    except (ValueError, TypeError):
+        return JsonResponse({'success': False, 'error': '잘못된 요청입니다.'}, status=400)
+
+    order = payload.get('order')
+    if not isinstance(order, list) or not all(isinstance(n, int) for n in order):
+        return JsonResponse({'success': False, 'error': '순서 데이터가 올바르지 않습니다.'}, status=400)
+
+    valid_nos = {p['no'] for p in AI_PROGRAMS}
+    order = [n for n in order if n in valid_nos]
+
+    order_obj = AIPromptCardOrder.objects.order_by('id').first()
+    if order_obj:
+        order_obj.program_order = order
+        order_obj.save(update_fields=['program_order'])
+    else:
+        AIPromptCardOrder.objects.create(program_order=order)
 
     return JsonResponse({'success': True})
 

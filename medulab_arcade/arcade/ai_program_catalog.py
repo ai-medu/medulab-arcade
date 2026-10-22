@@ -4,6 +4,14 @@ tools: 이미 만들어져 있는 AI 프롬프트 도구(AI_PROMPT_CARDS의 key)
        비어 있으면 '준비 중' 카드로 표시된다. 도구가 새로 만들어지면 여기에 key만 추가하면 된다.
 """
 
+# 20선 번호 매김과 별개로, 목록 맨 앞에 강조 노출되는 캠프/특별 프로그램.
+FEATURED_PROGRAM = {
+    'title': 'AI로 발견하는 광주 미래직업 지역문제 해결캠프', 'tag': '캠프', 'icon': '🏕️',
+    'grades': '중·고', 'duration': '90분~2시간',
+    'desc': '광주 지역의 문제를 AI로 분석하고, 나의 미래직업과 연결지어 해결 아이디어를 기획하는 캠프 프로그램입니다.',
+    'tools': ['my_avatar', 'local_problem_finder', 'camp_planner', 'ai_website_builder'],
+}
+
 AI_PROGRAMS = [
     {'no': 1, 'title': '생성형 AI 체험', 'tag': 'AI 기초', 'icon': '💡', 'grades': '초·중·고', 'duration': '90분~2시간',
      'desc': 'ChatGPT, Gemini와 함께 생성형 AI의 원리를 이해하고 다양한 질문과 활용을 체험합니다.', 'tools': ['ai_explorer']},
