@@ -3751,6 +3751,11 @@ def class_modal_invoice_save(request, class_id):
             return JsonResponse({'ok': False, 'error': '이 수업에 배정된 학생을 선택해 주세요.'}, status=400)
         invoice = TuitionInvoice(student=enrollment.student, school_class=school_class,
                                  base_amount=school_class.tuition_fee)
+        # 학생별 할인(배정 시 입력)을 적용하기로 한 경우 청구서에 할인 사유/금액을 기록한다
+        if data.get('apply_discount'):
+            disc = min(enrollment.discount_amount or 0, school_class.tuition_fee)
+            invoice.discount_amount = disc
+            invoice.discount_reason = enrollment.discount_reason if disc else ''
 
     invoice.amount = amount
     invoice.due_date = due_date

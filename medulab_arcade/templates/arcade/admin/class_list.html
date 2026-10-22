@@ -137,6 +137,8 @@
     .cm-disc-title span { font-weight: 500; font-size: 12px; color: var(--text-muted); }
     .cm-disc-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
     .cm-disc-row label { display: block; font-size: 11px; color: var(--text-muted); font-weight: 700; margin-bottom: 4px; }
+    .cm-inv-disc { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 10px 14px; border-radius: 10px; background: rgba(244,114,182,0.10); border: 1px solid rgba(244,114,182,0.35); font-size: 13px; font-weight: 700; cursor: pointer; }
+    .cm-inv-disc input { accent-color: #f472b6; width: 16px; height: 16px; }
     .cm-disc-hint { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
     .cm-disc-row .cm-select, .cm-disc-row .cm-input { height: 40px; }
     .cm-input[readonly] { opacity: 0.75; }
@@ -344,7 +346,7 @@
                 <button type="button" class="cm-btn primary" onclick="cmInvoiceGenerate()">📄 이번 달 청구서 일괄 생성</button>
             </div>
             <div class="cm-form-grid">
-                <div><label>학생</label><select id="cmInvStudent" class="cm-select"></select></div>
+                <div><label>학생</label><select id="cmInvStudent" class="cm-select" onchange="cmInvSync()"></select></div>
                 <div><label>금액(원)</label><input type="number" id="cmInvAmount" class="cm-input" min="0"></div>
                 <div><label>납부 기한</label><input type="date" id="cmInvDue" class="cm-input"></div>
                 <div><label>상태</label>
@@ -357,6 +359,10 @@
                     <button type="button" class="cm-btn" id="cmInvCancelBtn" onclick="cmInvoiceReset()" style="display:none;">취소</button>
                 </div>
             </div>
+            <label class="cm-inv-disc" id="cmInvDiscLine" style="display:none;">
+                <input type="checkbox" id="cmInvDiscCheck" onchange="cmInvSync(true)">
+                <span id="cmInvDiscText"></span>
+            </label>
             <div class="cm-tbl-scroll">
             <table class="cm-table">
                 <thead><tr><th>학생</th><th>청구월</th><th>금액</th><th>기한</th><th>상태</th><th></th></tr></thead>
@@ -579,6 +585,23 @@ document.addEventListener('DOMContentLoaded', function () {
         api(base('modal-unenroll/' + id + '/'), {}).then(done).catch(fail);
     };
 
+    // 학생 선택 시: 그 학생의 할인(배정 시 입력)을 찾아 금액을 자동 계산 (수업비 − 할인)
+    function invStudentDiscount() {
+        if (!data) return null;
+        var sid = parseInt($('cmInvStudent').value, 10);
+        var e = data.enrollments.filter(function (x) { return x.student_id === sid; })[0];
+        if (!e || !e.discount_amount) return null;
+        return { reason: e.discount_reason, amount: Math.min(e.discount_amount, data.class.tuition_fee) };
+    }
+    window.cmInvSync = function (fromCheck) {
+        if (editingId) return;   // 기존 청구서를 수정할 때는 금액을 그대로 둔다
+        var d = invStudentDiscount(), line = $('cmInvDiscLine'), chk = $('cmInvDiscCheck'), fee = data ? data.class.tuition_fee : 0;
+        if (!d) { line.style.display = 'none'; chk.checked = false; $('cmInvAmount').value = fee; return; }
+        line.style.display = '';
+        if (!fromCheck) chk.checked = true;   // 학생을 바꾸면 기본으로 할인 적용
+        $('cmInvDiscText').textContent = '🎁 학생 할인 적용 · ' + d.reason + ' −' + won(d.amount) + ' (청구 금액 ' + won(Math.max(fee - d.amount, 0)) + ')';
+        $('cmInvAmount').value = chk.checked ? Math.max(fee - d.amount, 0) : fee;
+    };
     window.cmInvoiceReset = function () {
         editingId = null;
         $('cmInvAmount').value = data ? data.class.tuition_fee : '';
@@ -587,12 +610,14 @@ document.addEventListener('DOMContentLoaded', function () {
         $('cmInvStudent').disabled = false;
         $('cmInvSaveBtn').textContent = '생성';
         $('cmInvCancelBtn').style.display = 'none';
+        cmInvSync();
     };
     window.cmInvoiceEdit = function (id) {
         var v = data.invoices.filter(function (x) { return x.id === id; })[0];
         if (!v) return;
         editingId = id;
         $('cmInvStudent').value = v.student_id; $('cmInvStudent').disabled = true;
+        $('cmInvDiscLine').style.display = 'none';
         $('cmInvAmount').value = v.amount; $('cmInvDue').value = v.due_date; $('cmInvStatus').value = v.status;
         $('cmInvSaveBtn').textContent = '수정 저장';
         $('cmInvCancelBtn').style.display = '';
@@ -602,6 +627,7 @@ document.addEventListener('DOMContentLoaded', function () {
         api(base('modal-invoice/save/'), {
             id: editingId, student_id: $('cmInvStudent').value, amount: $('cmInvAmount').value,
             due_date: $('cmInvDue').value, status: $('cmInvStatus').value,
+            apply_discount: !editingId && $('cmInvDiscLine').style.display !== 'none' && $('cmInvDiscCheck').checked,
         }).then(done).catch(fail);
     };
     window.cmInvoiceDelete = function (id) {
