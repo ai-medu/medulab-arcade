@@ -6473,6 +6473,11 @@ def _render_staff_student_dashboard(request):
                 s.pay_state, s.pay_label, s.pay_amount = 'partial', '일부 납부', pay['paid']
             s.pay_total = total
         s.enrolled_class_ids = enrolled_class_ids.get(s.id, [])
+        # '청구서 없음' 버튼에서 여는 청구서 생성 창에 쓸 수업 목록 (배정 중인 수업)
+        s.invoice_classes_json = json.dumps(
+            [{'id': cid, 'name': cname} for cid, cname in zip(s.enrolled_class_ids, enrolled_class_names.get(s.id, []))],
+            ensure_ascii=False,
+        )
         s.scheduled_today = s.id in today_scheduled_ids
         info = today_class_info.get(s.id)
         s.today_class_name = info[1] if info else ''
@@ -6571,6 +6576,7 @@ def _render_staff_student_dashboard(request):
         'sort_mode': sort_mode,
         'current_month': current_month,
         'all_classes': all_classes,
+        'default_due_date': _month_due_date(today).strftime('%Y-%m-%d'),
     }
     return render(request, 'arcade/admin/staff_student_dashboard.html', context)
 

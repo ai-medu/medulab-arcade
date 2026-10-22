@@ -37,6 +37,25 @@
     .pay-partial { background: rgba(59,130,246,0.14); color: #3b82f6; }
     .pay-cell:hover { filter: brightness(1.1); text-decoration: underline; }
     .pay-none { color: var(--text-muted); font-size: 12px; white-space: nowrap; }
+    .pay-none-btn { border:1px dashed var(--border); background:transparent; border-radius:10px; padding:6px 11px; cursor:pointer; font-family:inherit; font-weight:700; }
+    .pay-none-btn:hover { border-color:var(--accent-green); color:var(--accent-green); background:rgba(0,255,180,0.08); }
+    .pay-none-btn .pay-plus { font-weight:900; }
+    .iv-box { max-width: 440px; }
+    .iv-field { margin-bottom: 12px; }
+    .iv-field label { display:block; font-size:11.5px; font-weight:700; color:var(--text-muted); margin-bottom:5px; }
+    .iv-input { width:100%; box-sizing:border-box; height:40px; padding:0 12px; border-radius:10px; border:1px solid var(--border); background:rgba(255,255,255,0.06); color:var(--text-primary, #fff); font-size:13.5px; font-family:inherit; }
+    .iv-row { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    .iv-calc { border:1px dashed var(--border); border-radius:12px; padding:10px 12px; margin:4px 0 14px; font-size:13px; line-height:1.9; }
+    .iv-calc .r { display:flex; justify-content:space-between; gap:10px; }
+    .iv-calc .r.total { border-top:1px solid var(--border); margin-top:4px; padding-top:6px; font-weight:900; font-size:14.5px; }
+    .iv-chip-abs { color:#d97706; font-weight:800; } .iv-chip-disc { color:#ec4899; font-weight:800; }
+    .iv-btns { display:flex; gap:10px; }
+    .iv-btn { flex:1; height:42px; border:none; border-radius:10px; font-weight:800; font-size:14px; cursor:pointer; font-family:inherit; }
+    .iv-btn.go { background:var(--accent-green); color:#03140e; }
+    .iv-btn.go:disabled { opacity:.5; cursor:not-allowed; }
+    .iv-btn.cancel { background:rgba(120,120,160,0.14); color:var(--text-secondary); }
+    .iv-msg { margin-top:10px; font-size:13px; font-weight:700; line-height:1.5; }
+    .iv-msg.err { color:#ef4444; } .iv-msg.ok { color:var(--accent-green); }
     .class-chip { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border); background:rgba(255,255,255,0.04); color:inherit; padding:5px 10px; border-radius:10px; font-size:12px; cursor:pointer; font-family:inherit; text-align:left; max-width:290px; }
     .class-chip:hover { border-color:var(--accent-green); background:rgba(0,255,180,0.08); }
     .class-chip .class-time { color:#3b82f6; font-weight:800; }
@@ -242,7 +261,7 @@
                         {% endif %}
                     </td>
                     <td onclick="event.stopPropagation();">
-                        {% if s.pay_state == 'none' %}<span class="pay-none">청구서 없음</span>
+                        {% if s.pay_state == 'none' %}<button type="button" class="pay-none pay-none-btn" title="눌러서 {{ current_month }}월 청구서 만들기" data-classes="{{ s.invoice_classes_json }}" onclick="openInvoiceModal({{ s.id }}, '{{ s.profile.real_name|default:s.username|escapejs }}', this)">청구서 없음 <span class="pay-plus">＋</span></button>
                         {% else %}
                         <a href="{% url 'tuition_admin_dashboard' %}?student_id={{ s.id }}" class="pay-cell pay-{{ s.pay_state }}" title="납부 관리에서 보기">
                             <span class="pay-state">{% if s.pay_state == 'paid' %}✅ {% elif s.pay_state == 'unpaid' %}⏰ {% else %}◐ {% endif %}{{ s.pay_label }}</span>
@@ -271,6 +290,34 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+</div>
+
+<div class="qp-modal-overlay" id="invoiceOverlay" onclick="if(event.target===this) closeInvoiceModal();">
+    <div class="qp-modal-box iv-box">
+        <button type="button" class="qp-modal-close" onclick="closeInvoiceModal()">✕</button>
+        <h3 id="ivTitle">청구서 생성</h3>
+        {% csrf_token %}
+        <div id="ivNoClass" style="display:none;">
+            <div class="assign-from">이 학생은 <strong>배정된 수업이 없어서</strong> 청구서를 만들 수 없어요. 먼저 수업을 배정해 주세요.</div>
+            <div class="iv-btns"><button type="button" class="iv-btn cancel" onclick="closeInvoiceModal()">닫기</button><button type="button" class="iv-btn go" id="ivGoAssign">수업 배정하기</button></div>
+        </div>
+        <div id="ivForm">
+            <div class="iv-field"><label>수업</label><select id="ivClass" class="iv-input" onchange="ivPreview()"></select></div>
+            <div class="iv-row">
+                <div class="iv-field"><label>납부 기한</label><input type="date" id="ivDue" class="iv-input" onchange="ivPreview()"></div>
+                <div class="iv-field"><label>상태</label><select id="ivStatus" class="iv-input"><option value="unpaid">미납</option><option value="paid">완납</option></select></div>
+            </div>
+            <div class="iv-calc" id="ivCalc">
+                <div class="r"><span>수업비</span><span id="ivBase">-</span></div>
+                <div class="r"><span>전월 결석 차감</span><span id="ivAbs" class="iv-chip-abs">-</span></div>
+                <div class="r"><span>할인</span><span id="ivDisc" class="iv-chip-disc">-</span></div>
+                <div class="r total"><span>청구 금액</span><span id="ivTotal">-</span></div>
+            </div>
+            <div class="iv-field"><label>금액(원) <span style="font-weight:500;">· 자동 계산된 값이에요. 필요하면 직접 고칠 수 있어요</span></label><input type="number" id="ivAmount" class="iv-input" min="0"></div>
+            <div class="iv-btns"><button type="button" class="iv-btn cancel" onclick="closeInvoiceModal()">취소</button><button type="button" class="iv-btn go" id="ivSave" onclick="ivSave()">청구서 생성</button></div>
+        </div>
+        <div class="iv-msg" id="ivMsg"></div>
     </div>
 </div>
 
@@ -418,6 +465,67 @@ function selectParent(parentId, parentName) {
     form.submit();
 }
 
+// ── 청구서 빠른 생성 (수업관리의 청구서 생성과 같은 계산: 전월 결석 차감 + 학생 할인) ──
+let ivStudentId = null, ivStudentName = '', ivSeq = 0, ivCalc = null;
+const ivWon = function (n) { return Number(n).toLocaleString('ko-KR') + '원'; };
+function ivSay(text, kind) { const m = document.getElementById('ivMsg'); m.textContent = text || ''; m.className = 'iv-msg' + (kind ? ' ' + kind : ''); }
+function ivCsrf() { const el = document.querySelector('#invoiceOverlay input[name=csrfmiddlewaretoken]'); return el ? el.value : ''; }
+function openInvoiceModal(studentId, studentName, btn) {
+    ivStudentId = studentId; ivStudentName = studentName; ivCalc = null; ivSay('');
+    let classes = [];
+    try { classes = JSON.parse(btn.dataset.classes || '[]'); } catch (e) {}
+    document.getElementById('ivTitle').textContent = studentName + ' - {{ current_month }}월 청구서 생성';
+    const noClass = document.getElementById('ivNoClass'), form = document.getElementById('ivForm');
+    if (!classes.length) {
+        noClass.style.display = ''; form.style.display = 'none';
+        document.getElementById('ivGoAssign').onclick = function () { closeInvoiceModal(); openClassAssignModal(studentId, studentName, '', ''); };
+    } else {
+        noClass.style.display = 'none'; form.style.display = '';
+        document.getElementById('ivClass').innerHTML = classes.map(function (c) { return '<option value="' + c.id + '">' + c.name.replace(/</g, '&lt;') + '</option>'; }).join('');
+        document.getElementById('ivDue').value = '{{ default_due_date }}';
+        document.getElementById('ivStatus').value = 'unpaid';
+        document.getElementById('ivSave').disabled = false;
+        ivPreview();
+    }
+    document.getElementById('invoiceOverlay').classList.add('show');
+}
+function closeInvoiceModal() {
+    document.getElementById('invoiceOverlay').classList.remove('show');
+    ivStudentId = null;
+}
+function ivPreview() {
+    const cid = document.getElementById('ivClass').value, due = document.getElementById('ivDue').value;
+    if (!cid || !due || !ivStudentId) return;
+    const seq = ++ivSeq;
+    fetch('/admin-services/classes/' + cid + '/modal-invoice/preview/?student_id=' + ivStudentId + '&due_date=' + encodeURIComponent(due), { credentials: 'same-origin' })
+        .then(function (r) { return r.json().then(function (j) { if (!r.ok || j.ok === false) throw new Error(j.error || '계산하지 못했어요.'); return j; }); })
+        .then(function (p) {
+            if (seq !== ivSeq) return;
+            ivCalc = p;
+            document.getElementById('ivBase').textContent = ivWon(p.base_amount);
+            document.getElementById('ivAbs').textContent = p.absence_deduction ? '결석 ' + p.absence_count + '회 · −' + ivWon(p.absence_deduction) : '-';
+            document.getElementById('ivDisc').textContent = p.discount_amount ? p.discount_reason + ' · −' + ivWon(p.discount_amount) : '-';
+            document.getElementById('ivTotal').textContent = ivWon(p.amount);
+            document.getElementById('ivAmount').value = p.amount;
+            ivSay('');
+        })
+        .catch(function (e) { if (seq === ivSeq) ivSay(e.message, 'err'); });
+}
+function ivSave() {
+    const cid = document.getElementById('ivClass').value, btn = document.getElementById('ivSave');
+    btn.disabled = true; ivSay('만드는 중...');
+    fetch('/admin-services/classes/' + cid + '/modal-invoice/save/', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': ivCsrf() },
+        body: JSON.stringify({
+            student_id: ivStudentId, amount: document.getElementById('ivAmount').value,
+            due_date: document.getElementById('ivDue').value, status: document.getElementById('ivStatus').value,
+        }),
+    }).then(function (r) { return r.json().then(function (j) { if (!r.ok || j.ok === false) throw new Error(j.error || '생성하지 못했어요.'); return j; }); })
+      .then(function () { ivSay('✅ 청구서를 만들었어요!', 'ok'); setTimeout(function () { location.reload(); }, 800); })
+      .catch(function (e) { ivSay(e.message, 'err'); btn.disabled = false; });
+}
+
 // ── 수업 빠른 배정 ──
 let qaCurrentStudentId = null;
 let qaDay = 'all', qaProgram = 'all', qaFromClassId = '', qaFromClassName = '', qaMode = 'add';
@@ -493,7 +601,7 @@ function selectClassToAssign(classId, className) {
 }
 
 document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { closeParentLinkModal(); closeClassAssignModal(); }
+    if (e.key === 'Escape') { closeParentLinkModal(); closeClassAssignModal(); closeInvoiceModal(); }
 });
 </script>
 {% endblock %}
