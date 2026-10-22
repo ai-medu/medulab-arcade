@@ -96,7 +96,7 @@
 
     .cm-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
     .cm-overlay.show { display: flex; }
-    .cm-box { background: var(--bg-card, #14161c); border: 1px solid var(--border); border-radius: 18px; width: 100%; max-width: 820px; max-height: 88vh; overflow-y: auto; overflow-x: hidden; padding: 26px; position: relative; box-sizing: border-box; }
+    .cm-box { background: var(--bg-card, #14161c); border: 1px solid var(--border); border-radius: 18px; width: 100%; max-width: 980px; max-height: 88vh; overflow-y: auto; overflow-x: hidden; padding: 26px; position: relative; box-sizing: border-box; }
     .cm-close { position: absolute; top: 12px; right: 16px; background: transparent; border: none; color: var(--text-muted); font-size: 22px; cursor: pointer; }
     .cm-title { color: var(--text-primary, #fff); font-size: 17px; font-weight: 900; margin: 0 0 4px; }
     .cm-sub { color: var(--text-muted); font-size: 12px; margin: 0 0 16px; }
@@ -130,7 +130,7 @@
     .cm-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
     .cm-chip { background: rgba(99,102,241,0.18); color: #c7d2fe; border-radius: 999px; padding: 4px 6px 4px 12px; font-size: 12px; font-weight: 700; }
     .cm-chip button { background: transparent; border: none; color: inherit; cursor: pointer; font-size: 14px; }
-    .cm-form-grid { display: grid; grid-template-columns: minmax(0,1.5fr) minmax(0,1fr) minmax(0,1.4fr) minmax(0,1.6fr) minmax(0,0.9fr) auto; gap: 8px; align-items: end; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+    .cm-form-grid { display: grid; grid-template-columns: minmax(0,1.4fr) minmax(0,0.95fr) minmax(0,1.25fr) minmax(0,1.3fr) minmax(0,1.45fr) minmax(0,0.8fr) auto; gap: 8px; align-items: end; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
     .cm-form-grid label { display: block; font-size: 11px; color: var(--text-muted); font-weight: 700; margin-bottom: 4px; }
     .cm-disc-box { border: 1px dashed var(--border); border-radius: 12px; padding: 12px 14px; margin: 0 0 12px; background: rgba(120,120,160,0.05); }
     .cm-disc-title { font-weight: 800; font-size: 13px; margin-bottom: 8px; }
@@ -138,6 +138,7 @@
     .cm-disc-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
     .cm-disc-row label { display: block; font-size: 11px; color: var(--text-muted); font-weight: 700; margin-bottom: 4px; }
     .cm-inv-disc-cell { min-height: 38px; display: flex; align-items: center; }
+    .cm-inv-disc-cell { font-size: 12.5px; }
     .cm-inv-disc-cell label { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 12.5px; font-weight: 700; color: #f472b6; cursor: pointer; white-space: nowrap; }
     .cm-inv-disc-cell input { accent-color: #f472b6; width: 16px; height: 16px; }
     .cm-disc-hint { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
@@ -145,6 +146,7 @@
     .cm-input[readonly] { opacity: 0.75; }
     .disc-chip { display: inline-block; padding: 3px 10px; border-radius: 999px; background: rgba(244,114,182,0.15); color: #f472b6; font-weight: 700; font-size: 12px; white-space: nowrap; }
     .disc-none { color: var(--text-muted); }
+    .abs-chip { display: inline-block; padding: 3px 10px; border-radius: 999px; background: rgba(245,158,11,0.16); color: #d97706; font-weight: 700; font-size: 12px; white-space: nowrap; }
     .cm-disc-edit { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
     .cm-disc-edit { align-items: center; }
     .cm-disc-edit .cm-select, .cm-disc-edit .cm-input { height: 32px; padding: 0 10px; font-size: 12.5px; width: auto; min-width: 100px; }
@@ -352,13 +354,9 @@
             <div class="cm-form-grid">
                 <div><label>학생</label><select id="cmInvStudent" class="cm-select" onchange="cmInvSync()"></select></div>
                 <div><label>금액(원)</label><input type="number" id="cmInvAmount" class="cm-input" min="0"></div>
-                <div class="cm-inv-disc-field"><label>할인</label>
-                    <div class="cm-inv-disc-cell">
-                        <label id="cmInvDiscLine" style="display:none;"><input type="checkbox" id="cmInvDiscCheck" onchange="cmInvSync(true)"> <span id="cmInvDiscText"></span></label>
-                        <span id="cmInvDiscNone" class="disc-none">-</span>
-                    </div>
-                </div>
-                <div><label>납부 기한</label><input type="date" id="cmInvDue" class="cm-input"></div>
+                <div><label>전월 결석 차감</label><div class="cm-inv-disc-cell" id="cmInvAbsCell"><span class="disc-none">-</span></div></div>
+                <div><label>할인</label><div class="cm-inv-disc-cell" id="cmInvDiscCell"><span class="disc-none">-</span></div></div>
+                <div><label>납부 기한</label><input type="date" id="cmInvDue" class="cm-input" onchange="cmInvSync()"></div>
                 <div><label>상태</label>
                     <select id="cmInvStatus" class="cm-select">
                         <option value="unpaid">미납</option><option value="paid">완납</option><option value="canceled">취소</option>
@@ -371,7 +369,7 @@
             </div>
             <div class="cm-tbl-scroll">
             <table class="cm-table">
-                <thead><tr><th>학생</th><th>청구월</th><th>금액</th><th>할인</th><th>기한</th><th>상태</th><th></th></tr></thead>
+                <thead><tr><th>학생</th><th>청구월</th><th>금액</th><th>결석 차감</th><th>할인</th><th>기한</th><th>상태</th><th></th></tr></thead>
                 <tbody id="cmInvBody"></tbody>
             </table>
             </div>
@@ -509,11 +507,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
         $('cmInvStudent').innerHTML = data.enrollments.map(function (e) { return '<option value="' + e.student_id + '">' + esc(e.name) + '</option>'; }).join('');
         $('cmInvBody').innerHTML = data.invoices.map(function (v) {
+            var va = v.absence_deduction ? '<span class="abs-chip">결석 ' + v.absence_count + '회 · −' + won(v.absence_deduction) + '</span>' : '<span class="disc-none">-</span>';
             var vd = v.discount_amount ? '<span class="disc-chip">' + esc(v.discount_reason) + ' · −' + won(v.discount_amount) + '</span>' : '<span class="disc-none">-</span>';
-            return '<tr><td><strong>' + esc(v.student_name) + '</strong></td><td>' + esc(v.period) + '</td><td>' + won(v.amount) + '</td><td>' + vd + '</td><td>' + esc(v.due_date) + '</td>' +
+            return '<tr><td><strong>' + esc(v.student_name) + '</strong></td><td>' + esc(v.period) + '</td><td>' + won(v.amount) + '</td><td>' + va + '</td><td>' + vd + '</td><td>' + esc(v.due_date) + '</td>' +
                 '<td class="st-' + v.status + '">' + esc(v.status_label) + '</td>' +
                 '<td style="text-align:right;white-space:nowrap;"><button class="cm-btn sm" onclick="cmInvoiceEdit(' + v.id + ')">수정</button> <button class="cm-btn sm danger" onclick="cmInvoiceDelete(' + v.id + ')">삭제</button></td></tr>';
-        }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:24px;">청구서가 없습니다.</td></tr>';
+        }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:24px;">청구서가 없습니다.</td></tr>';
         cmInvoiceReset();
         renderChips();
     }
@@ -591,22 +590,22 @@ document.addEventListener('DOMContentLoaded', function () {
         api(base('modal-unenroll/' + id + '/'), {}).then(done).catch(fail);
     };
 
-    // 학생 선택 시: 그 학생의 할인(배정 시 입력)을 찾아 금액을 자동 계산 (수업비 − 할인)
-    function invStudentDiscount() {
-        if (!data) return null;
-        var sid = parseInt($('cmInvStudent').value, 10);
-        var e = data.enrollments.filter(function (x) { return x.student_id === sid; })[0];
-        if (!e || !e.discount_amount) return null;
-        return { reason: e.discount_reason, amount: Math.min(e.discount_amount, data.class.tuition_fee) };
+    // 학생/납부 기한을 고르면 서버가 전월 결석 차감 + 학생 할인을 계산해 금액을 채운다 (납부관리의 일괄 생성과 같은 계산)
+    var previewSeq = 0;
+    function setInvCells(abs, disc) {
+        $('cmInvAbsCell').innerHTML = abs && abs.deduction ? '<span class="abs-chip">결석 ' + abs.count + '회 · −' + won(abs.deduction) + '</span>' : '<span class="disc-none">-</span>';
+        $('cmInvDiscCell').innerHTML = disc && disc.amount ? '<span class="disc-chip">' + esc(disc.reason) + ' · −' + won(disc.amount) + '</span>' : '<span class="disc-none">-</span>';
     }
-    window.cmInvSync = function (fromCheck) {
+    window.cmInvSync = function () {
         if (editingId) return;   // 기존 청구서를 수정할 때는 금액을 그대로 둔다
-        var d = invStudentDiscount(), line = $('cmInvDiscLine'), chk = $('cmInvDiscCheck'), fee = data ? data.class.tuition_fee : 0;
-        if (!d) { line.style.display = 'none'; $('cmInvDiscNone').style.display = ''; $('cmInvDiscNone').textContent = '-'; chk.checked = false; $('cmInvAmount').value = fee; return; }
-        line.style.display = ''; $('cmInvDiscNone').style.display = 'none';
-        if (!fromCheck) chk.checked = true;   // 학생을 바꾸면 기본으로 할인 적용
-        $('cmInvDiscText').textContent = d.reason + ' −' + won(d.amount);
-        $('cmInvAmount').value = chk.checked ? Math.max(fee - d.amount, 0) : fee;
+        var sid = $('cmInvStudent').value, due = $('cmInvDue').value;
+        if (!sid || !due) { setInvCells(null, null); return; }
+        var seq = ++previewSeq;
+        api(base('modal-invoice/preview/') + '?student_id=' + encodeURIComponent(sid) + '&due_date=' + encodeURIComponent(due)).then(function (p) {
+            if (seq !== previewSeq || editingId) return;
+            $('cmInvAmount').value = p.amount;
+            setInvCells({ count: p.absence_count, deduction: p.absence_deduction }, { reason: p.discount_reason, amount: p.discount_amount });
+        }).catch(function (e) { if (seq === previewSeq) say(e.message, true); });
     };
     window.cmInvoiceReset = function () {
         editingId = null;
@@ -616,6 +615,7 @@ document.addEventListener('DOMContentLoaded', function () {
         $('cmInvStudent').disabled = false;
         $('cmInvSaveBtn').textContent = '생성';
         $('cmInvCancelBtn').style.display = 'none';
+        setInvCells(null, null);
         cmInvSync();
     };
     window.cmInvoiceEdit = function (id) {
@@ -623,8 +623,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!v) return;
         editingId = id;
         $('cmInvStudent').value = v.student_id; $('cmInvStudent').disabled = true;
-        $('cmInvDiscLine').style.display = 'none'; $('cmInvDiscNone').style.display = '';
-        $('cmInvDiscNone').textContent = v.discount_amount ? v.discount_reason + ' −' + won(v.discount_amount) : '-';
+        setInvCells({ count: v.absence_count, deduction: v.absence_deduction }, { reason: v.discount_reason, amount: v.discount_amount });
         $('cmInvAmount').value = v.amount; $('cmInvDue').value = v.due_date; $('cmInvStatus').value = v.status;
         $('cmInvSaveBtn').textContent = '수정 저장';
         $('cmInvCancelBtn').style.display = '';
@@ -634,7 +633,6 @@ document.addEventListener('DOMContentLoaded', function () {
         api(base('modal-invoice/save/'), {
             id: editingId, student_id: $('cmInvStudent').value, amount: $('cmInvAmount').value,
             due_date: $('cmInvDue').value, status: $('cmInvStatus').value,
-            apply_discount: !editingId && $('cmInvDiscLine').style.display !== 'none' && $('cmInvDiscCheck').checked,
         }).then(done).catch(fail);
     };
     window.cmInvoiceDelete = function (id) {

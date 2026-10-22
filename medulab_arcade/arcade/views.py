@@ -3520,6 +3520,7 @@ def _class_modal_payload(school_class):
             'status': inv.status, 'status_label': inv.get_status_display(),
             'period': inv.billing_period_label,
             'discount_reason': inv.discount_reason, 'discount_amount': inv.discount_amount,
+            'absence_count': inv.absence_count, 'absence_deduction': inv.absence_deduction,
         }
         for inv in school_class.invoices.select_related('student__profile').order_by('-due_date', '-created_at')
     ]
@@ -3751,11 +3752,12 @@ def class_modal_invoice_save(request, class_id):
             return JsonResponse({'ok': False, 'error': '이 수업에 배정된 학생을 선택해 주세요.'}, status=400)
         invoice = TuitionInvoice(student=enrollment.student, school_class=school_class,
                                  base_amount=school_class.tuition_fee)
-        # 학생별 할인(배정 시 입력)을 적용하기로 한 경우 청구서에 할인 사유/금액을 기록한다
-        if data.get('apply_discount'):
-            disc = min(enrollment.discount_amount or 0, school_class.tuition_fee)
-            invoice.discount_amount = disc
-            invoice.discount_reason = enrollment.discount_reason if disc else ''
+        # 자동 계산(전월 결석 차감 + 학생 할인) 금액 그대로 생성하면 그 내역(결석/할인)도 함께 기록한다.
+        # 금액을 직접 고쳐서 만든 경우에는 금액만 기록한다.
+        calc = compute_invoice_amounts(school_class, enrollment, due_date)
+        if amount == calc['amount']:
+            for key in ('absence_count', 'absence_deduction', 'discount_reason', 'discount_amount'):
+                setattr(invoice, key, calc[key])
 
     invoice.amount = amount
     invoice.due_date = due_date
@@ -3768,6 +3770,24 @@ def class_modal_invoice_save(request, class_id):
     payload = _class_modal_payload(school_class)
     payload['message'] = '청구서를 저장했습니다.'
     return JsonResponse(payload)
+
+
+@login_required
+@user_passes_test(staff_check)
+def class_modal_invoice_preview(request, class_id):
+    """청구서 직접 생성 폼용: 학생·납부기한을 고르면 전월 결석 차감/할인이 반영된 금액을 계산해서 돌려준다"""
+    school_class = get_object_or_404(SchoolClass, pk=class_id)
+    enrollment = ClassEnrollment.objects.filter(
+        school_class=school_class, student_id=request.GET.get('student_id') or 0).first()
+    if not enrollment:
+        return JsonResponse({'ok': False, 'error': '이 수업에 배정된 학생을 선택해 주세요.'}, status=400)
+    try:
+        due_date = timezone.datetime.strptime(str(request.GET.get('due_date', '')), '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'ok': False, 'error': '납부 기한 형식이 올바르지 않습니다.'}, status=400)
+    calc = compute_invoice_amounts(school_class, enrollment, due_date)
+    calc['ok'] = True
+    return JsonResponse(calc)
 
 
 @login_required
@@ -3803,14 +3823,34 @@ def _month_due_date(today=None):
     return today.replace(day=last_day)
 
 
-def generate_invoices_for_class(school_class, due_date=None):
-    """해당 수업의 활성 배정 학생 전원에게 당월 청구서 생성 (이미 있으면 건너뜀)
-    전월 결석 횟수만큼 회당 단가를 차감해 청구 금액을 계산한다."""
-    due_date = due_date or _month_due_date()
+def compute_invoice_amounts(school_class, enrollment, due_date):
+    """한 학생의 청구 금액 계산 — 일괄 생성(납부관리/수업관리)과 수업관리의 직접 생성이 모두 이 함수를 쓴다.
+    ① 전월 결석 횟수 × 회당 단가를 차감  ② 배정 시 입력한 할인(2인이상/형제할인 등)을 추가 차감 (0원 미만 방지)"""
+    fee = school_class.tuition_fee
     period_start = due_date.replace(day=1)
     prev_month_last_day = period_start - timedelta(days=1)
     prev_month_start = prev_month_last_day.replace(day=1)
-    per_session = school_class.per_session_fee
+    scheduled = _class_session_dates(school_class, prev_month_start.year, prev_month_start.month)
+    absence_count = ClassAttendance.objects.filter(
+        enrollment=enrollment, is_present=False, date__in=scheduled,
+    ).count()
+    deduction = min(school_class.per_session_fee * absence_count, fee)
+    discount = min(enrollment.discount_amount or 0, fee - deduction)
+    return {
+        'base_amount': fee,
+        'absence_count': absence_count,
+        'absence_deduction': deduction,
+        'discount_reason': enrollment.discount_reason if discount else '',
+        'discount_amount': discount,
+        'amount': fee - deduction - discount,
+    }
+
+
+def generate_invoices_for_class(school_class, due_date=None):
+    """해당 수업의 활성 배정 학생 전원에게 당월 청구서 생성 (이미 있으면 건너뜀)
+    전월 결석 차감 + 학생별 할인을 반영한 금액으로 만든다 (compute_invoice_amounts)."""
+    due_date = due_date or _month_due_date()
+    period_start = due_date.replace(day=1)
 
     created = 0
     for enrollment in school_class.enrollments.filter(is_active=True).select_related('student'):
@@ -3820,25 +3860,8 @@ def generate_invoices_for_class(school_class, due_date=None):
         ).exists()
         if exists:
             continue
-
-        prev_month_scheduled_dates = _class_session_dates(school_class, prev_month_start.year, prev_month_start.month)
-        absence_count = ClassAttendance.objects.filter(
-            enrollment=enrollment, is_present=False,
-            date__in=prev_month_scheduled_dates,
-        ).count()
-        deduction = min(per_session * absence_count, school_class.tuition_fee)
-        # 배정 시 입력한 할인(2인이상/형제할인 등)을 결석 차감 후 금액에서 추가로 차감 (0원 미만 방지)
-        discount = min(enrollment.discount_amount or 0, school_class.tuition_fee - deduction)
-        amount = school_class.tuition_fee - deduction - discount
-
-        TuitionInvoice.objects.create(
-            student=enrollment.student, school_class=school_class,
-            amount=amount, base_amount=school_class.tuition_fee,
-            absence_count=absence_count, absence_deduction=deduction,
-            discount_reason=enrollment.discount_reason if discount else '',
-            discount_amount=discount,
-            due_date=due_date,
-        )
+        calc = compute_invoice_amounts(school_class, enrollment, due_date)
+        TuitionInvoice.objects.create(student=enrollment.student, school_class=school_class, due_date=due_date, **calc)
         created += 1
     return created
 

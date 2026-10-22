@@ -210,6 +210,7 @@ urlpatterns = [
     path('admin-services/classes/discounts/save/', views.class_discount_save, name='class_discount_save'),
     path('admin-services/classes/discounts/<int:type_id>/delete/', views.class_discount_delete, name='class_discount_delete'),
     path('admin-services/classes/<int:class_id>/modal-invoice/save/', views.class_modal_invoice_save, name='class_modal_invoice_save'),
+    path('admin-services/classes/<int:class_id>/modal-invoice/preview/', views.class_modal_invoice_preview, name='class_modal_invoice_preview'),
     path('admin-services/classes/<int:class_id>/modal-invoice/<int:invoice_id>/delete/', views.class_modal_invoice_delete, name='class_modal_invoice_delete'),
     path('admin-services/classes/<int:class_id>/modal-invoice/generate/', views.class_modal_invoice_generate, name='class_modal_invoice_generate'),
 
