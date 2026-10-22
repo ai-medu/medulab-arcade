@@ -3791,6 +3791,18 @@ def class_modal_invoice_save(request, class_id):
     invoice_id = data.get('id')
     if invoice_id:
         invoice = get_object_or_404(TuitionInvoice, pk=invoice_id, school_class=school_class)
+        # 할인 사유/금액을 함께 보낸 경우(학생 현황의 수정 창) 청구서에 기록된 할인도 수정한다
+        if 'discount_amount' in data:
+            try:
+                override = _parse_discount_override(data.get('discount_reason'), data.get('discount_amount'))
+            except ValueError as exc:
+                return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+            if override is not None:
+                reason, value = override
+                if invoice.base_amount:
+                    value = max(0, min(value, invoice.base_amount - invoice.absence_deduction))
+                invoice.discount_amount = value
+                invoice.discount_reason = ((reason or '').strip()[:50] or '직접입력') if value else ''
     else:
         enrollment = ClassEnrollment.objects.filter(
             school_class=school_class, student_id=data.get('student_id')).select_related('student').first()
@@ -6441,6 +6453,22 @@ def _render_staff_student_dashboard(request):
         month_attendance_counts[row['user_id']] = row['attended']
         month_access_counts[row['user_id']] = row['total']
 
+    # 이번 달 청구서 상세 (완납/미납 칸을 눌러 수정하는 창에 사용)
+    month_invoice_rows = {}
+    for inv in (
+        TuitionInvoice.objects.filter(
+            student_id__in=student_ids, due_date__year=current_year, due_date__month=current_month,
+            status__in=(TuitionInvoice.STATUS_PAID, TuitionInvoice.STATUS_UNPAID),
+        ).select_related('school_class').order_by('school_class__name', 'id')
+    ):
+        month_invoice_rows.setdefault(inv.student_id, []).append({
+            'id': inv.id, 'class_id': inv.school_class_id, 'class_name': inv.school_class.name,
+            'amount': inv.amount, 'base_amount': inv.base_amount or inv.amount,
+            'absence_count': inv.absence_count, 'absence_deduction': inv.absence_deduction,
+            'discount_reason': inv.discount_reason, 'discount_amount': inv.discount_amount,
+            'due_date': inv.due_date.strftime('%Y-%m-%d'), 'status': inv.status,
+        })
+
     # 이번 달(납부 기한 기준) 수납 현황: 취소된 청구서는 제외
     month_pay = {}
     for row in (
@@ -6503,6 +6531,7 @@ def _render_staff_student_dashboard(request):
                 s.pay_state, s.pay_label, s.pay_amount = 'partial', '일부 납부', pay['paid']
             s.pay_total = total
         s.enrolled_class_ids = enrolled_class_ids.get(s.id, [])
+        s.month_invoices_json = json.dumps(month_invoice_rows.get(s.id, []), ensure_ascii=False)
         # '청구서 없음' 버튼에서 여는 청구서 생성 창에 쓸 수업 목록 (배정 중인 수업)
         s.invoice_classes_json = json.dumps(
             [{'id': cid, 'name': cname} for cid, cname in zip(s.enrolled_class_ids, enrolled_class_names.get(s.id, []))],

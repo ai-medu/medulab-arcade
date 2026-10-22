@@ -28,7 +28,7 @@
     .cnt-badge { display:inline-block; min-width:44px; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:800; white-space:nowrap; text-align:center; }
     .cnt-attend { background: rgba(0,255,180,0.14); color: var(--accent-green); }
     .cnt-access { background: rgba(148,163,184,0.16); color: #64748b; }
-    .pay-cell { display:inline-flex; flex-direction:column; gap:1px; text-decoration:none; padding:5px 11px; border-radius:10px; line-height:1.3; white-space:nowrap; }
+    .pay-cell { border:none; font-family:inherit; cursor:pointer; display:inline-flex; flex-direction:column; gap:1px; text-decoration:none; padding:5px 11px; border-radius:10px; line-height:1.3; white-space:nowrap; }
     .pay-cell .pay-state { font-size:11px; font-weight:800; }
     .pay-cell .pay-amt { font-size:13px; font-weight:800; }
     .pay-cell .pay-amt small { font-weight:600; opacity:.7; }
@@ -50,6 +50,7 @@
     .iv-calc .r.total { border-top:1px solid var(--border); margin-top:4px; padding-top:6px; font-weight:900; font-size:14.5px; }
     .iv-chip-abs { color:#d97706; font-weight:800; } .iv-chip-disc { color:#ec4899; font-weight:800; }
     .iv-disc-box { padding:10px 12px; border:1px dashed rgba(236,72,153,0.5); border-radius:12px; background:rgba(236,72,153,0.05); }
+    .iv-edit-note { font-size:12px; line-height:1.6; color:#d97706; background:rgba(251,191,36,0.12); border-radius:10px; padding:8px 12px; margin-bottom:12px; }
     .iv-btns { display:flex; gap:10px; }
     .iv-btn { flex:1; height:42px; border:none; border-radius:10px; font-weight:800; font-size:14px; cursor:pointer; font-family:inherit; }
     .iv-btn.go { background:var(--accent-green); color:#03140e; }
@@ -264,10 +265,10 @@
                     <td onclick="event.stopPropagation();">
                         {% if s.pay_state == 'none' %}<button type="button" class="pay-none pay-none-btn" title="눌러서 {{ current_month }}월 청구서 만들기" data-classes="{{ s.invoice_classes_json }}" onclick="openInvoiceModal({{ s.id }}, '{{ s.profile.real_name|default:s.username|escapejs }}', this)">청구서 없음 <span class="pay-plus">＋</span></button>
                         {% else %}
-                        <a href="{% url 'tuition_admin_dashboard' %}?student_id={{ s.id }}" class="pay-cell pay-{{ s.pay_state }}" title="납부 관리에서 보기">
+                        <button type="button" class="pay-cell pay-{{ s.pay_state }}" title="눌러서 {{ current_month }}월 청구서 보기·수정" data-invoices="{{ s.month_invoices_json }}" onclick="openInvoiceEdit({{ s.id }}, '{{ s.profile.real_name|default:s.username|escapejs }}', this)">
                             <span class="pay-state">{% if s.pay_state == 'paid' %}✅ {% elif s.pay_state == 'unpaid' %}⏰ {% else %}◐ {% endif %}{{ s.pay_label }}</span>
                             <span class="pay-amt">{{ s.pay_amount|intcomma }}원{% if s.pay_state == 'partial' %} <small>/ {{ s.pay_total|intcomma }}원</small>{% endif %}</span>
-                        </a>
+                        </button>
                         {% endif %}
                     </td>
                     <td>
@@ -304,10 +305,10 @@
             <div class="iv-btns"><button type="button" class="iv-btn cancel" onclick="closeInvoiceModal()">닫기</button><button type="button" class="iv-btn go" id="ivGoAssign">수업 배정하기</button></div>
         </div>
         <div id="ivForm">
-            <div class="iv-field"><label>수업</label><select id="ivClass" class="iv-input" onchange="ivPreview()"></select></div>
+            <div class="iv-field"><label>수업</label><select id="ivClass" class="iv-input" onchange="ivClassChange()"></select></div>
             <div class="iv-row">
-                <div class="iv-field"><label>납부 기한</label><input type="date" id="ivDue" class="iv-input" onchange="ivPreview()"></div>
-                <div class="iv-field"><label>상태</label><select id="ivStatus" class="iv-input"><option value="unpaid">미납</option><option value="paid">완납</option></select></div>
+                <div class="iv-field"><label>납부 기한</label><input type="date" id="ivDue" class="iv-input" onchange="ivDueChange()"></div>
+                <div class="iv-field"><label>상태</label><select id="ivStatus" class="iv-input"><option value="unpaid">미납</option><option value="paid">완납</option><option value="canceled" id="ivOptCancel" style="display:none;">취소</option></select></div>
             </div>
             <div class="iv-calc" id="ivCalc">
                 <div class="r"><span>수업비</span><span id="ivBase">-</span></div>
@@ -323,7 +324,8 @@
                 <input type="text" id="ivDiscCustom" class="iv-input" maxlength="50" placeholder="할인 사유를 직접 입력" style="display:none; margin-top:8px;">
             </div>
             <div class="iv-field"><label>금액(원) <span style="font-weight:500;">· 자동 계산된 값이에요. 필요하면 직접 고칠 수 있어요</span></label><input type="number" id="ivAmount" class="iv-input" min="0"></div>
-            <div class="iv-btns"><button type="button" class="iv-btn cancel" onclick="closeInvoiceModal()">취소</button><button type="button" class="iv-btn go" id="ivSave" onclick="ivSave()">청구서 생성</button></div>
+            <div class="iv-edit-note" id="ivEditNote" style="display:none;">💸 이미 결제된 돈을 <strong>환불</strong>해야 한다면 상태만 바꾸지 말고 <a href="{% url 'tuition_admin_dashboard' %}" style="color:inherit;text-decoration:underline;">납부 관리</a>에서 <strong>"✅ 완납"</strong> 버튼으로 취소해 주세요. (여기서 "취소"로 바꾸면 환불 없이 상태만 바뀝니다)</div>
+            <div class="iv-btns"><button type="button" class="iv-btn cancel" onclick="closeInvoiceModal()">닫기</button><button type="button" class="iv-btn go" id="ivSave" onclick="ivSave()">청구서 생성</button></div>
         </div>
         <div class="iv-msg" id="ivMsg"></div>
     </div>
@@ -474,12 +476,17 @@ function selectParent(parentId, parentName) {
 }
 
 // ── 청구서 빠른 생성 (수업관리의 청구서 생성과 같은 계산: 전월 결석 차감 + 학생 할인) ──
-let ivStudentId = null, ivStudentName = '', ivSeq = 0, ivCalc = null;
+let ivStudentId = null, ivStudentName = '', ivSeq = 0, ivCalc = null, ivMode = 'create', ivInvoices = [];
 const ivWon = function (n) { return Number(n).toLocaleString('ko-KR') + '원'; };
 function ivSay(text, kind) { const m = document.getElementById('ivMsg'); m.textContent = text || ''; m.className = 'iv-msg' + (kind ? ' ' + kind : ''); }
 function ivCsrf() { const el = document.querySelector('#invoiceOverlay input[name=csrfmiddlewaretoken]'); return el ? el.value : ''; }
 function openInvoiceModal(studentId, studentName, btn) {
     ivStudentId = studentId; ivStudentName = studentName; ivCalc = null; ivSay('');
+    ivMode = 'create'; ivInvoices = [];
+    document.getElementById('ivEditNote').style.display = 'none';
+    document.getElementById('ivOptCancel').style.display = 'none';
+    document.getElementById('ivClass').disabled = false;
+    document.getElementById('ivSave').textContent = '청구서 생성';
     let classes = [];
     try { classes = JSON.parse(btn.dataset.classes || '[]'); } catch (e) {}
     document.getElementById('ivTitle').textContent = studentName + ' - {{ current_month }}월 청구서 생성';
@@ -497,6 +504,48 @@ function openInvoiceModal(studentId, studentName, btn) {
     }
     document.getElementById('invoiceOverlay').classList.add('show');
 }
+// ── 이미 만든 청구서(완납/미납) 보기·수정: 청구서 생성 창과 같은 화면에서 내용을 고친다 ──
+function openInvoiceEdit(studentId, studentName, btn) {
+    ivStudentId = studentId; ivStudentName = studentName; ivCalc = null; ivSay('');
+    ivMode = 'edit';
+    try { ivInvoices = JSON.parse(btn.dataset.invoices || '[]'); } catch (e) { ivInvoices = []; }
+    if (!ivInvoices.length) { openInvoiceModal(studentId, studentName, { dataset: { classes: '[]' } }); return; }
+    document.getElementById('ivTitle').textContent = studentName + ' - {{ current_month }}월 청구서 수정';
+    document.getElementById('ivNoClass').style.display = 'none';
+    document.getElementById('ivForm').style.display = '';
+    document.getElementById('ivEditNote').style.display = '';
+    document.getElementById('ivOptCancel').style.display = '';
+    const stLabel = { paid: '완납', unpaid: '미납' };
+    const cls = document.getElementById('ivClass');
+    cls.innerHTML = ivInvoices.map(function (v, k) {
+        return '<option value="' + k + '">' + v.class_name.replace(/</g, '&lt;') + ' · ' + (stLabel[v.status] || v.status) + ' ' + ivWon(v.amount) + '</option>';
+    }).join('');
+    cls.disabled = ivInvoices.length === 1;
+    document.getElementById('ivSave').textContent = '수정 저장';
+    document.getElementById('ivSave').disabled = false;
+    ivLoadInvoice(0);
+    document.getElementById('invoiceOverlay').classList.add('show');
+}
+function ivLoadInvoice(k) {
+    const v = ivInvoices[k]; if (!v) return;
+    ivBase = v.base_amount; ivAbs = v.absence_deduction;
+    document.getElementById('ivDue').value = v.due_date;
+    document.getElementById('ivStatus').value = v.status;
+    document.getElementById('ivBase').textContent = ivWon(v.base_amount);
+    document.getElementById('ivAbs').textContent = v.absence_deduction ? '결석 ' + v.absence_count + '회 · −' + ivWon(v.absence_deduction) : '-';
+    const reason = v.discount_reason || '';
+    const known = IV_TYPES.some(function (t) { return t.name === reason; });
+    const key = !reason ? '' : (known ? reason : '__custom');
+    document.getElementById('ivDiscSel').innerHTML = ivDiscOptions(key);
+    document.getElementById('ivDiscCustom').value = key === '__custom' ? reason : '';
+    document.getElementById('ivDiscCustom').style.display = key === '__custom' ? '' : 'none';
+    document.getElementById('ivDiscAmt').value = v.discount_amount || '';
+    document.getElementById('ivAmount').value = v.amount;      // 저장된 금액 그대로 (할인을 바꾸면 다시 계산)
+    document.getElementById('ivTotal').textContent = ivWon(v.amount);
+    ivSay('');
+}
+function ivClassChange() { if (ivMode === 'edit') ivLoadInvoice(parseInt(document.getElementById('ivClass').value, 10)); else ivPreview(); }
+function ivDueChange() { if (ivMode === 'create') ivPreview(); }
 function closeInvoiceModal() {
     document.getElementById('invoiceOverlay').classList.remove('show');
     ivStudentId = null;
@@ -547,19 +596,22 @@ function ivPreview() {
         .catch(function (e) { if (seq === ivSeq) ivSay(e.message, 'err'); });
 }
 function ivSave() {
-    const cid = document.getElementById('ivClass').value, btn = document.getElementById('ivSave');
+    const editing = ivMode === 'edit';
+    const inv = editing ? ivInvoices[parseInt(document.getElementById('ivClass').value, 10)] : null;
+    const cid = editing ? inv.class_id : document.getElementById('ivClass').value, btn = document.getElementById('ivSave');
     btn.disabled = true; ivSay('만드는 중...');
     fetch('/admin-services/classes/' + cid + '/modal-invoice/save/', {
         method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': ivCsrf() },
         body: JSON.stringify({
+            id: editing ? inv.id : undefined,
             student_id: ivStudentId, amount: document.getElementById('ivAmount').value,
             due_date: document.getElementById('ivDue').value, status: document.getElementById('ivStatus').value,
             discount_reason: (function () { const k = document.getElementById('ivDiscSel').value; return k === '__custom' ? (document.getElementById('ivDiscCustom').value.trim() || '직접입력') : k; })(),
             discount_amount: document.getElementById('ivDiscAmt').value || '0',
         }),
     }).then(function (r) { return r.json().then(function (j) { if (!r.ok || j.ok === false) throw new Error(j.error || '생성하지 못했어요.'); return j; }); })
-      .then(function () { ivSay('✅ 청구서를 만들었어요!', 'ok'); setTimeout(function () { location.reload(); }, 800); })
+      .then(function () { ivSay(editing ? '✅ 청구서를 수정했어요!' : '✅ 청구서를 만들었어요!', 'ok'); setTimeout(function () { location.reload(); }, 800); })
       .catch(function (e) { ivSay(e.message, 'err'); btn.disabled = false; });
 }
 
