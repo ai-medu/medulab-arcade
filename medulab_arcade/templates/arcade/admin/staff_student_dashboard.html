@@ -1,4 +1,5 @@
 {% extends 'arcade/base.html' %}
+{% load humanize %}
 
 {% block title %}메듀랩 학생 현황 - 메듀랩{% endblock %}
 
@@ -18,7 +19,37 @@
     td { padding: 14px 20px; border-top: 1px solid var(--border); font-size: 14px; }
     tr.clickable { cursor:pointer; transition: background .15s; }
     tr.clickable:hover td { background: rgba(255,255,255,0.03); }
-    .attend-badge { padding:3px 10px; border-radius:999px; font-size:11px; font-weight:700; }
+    .attend-badge { padding:3px 10px; border-radius:999px; font-size:11px; font-weight:700; white-space:nowrap; display:inline-block; }
+    .dash-wrap table { min-width: 1020px; }
+    .dash-wrap th { padding: 12px 14px; white-space: nowrap; text-transform: none; vertical-align: bottom; line-height: 1.35; }
+    .dash-wrap td { padding: 11px 14px; font-size: 13px; vertical-align: middle; }
+    .dash-wrap th.num, .dash-wrap td.num { text-align: center; }
+    .dash-wrap td:nth-child(3), .dash-wrap td:nth-child(6), .dash-wrap td:nth-child(8), .dash-wrap td:nth-child(9) { white-space: nowrap; }
+    .cnt-badge { display:inline-block; min-width:44px; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:800; white-space:nowrap; text-align:center; }
+    .cnt-attend { background: rgba(0,255,180,0.14); color: var(--accent-green); }
+    .cnt-access { background: rgba(148,163,184,0.16); color: #64748b; }
+    .pay-cell { display:inline-flex; flex-direction:column; gap:1px; text-decoration:none; padding:5px 11px; border-radius:10px; line-height:1.3; white-space:nowrap; }
+    .pay-cell .pay-state { font-size:11px; font-weight:800; }
+    .pay-cell .pay-amt { font-size:13px; font-weight:800; }
+    .pay-cell .pay-amt small { font-weight:600; opacity:.7; }
+    .pay-paid { background: rgba(0,255,180,0.12); color: var(--accent-green); }
+    .pay-unpaid { background: rgba(251,191,36,0.16); color: #d97706; }
+    .pay-partial { background: rgba(59,130,246,0.14); color: #3b82f6; }
+    .pay-cell:hover { filter: brightness(1.1); text-decoration: underline; }
+    .pay-none { color: var(--text-muted); font-size: 12px; white-space: nowrap; }
+    .class-chip { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border); background:rgba(255,255,255,0.04); color:inherit; padding:5px 10px; border-radius:10px; font-size:12px; cursor:pointer; font-family:inherit; text-align:left; max-width:290px; }
+    .class-chip:hover { border-color:var(--accent-green); background:rgba(0,255,180,0.08); }
+    .class-chip .class-time { color:#3b82f6; font-weight:800; }
+    .class-chip .class-nm { font-weight:700; color:var(--text-primary, #fff); white-space:normal; line-height:1.3; }
+    .class-chip .class-note { opacity:.6; font-size:11px; }
+    .class-chip .class-edit { opacity:.45; font-size:12px; }
+    .class-time { color:#3b82f6; font-weight:800; }
+    .assign-mode { display:flex; gap:8px; margin:0 0 12px; flex-wrap:wrap; }
+    .assign-mode label { display:flex; align-items:center; gap:6px; padding:7px 12px; border:1px solid var(--border); border-radius:10px; font-size:12.5px; font-weight:700; cursor:pointer; }
+    .assign-mode label.on { border-color:var(--accent-green); background:rgba(0,255,180,0.10); color:var(--accent-green); }
+    .assign-from { font-size:12.5px; margin:0 0 10px; padding:8px 12px; border-radius:10px; background:rgba(120,120,160,0.10); }
+    .class-list-item.current { opacity:.55; cursor:not-allowed; }
+    .class-list-item .now-tag { margin-left:8px; font-size:10.5px; font-weight:800; color:var(--accent-green); border:1px solid var(--accent-green); border-radius:6px; padding:1px 6px; }
     .attend-yes { background: rgba(0,255,180,0.15); color: var(--accent-green); }
     .attend-no { background: rgba(255,255,255,0.08); color: var(--text-muted); }
 
@@ -169,22 +200,28 @@
         </div>
         <table>
             <thead>
-                <tr><th>수업</th><th>학생</th><th>오늘 출석</th><th>{{ current_month }}월 출석 횟수</th><th>학부모 연동</th><th>승인 상태</th><th>관리</th></tr>
+                <tr><th>수업</th><th>학생</th><th>오늘 출석</th><th class="num">{{ current_month }}월<br>출석</th><th class="num">{{ current_month }}월<br>접속</th><th>학부모 연동</th><th>{{ current_month }}월 수납</th><th>승인</th><th>관리</th></tr>
             </thead>
             <tbody>
                 {% for row in student_rows %}
                 {% ifchanged row.day_label %}
                 {% if row.day_label %}
-                <tr><td colspan="7" style="background:rgba(255,255,255,0.03); color:var(--text-muted); font-weight:800; font-size:12px; padding:8px 18px; letter-spacing:0.3px;">{{ row.day_label }}</td></tr>
+                <tr><td colspan="9" style="background:rgba(120,120,160,0.08); color:var(--text-muted); font-weight:800; font-size:12px; padding:8px 18px; letter-spacing:0.3px;">{{ row.day_label }}</td></tr>
                 {% endif %}
                 {% endifchanged %}
                 {% with s=row.student %}
                 <tr class="clickable" data-scheduled-today="{{ s.scheduled_today|yesno:'1,0' }}" data-attended-today="{{ s.attended_today|yesno:'1,0' }}" onclick="location.href='{% url 'admin_student_report' s.id %}'">
                     <td style="font-size:12px; color:var(--text-muted); white-space:nowrap;" onclick="event.stopPropagation();">
                         {% if row.show_assign %}
-                        <button type="button" class="quick-assign-btn" onclick="openClassAssignModal({{ s.id }}, '{{ s.profile.real_name|default:s.username|escapejs }}')">배정</button>
+                        <button type="button" class="quick-assign-btn" onclick="openClassAssignModal({{ s.id }}, '{{ s.profile.real_name|default:s.username|escapejs }}', '', '')">배정</button>
                         {% elif row.class_name %}
-                        {% if row.time_label %}<span style="color:#93c5fd; font-weight:700;">{{ row.time_label }}</span>{% endif %} {{ row.class_name }} <span style="opacity:0.6;">{{ row.class_note }}</span>
+                        {% if row.can_assign %}
+                        <button type="button" class="class-chip" title="눌러서 수업을 변경/추가 배정" onclick="openClassAssignModal({{ s.id }}, '{{ s.profile.real_name|default:s.username|escapejs }}', '{{ row.class_id }}', '{{ row.class_name|escapejs }}')">
+                            {% if row.time_label %}<span class="class-time">{{ row.time_label }}</span>{% endif %}<span class="class-nm">{{ row.class_name }}</span>{% if row.class_note %}<span class="class-note">{{ row.class_note }}</span>{% endif %}<span class="class-edit">✎</span>
+                        </button>
+                        {% else %}
+                        {% if row.time_label %}<span class="class-time">{{ row.time_label }}</span>{% endif %} {{ row.class_name }} <span style="opacity:0.6;">{{ row.class_note }}</span>
+                        {% endif %}
                         {% else %}-{% endif %}
                     </td>
                     <td style="font-weight:700; color:#fff;">{{ s.profile.real_name|default:s.username }} <span style="color:var(--text-muted); font-size:11px; font-weight:400;">@{{ s.username }}</span></td>
@@ -194,13 +231,23 @@
                         {% elif s.today_attendance_type == 'access' %}<span class="attend-badge" style="background:rgba(148,163,184,0.12); color:#94a3b8; border:1px solid rgba(148,163,184,0.3);">📶 접속만</span>
                         {% else %}<span class="attend-badge attend-no">미출석</span>{% endif %}
                     </td>
-                    <td>{{ s.month_attendance_count }}회</td>
+                    <td class="num"><span class="cnt-badge cnt-attend">{{ s.month_attendance_count }}회</span></td>
+                    <td class="num"><span class="cnt-badge cnt-access">{{ s.month_access_count }}회</span></td>
                     <td onclick="event.stopPropagation();">
                         {% if s.parent_link %}
                         <span class="attend-badge link-yes">🔗 {{ s.parent_link.parent.profile.real_name|default:s.parent_link.parent.username }}</span>
                         {% else %}
                         <span class="attend-badge link-no">미연동</span>
                         <button type="button" class="quick-link-btn" onclick="openParentLinkModal({{ s.id }}, '{{ s.profile.real_name|default:s.username|escapejs }}')">연동</button>
+                        {% endif %}
+                    </td>
+                    <td onclick="event.stopPropagation();">
+                        {% if s.pay_state == 'none' %}<span class="pay-none">청구서 없음</span>
+                        {% else %}
+                        <a href="{% url 'tuition_admin_dashboard' %}?student_id={{ s.id }}" class="pay-cell pay-{{ s.pay_state }}" title="납부 관리에서 보기">
+                            <span class="pay-state">{% if s.pay_state == 'paid' %}✅ {% elif s.pay_state == 'unpaid' %}⏰ {% else %}◐ {% endif %}{{ s.pay_label }}</span>
+                            <span class="pay-amt">{{ s.pay_amount|intcomma }}원{% if s.pay_state == 'partial' %} <small>/ {{ s.pay_total|intcomma }}원</small>{% endif %}</span>
+                        </a>
                         {% endif %}
                     </td>
                     <td>
@@ -220,7 +267,7 @@
                 </tr>
                 {% endwith %}
                 {% empty %}
-                <tr><td colspan="7" style="text-align:center; padding:60px; color:var(--text-muted);">등록된 메듀랩 학생회원이 없습니다.</td></tr>
+                <tr><td colspan="9" style="text-align:center; padding:60px; color:var(--text-muted);">등록된 메듀랩 학생회원이 없습니다.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -240,6 +287,13 @@
     <div class="qp-modal-box">
         <button type="button" class="qp-modal-close" onclick="closeClassAssignModal()">✕</button>
         <h3 id="classAssignTitle">수업 배정</h3>
+        <div id="classAssignFromBox" style="display:none;">
+            <div class="assign-from" id="classAssignFromText"></div>
+            <div class="assign-mode">
+                <label class="on" id="modeMoveLabel"><input type="radio" name="assignMode" value="move" checked onchange="setAssignMode('move')"> 🔄 이 수업에서 <strong>변경</strong></label>
+                <label id="modeAddLabel"><input type="radio" name="assignMode" value="add" onchange="setAssignMode('add')"> ➕ 수업 <strong>추가</strong></label>
+            </div>
+        </div>
         <div class="day-filter-bar">
             <button type="button" class="day-filter-btn active" data-day="all" onclick="filterClassList('all', this)">전체</button>
             <button type="button" class="day-filter-btn" data-day="0" onclick="filterClassList('0', this)">일</button>
@@ -258,7 +312,7 @@
         </div>
         <div id="classAssignList" class="class-assign-list">
             {% for c in all_classes %}
-            <div class="qp-result-item class-list-item" data-days="{{ c.days_of_week }}" data-program="{% if '맞춤성장' in c.name %}맞춤성장{% elif '집중성장' in c.name %}집중성장{% elif '융합성장' in c.name %}융합성장{% endif %}" onclick="selectClassToAssign({{ c.id }}, '{{ c.name|escapejs }}')">
+            <div class="qp-result-item class-list-item" data-class-id="{{ c.id }}" data-days="{{ c.days_of_week }}" data-program="{% if '맞춤성장' in c.name %}맞춤성장{% elif '집중성장' in c.name %}집중성장{% elif '융합성장' in c.name %}융합성장{% endif %}" onclick="selectClassToAssign({{ c.id }}, '{{ c.name|escapejs }}')">
                 <span style="font-weight:700;">{{ c.name }}</span>
                 <span style="color:var(--text-muted); font-size:11px; margin-left:6px;">{{ c.days_display|default:"-" }}{% if c.start_time %} {{ c.start_time|time:"H:i" }}{% if c.end_time %}~{{ c.end_time|time:"H:i" }}{% endif %}{% endif %}</span>
             </div>
@@ -275,9 +329,12 @@
     <input type="hidden" name="next" value="{{ request.get_full_path }}">
 </form>
 
-<form id="quickAssignForm" method="post" style="display:none;">
+<form id="quickAssignForm" method="post" action="{% url 'class_move_student' %}" style="display:none;">
     {% csrf_token %}
-    <input type="hidden" name="student_ids" id="quickAssignStudentId">
+    <input type="hidden" name="student_id" id="quickAssignStudentId">
+    <input type="hidden" name="to_class_id" id="quickAssignToClass">
+    <input type="hidden" name="from_class_id" id="quickAssignFromClass">
+    <input type="hidden" name="mode" id="quickAssignMode" value="add">
     <input type="hidden" name="next" value="{{ request.get_full_path }}">
 </form>
 <script>
@@ -363,7 +420,7 @@ function selectParent(parentId, parentName) {
 
 // ── 수업 빠른 배정 ──
 let qaCurrentStudentId = null;
-let qaDay = 'all', qaProgram = 'all';
+let qaDay = 'all', qaProgram = 'all', qaFromClassId = '', qaFromClassName = '', qaMode = 'add';
 function applyClassFilters() {
     document.querySelectorAll('.class-list-item').forEach(function (el) {
         const days = (el.dataset.days || '').split(',');
@@ -372,12 +429,35 @@ function applyClassFilters() {
         el.style.display = (dayOk && progOk) ? '' : 'none';
     });
 }
-function openClassAssignModal(studentId, studentName) {
+function setAssignMode(mode) {
+    qaMode = mode;
+    document.getElementById('modeMoveLabel').classList.toggle('on', mode === 'move');
+    document.getElementById('modeAddLabel').classList.toggle('on', mode === 'add');
+}
+// fromClassId: 수업을 눌러 다시 배정하는 경우 그 수업 id (비어 있으면 새 배정)
+function openClassAssignModal(studentId, studentName, fromClassId, fromClassName) {
     qaCurrentStudentId = studentId;
     qaDay = 'all'; qaProgram = 'all';
-    document.getElementById('classAssignTitle').textContent = studentName + ' - 수업 배정';
+    qaFromClassId = fromClassId || ''; qaFromClassName = fromClassName || '';
+    document.getElementById('classAssignTitle').textContent = studentName + ' - 수업 ' + (qaFromClassId ? '변경/추가' : '배정');
     document.querySelectorAll('.day-filter-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.day === 'all'); });
     document.querySelectorAll('.prog-filter-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.prog === 'all'); });
+    const fromBox = document.getElementById('classAssignFromBox');
+    if (qaFromClassId) {
+        fromBox.style.display = '';
+        document.getElementById('classAssignFromText').innerHTML = '현재 수업: <strong>' + qaFromClassName.replace(/</g, '&lt;') + '</strong>';
+        document.querySelector('input[name="assignMode"][value="move"]').checked = true;
+        setAssignMode('move');
+    } else {
+        fromBox.style.display = 'none';
+        qaMode = 'add';
+    }
+    document.querySelectorAll('.class-list-item').forEach(function (el) {
+        const cur = qaFromClassId && el.dataset.classId === String(qaFromClassId);
+        el.classList.toggle('current', !!cur);
+        const old = el.querySelector('.now-tag'); if (old) old.remove();
+        if (cur) { const t = document.createElement('span'); t.className = 'now-tag'; t.textContent = '현재'; el.appendChild(t); }
+    });
     applyClassFilters();
     document.getElementById('classAssignOverlay').classList.add('show');
 }
@@ -399,11 +479,17 @@ function filterClassProgram(prog, btn) {
 }
 function selectClassToAssign(classId, className) {
     if (!qaCurrentStudentId) return;
-    if (!confirm('"' + className + '" 수업에 배정할까요?')) return;
-    const form = document.getElementById('quickAssignForm');
-    form.action = '/admin-services/classes/' + classId + '/enroll/';
+    const moving = !!qaFromClassId && qaMode === 'move';
+    if (qaFromClassId && String(classId) === String(qaFromClassId)) { alert('이미 이 수업에 배정되어 있어요. 다른 수업을 골라 주세요.'); return; }
+    const msg = moving
+        ? '"' + qaFromClassName + '" → "' + className + '"(으)로 변경할까요?\n(기존 수업은 수강 중단으로 바뀌고 출석 기록은 보존돼요)'
+        : '"' + className + '" 수업에 ' + (qaFromClassId ? '추가 ' : '') + '배정할까요?';
+    if (!confirm(msg)) return;
     document.getElementById('quickAssignStudentId').value = qaCurrentStudentId;
-    form.submit();
+    document.getElementById('quickAssignToClass').value = classId;
+    document.getElementById('quickAssignFromClass').value = qaFromClassId;
+    document.getElementById('quickAssignMode').value = moving ? 'move' : 'add';
+    document.getElementById('quickAssignForm').submit();
 }
 
 document.addEventListener('keydown', function (e) {

@@ -199,6 +199,7 @@ urlpatterns = [
     path('admin-services/classes/<int:class_id>/copy/', views.class_admin_copy, name='class_admin_copy'),
     path('admin-services/classes/<int:class_id>/delete/', views.class_admin_delete, name='class_admin_delete'),
     path('admin-services/classes/<int:class_id>/enroll/', views.class_enroll_student, name='class_enroll_student'),
+    path('admin-services/classes/move-student/', views.class_move_student, name='class_move_student'),
     path('admin-services/classes/<int:class_id>/unenroll/<int:enrollment_id>/', views.class_unenroll_student, name='class_unenroll_student'),
     path('admin-services/classes/<int:class_id>/generate-invoices/', views.class_admin_generate_invoices, name='class_admin_generate_invoices'),
     path('admin-services/classes/<int:class_id>/attendance/', views.class_admin_attendance, name='class_admin_attendance'),

@@ -3490,6 +3490,52 @@ def class_enroll_student(request, class_id):
 @login_required
 @user_passes_test(staff_check)
 @require_POST
+def class_move_student(request):
+    """학생 현황에서 수업 배정: mode=move 면 현재 수업(from)에서 다른 수업(to)으로 변경, mode=add 면 수업을 추가 배정.
+    변경할 때 기존 수업 배정은 삭제하지 않고 '수강 중단'으로 바꿔 출석 기록을 보존하고, 할인 정보는 새 수업으로 가져간다."""
+    next_url = request.POST.get('next') or reverse('my_report')
+    student = User.objects.filter(pk=request.POST.get('student_id') or 0).first()
+    to_class = SchoolClass.objects.filter(pk=request.POST.get('to_class_id') or 0).first()
+    if not student or not to_class:
+        messages.error(request, '학생 또는 수업을 찾을 수 없습니다.')
+        return redirect(next_url)
+
+    mode = request.POST.get('mode') or 'add'
+    old = None
+    if mode == 'move':
+        old = ClassEnrollment.objects.filter(
+            student=student, school_class_id=request.POST.get('from_class_id') or 0, is_active=True
+        ).select_related('school_class').first()
+        if old and old.school_class_id == to_class.id:
+            messages.info(request, '이미 이 수업에 배정되어 있어요.')
+            return redirect(next_url)
+
+    new_enrollment, created = ClassEnrollment.objects.get_or_create(
+        school_class=to_class, student=student, defaults={'is_active': True})
+    if not created and not new_enrollment.is_active:
+        new_enrollment.is_active = True
+        new_enrollment.save(update_fields=['is_active'])
+    elif not created and mode != 'move':
+        messages.info(request, '이미 이 수업에 배정되어 있어요.')
+        return redirect(next_url)
+
+    name = student.profile.real_name or student.username
+    if old:
+        if (old.discount_amount or old.discount_reason) and not new_enrollment.discount_amount:
+            new_enrollment.discount_reason = old.discount_reason
+            new_enrollment.discount_amount = old.discount_amount
+            new_enrollment.save(update_fields=['discount_reason', 'discount_amount'])
+        old.is_active = False
+        old.save(update_fields=['is_active'])
+        messages.success(request, f'{name} 학생을 "{old.school_class.name}"에서 "{to_class.name}"(으)로 변경했습니다.')
+    else:
+        messages.success(request, f'{name} 학생을 "{to_class.name}" 수업에 배정했습니다.')
+    return redirect(next_url)
+
+
+@login_required
+@user_passes_test(staff_check)
+@require_POST
 def class_unenroll_student(request, class_id, enrollment_id):
     """수업 배정 해제"""
     school_class = get_object_or_404(SchoolClass, pk=class_id)
@@ -6351,13 +6397,32 @@ def _render_staff_student_dashboard(request):
     today_attended_ids = {
         uid for uid, t in today_attendance_types.items() if t in (Attendance.TYPE_PRESENT, Attendance.TYPE_MAKEUP)
     }
+    # 이번 달 출석 횟수 = 출석 + 보강 (접속만 한 날은 제외), 접속 횟수 = 접속/출석 기록이 있는 모든 날
     month_attendance_counts = {}
+    month_access_counts = {}
     for row in (
         Attendance.objects.filter(user_id__in=student_ids, date__year=current_year, date__month=current_month)
         .values('user_id')
-        .annotate(cnt=Count('id'))
+        .annotate(
+            attended=Count('id', filter=Q(attendance_type__in=(Attendance.TYPE_PRESENT, Attendance.TYPE_MAKEUP))),
+            total=Count('id'),
+        )
     ):
-        month_attendance_counts[row['user_id']] = row['cnt']
+        month_attendance_counts[row['user_id']] = row['attended']
+        month_access_counts[row['user_id']] = row['total']
+
+    # 이번 달(납부 기한 기준) 수납 현황: 취소된 청구서는 제외
+    month_pay = {}
+    for row in (
+        TuitionInvoice.objects.filter(
+            student_id__in=student_ids, due_date__year=current_year, due_date__month=current_month,
+            status__in=(TuitionInvoice.STATUS_PAID, TuitionInvoice.STATUS_UNPAID),
+        ).values('student_id', 'status').annotate(total=Sum('amount'), cnt=Count('id'))
+    ):
+        info = month_pay.setdefault(row['student_id'], {'paid': 0, 'unpaid': 0, 'paid_cnt': 0, 'unpaid_cnt': 0})
+        key = 'paid' if row['status'] == TuitionInvoice.STATUS_PAID else 'unpaid'
+        info[key] += row['total'] or 0
+        info[key + '_cnt'] += row['cnt']
 
     # 오늘 요일에 배정된 활성 수업이 있는 학생 = 오늘 출석해야 할 학생
     code_for_py_weekday = {0: '1', 1: '2', 2: '3', 3: '4', 4: '5', 5: '6', 6: '0'}
@@ -6365,6 +6430,7 @@ def _render_staff_student_dashboard(request):
     today_scheduled_ids = set()
     today_class_info = {}  # student_id -> (start_time, class_name) — 여러 수업이면 가장 이른 시간
     enrolled_class_names = {}  # student_id -> [class_name, ...] — 오늘 여부와 무관하게 배정된 모든 수업
+    enrolled_class_ids = {}  # student_id -> [class_id, ...]
     per_day_entries = {}  # day_code -> [(start_time, class_name, student_id), ...] — 수업요일별 보기용
     assigned_student_ids = set()
     for enrollment in (
@@ -6373,6 +6439,7 @@ def _render_staff_student_dashboard(request):
     ):
         sc = enrollment.school_class
         enrolled_class_names.setdefault(enrollment.student_id, []).append(sc.name)
+        enrolled_class_ids.setdefault(enrollment.student_id, []).append(sc.id)
         assigned_student_ids.add(enrollment.student_id)
         codes = sc.days_of_week.split(',') if sc.days_of_week else []
         if today_code in codes:
@@ -6381,7 +6448,7 @@ def _render_staff_student_dashboard(request):
             if existing is None or (sc.start_time and sc.start_time < existing[0]):
                 today_class_info[enrollment.student_id] = (sc.start_time, sc.name)
         for code in codes:
-            per_day_entries.setdefault(code, []).append((sc.start_time, sc.name, enrollment.student_id))
+            per_day_entries.setdefault(code, []).append((sc.start_time, sc.name, enrollment.student_id, sc.id))
 
     all_classes = list(
         SchoolClass.objects.filter(is_active=True)
@@ -6392,6 +6459,20 @@ def _render_staff_student_dashboard(request):
         s.attended_today = s.id in today_attended_ids
         s.today_attendance_type = today_attendance_types.get(s.id)
         s.month_attendance_count = month_attendance_counts.get(s.id, 0)
+        s.month_access_count = month_access_counts.get(s.id, 0)
+        pay = month_pay.get(s.id)
+        if not pay:
+            s.pay_state, s.pay_label, s.pay_amount = 'none', '청구서 없음', 0
+        else:
+            total = pay['paid'] + pay['unpaid']
+            if pay['unpaid_cnt'] == 0:
+                s.pay_state, s.pay_label, s.pay_amount = 'paid', '완납', pay['paid']
+            elif pay['paid_cnt'] == 0:
+                s.pay_state, s.pay_label, s.pay_amount = 'unpaid', '미납', pay['unpaid']
+            else:
+                s.pay_state, s.pay_label, s.pay_amount = 'partial', '일부 납부', pay['paid']
+            s.pay_total = total
+        s.enrolled_class_ids = enrolled_class_ids.get(s.id, [])
         s.scheduled_today = s.id in today_scheduled_ids
         info = today_class_info.get(s.id)
         s.today_class_name = info[1] if info else ''
@@ -6421,7 +6502,12 @@ def _render_staff_student_dashboard(request):
                 row = {'time_label': '', 'class_name': ', '.join(s.enrolled_class_names), 'class_note': '(오늘 수업 없음)'}
             else:
                 row = {'time_label': '', 'class_name': '', 'class_note': ''}
-            row.update({'student': s, 'day_label': None, 'show_assign': not (s.today_class_time or s.enrolled_class_names) and bool(all_classes)})
+            row.update({
+                'student': s, 'day_label': None,
+                'show_assign': not (s.today_class_time or s.enrolled_class_names) and bool(all_classes),
+                'class_id': s.enrolled_class_ids[0] if len(s.enrolled_class_ids) == 1 else '',
+                'can_assign': bool(all_classes) and bool(s.enrolled_class_names),
+            })
             student_rows.append(row)
     else:
         day_order = ['1', '2', '3', '4', '5', '6', '0']
@@ -6433,12 +6519,13 @@ def _render_staff_student_dashboard(request):
                 t[0] is None, t[0],
                 students_by_id[t[2]].profile.real_name or students_by_id[t[2]].username,
             ))
-            for start_time, class_name, sid in entries:
+            for start_time, class_name, sid, class_id in entries:
                 student_rows.append({
                     'student': students_by_id[sid],
                     'day_label': f'{SchoolClass.DAY_LABELS[code]}요일',
                     'time_label': start_time.strftime('%H:%M') if start_time else '',
                     'class_name': class_name, 'class_note': '', 'show_assign': False,
+                    'class_id': class_id, 'can_assign': bool(all_classes),
                 })
         unassigned = sorted(
             (s for s in students if s.id not in assigned_student_ids),
