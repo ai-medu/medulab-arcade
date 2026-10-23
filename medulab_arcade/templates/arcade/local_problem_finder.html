@@ -1532,11 +1532,12 @@ function pfUpdateNextBtn() {
     return;
   }
 
-  // 조장이면 과반수 여부 체크
+  // 조장이면 과반수 여부 체크 (단, 혼자인 경우 과반수 투표 없이 내 선택만으로 진행)
+  const solo = n <= 1;
   let ok = true;
   let msg = '';
   if (pfStep === 1) {
-    ok = !!maj.area;
+    ok = solo ? !!pfCity : !!maj.area;
     msg = ok ? '<span class="pf-vote-ok">✓ 지역 결정 완료 — 다음으로 이동하세요</span>'
              : '<span class="pf-vote-need">⏳ 과반수 팀원이 같은 지역을 선택해야 해요</span>';
   } else if (pfStep === 2) {
@@ -2468,12 +2469,12 @@ function pfNext() {
     pfShowToast('👑 다음 단계는 조장만 진행할 수 있어요!'); return;
   }
   if (pfStep === 1) {
-    if (pfMemberId && pfRoomState) {
+    const solo = !pfRoomState || pfRoomState.member_count <= 1;
+    if (pfMemberId && pfRoomState && !solo) {
       const maj = pfRoomState.majority;
       if (!maj.area) { pfShowToast('아직 과반수 팀원이 지역을 선택하지 않았어요!'); return; }
     } else {
       if (!pfCity || !pfDistrict) { pfShowToast('지역(시/도 → 구/군/시)을 선택해주세요!'); return; }
-      if (pfSelectedExamples.length === 0) { pfShowToast('문제를 하나 이상 선택해주세요!'); return; }
     }
     pfSituationVal = pfSelectedExamples[0] || pfStudentProblems[0]?.title || '';
     pfRenderStep2(); pfGoTo(2);
