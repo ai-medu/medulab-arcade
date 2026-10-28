@@ -512,6 +512,8 @@ class ClassEnrollment(models.Model):
     student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='class_enrollments', verbose_name='학생')
     enrolled_at = models.DateField('배정일', auto_now_add=True)
     is_active = models.BooleanField('수강 중', default=True)
+    discount_reason = models.CharField('할인 사유', max_length=50, blank=True)
+    discount_amount = models.PositiveIntegerField('할인 금액(원)', default=0, help_text='청구서 생성 시 매달 차감됩니다.')
 
     class Meta:
         verbose_name = '수업 배정'
@@ -521,6 +523,24 @@ class ClassEnrollment(models.Model):
 
     def __str__(self):
         return f'{self.student.username} - {self.school_class.name}'
+
+
+class ClassDiscountType(models.Model):
+    """수업 배정 시 고르는 할인 사유 (관리자가 추가/수정/삭제). amount 가 0이면 금액을 직접 입력받는 유형."""
+    name = models.CharField('할인 사유', max_length=30, unique=True)
+    amount = models.PositiveIntegerField('할인 금액(원)', default=0, help_text='0이면 배정할 때 금액을 직접 입력합니다.')
+    display_order = models.PositiveIntegerField('표시 순서', default=0)
+    is_absence = models.BooleanField('결석차감 유형', default=False,
+                                     help_text='체크하면 금액 대신 "결석 횟수 × 1회 수업비"로 계산합니다. (추가할인에서만 사용)')
+    created_at = models.DateTimeField('등록일', auto_now_add=True)
+
+    class Meta:
+        verbose_name = '할인 사유'
+        verbose_name_plural = '할인 사유'
+        ordering = ['display_order', 'id']
+
+    def __str__(self):
+        return f'{self.name} ({self.amount:,}원)' if self.amount else f'{self.name} (직접 입력)'
 
 
 class ClassAttendance(models.Model):
@@ -562,6 +582,11 @@ class TuitionInvoice(models.Model):
     paid_at = models.DateTimeField('결제 완료 일시', null=True, blank=True)
     portone_payment_id = models.CharField('포트원 결제건 ID', max_length=100, unique=True, blank=True)
     portone_pay_method = models.CharField('결제 수단', max_length=30, blank=True)
+    discount_reason = models.CharField('기본할인 사유', max_length=50, blank=True)
+    discount_amount = models.PositiveIntegerField('기본할인 금액(원)', default=0)
+    extra_discount_reason = models.CharField('추가할인 사유(이번 달만)', max_length=50, blank=True)
+    extra_discount_amount = models.PositiveIntegerField('추가할인 금액(원)', default=0)
+    extra_absence_count = models.PositiveIntegerField('추가할인 결석 횟수', default=0)
     canceled_at = models.DateTimeField('취소 일시', null=True, blank=True)
     cancel_reason = models.CharField('취소 사유', max_length=100, blank=True)
     refunded_amount = models.PositiveIntegerField('환불 금액(원)', default=0)
@@ -949,6 +974,20 @@ class AvatarDraft(models.Model):
 
     def __str__(self):
         return f"{self.user.username} 아바타 초안"
+
+
+class SelfExplorationDraft(models.Model):
+    """'자기탐색' 도구 임시저장 (my_avatar/AvatarDraft를 복제한 독립 페이지, 서로 영향 없음)"""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='self_exploration_draft')
+    data = models.JSONField(default=dict)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = '자기탐색 임시저장'
+        verbose_name_plural = '자기탐색 임시저장'
+
+    def __str__(self):
+        return f"{self.user.username} 자기탐색 초안"
 
 
 # '학원입니까?' 모달은 로그인 시점이 아니라 매 요청마다 arcade.context_processors.checkin_modal에서
@@ -1452,6 +1491,7 @@ class ContentFinderSubmission(models.Model):
 class AIPromptCardOrder(models.Model):
     """AI 프롬프트 생성기 허브 페이지의 카드 노출 순서 (관리자 드래그앤드롭으로 설정, 싱글턴)"""
     order = models.JSONField('카드 순서(키 목록)', default=list, blank=True)
+    program_order = models.JSONField('20선 프로그램 순서(번호 목록)', default=list, blank=True)
     updated_at = models.DateTimeField('마지막 수정 시각', auto_now=True)
 
     class Meta:

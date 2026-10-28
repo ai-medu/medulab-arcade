@@ -27,7 +27,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required, user_passes_test
 from .badge_service import get_active_badges_with_user_state, get_recent_user_badges, get_user_badge_count
-from .models import Badge, Project, Category, Like, Bookmark, Tag, UserProfile, EmailChangeRequest, SignupEmailVerification, ScheduleAttachment, ScheduleEvent, Notice, Award, Certification, CertInfo, CompetitionType, Contest, SchoolClass, ClassEnrollment, ParentChildLink, TuitionInvoice, ClassAttendance, TuitionBatchPayment, InstagramConfig, InstagramPost, InstagramUploadDraft, InstagramUploadDraftItem, FutureCareerSave, ContentFinderSubmission, ContentIdeaThumbnailSubmission, AIPromptCardOrder, ContentFinderDraft, ContentIdeaFinderDraft, ContentPlanDraft, ChannelBrandingDraft
+from .models import ClassDiscountType, Badge, Project, Category, Like, Bookmark, Tag, UserProfile, EmailChangeRequest, SignupEmailVerification, ScheduleAttachment, ScheduleEvent, Notice, Award, Certification, CertInfo, CompetitionType, Contest, SchoolClass, ClassEnrollment, ParentChildLink, TuitionInvoice, ClassAttendance, TuitionBatchPayment, InstagramConfig, InstagramPost, InstagramUploadDraft, InstagramUploadDraftItem, FutureCareerSave, ContentFinderSubmission, ContentIdeaThumbnailSubmission, AIPromptCardOrder, ContentFinderDraft, ContentIdeaFinderDraft, ContentPlanDraft, ChannelBrandingDraft
 from .forms import ProjectUploadForm, SignUpForm, AdminUserForm, AdminUserProfileForm, BadgeForm, ScheduleEventForm, TimetableForm, UserProfileUpdateForm, MedulabParentUpgradeForm, SocialOnboardingForm, SchoolClassForm
 from .holiday_utils import ensure_holidays
 
@@ -98,6 +98,16 @@ AI_PROMPT_CARDS = [
         'key': 'my_avatar', 'url_name': 'my_avatar', 'icon_class': 'icon-avatar', 'icon': '🤖',
         'title': 'AI 아바타 만들기',
         'desc': '나의 성격·꿈·취미를 입력하면 나만의 아바타 이미지 프롬프트가 완성돼요.',
+    },
+    {
+        'key': 'self_exploration', 'url_name': 'self_exploration', 'icon_class': 'icon-avatar', 'icon': '🧭',
+        'title': '자기탐색',
+        'desc': '질문에 답하며 나를 더 잘 알아가는 자기탐색 결과와 프롬프트가 완성돼요.',
+    },
+    {
+        'key': 'gwangju_view', 'url_name': 'gwangju_view', 'icon_class': 'icon-local', 'icon': '🏙️',
+        'title': '광주를 본다',
+        'desc': 'AI와 광주 AI 산업, 지역자원을 소개하고 알아보는 페이지예요.',
     },
     {
         'key': 'team_name', 'url_name': 'team_name', 'icon_class': 'icon-team', 'icon': '🔤',
@@ -246,20 +256,28 @@ def ai_prompts(request):
     remaining_keys = [k for k in cards_by_key if k not in ordered_keys]
     cards = [cards_by_key[k] for k in ordered_keys + remaining_keys]
 
-    # 20선 프로그램: 이미 만들어진 도구 중 관련 있는 것을 연결, 없으면 '준비 중' 카드
-    from .ai_program_catalog import AI_PROGRAMS
+    # 20선 프로그램 + 맨 앞 강조 캠프 카드: 이미 만들어진 도구 중 관련 있는 것을 연결, 없으면 '준비 중' 카드
+    from .ai_program_catalog import AI_PROGRAMS, FEATURED_PROGRAM
     mapped_keys = set()
-    programs = []
-    for program in AI_PROGRAMS:
+    programs_by_no = {}
+    for program in [FEATURED_PROGRAM] + AI_PROGRAMS:
         tools = [cards_by_key[k] for k in program['tools'] if k in cards_by_key]
         mapped_keys.update(c['key'] for c in tools)
-        programs.append({**program, 'tool_cards': tools})
+        programs_by_no[program['no']] = {**program, 'tool_cards': tools}
+
+    program_order = (order_obj.program_order if order_obj else []) or []
+    ordered_nos = [n for n in program_order if n in programs_by_no]
+    remaining_nos = [n for n in programs_by_no if n not in ordered_nos]
+    if not program_order:
+        # 저장된 순서가 없으면 캠프 카드를 맨 앞에 기본 배치
+        remaining_nos.sort(key=lambda n: (n != 0, n))
+    programs = [programs_by_no[n] for n in ordered_nos + remaining_nos]
 
     # 20선과 관련 없는 기존 도구는 맨 뒤 '기타 도구'로 (관리자가 정한 순서 유지)
     other_cards = [c for c in cards if c['key'] not in mapped_keys]
     return render(request, 'arcade/ai_prompts.html', {
         'programs': programs, 'other_cards': other_cards,
-        'ready_count': sum(1 for p in programs if p['tool_cards']),
+        'ready_count': sum(1 for p in programs if p['tool_cards'] and not p.get('featured')),
     })
 
 
@@ -286,6 +304,34 @@ def ai_prompts_reorder(request):
         order_obj.save(update_fields=['order'])
     else:
         AIPromptCardOrder.objects.create(order=order)
+
+    return JsonResponse({'success': True})
+
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+@require_POST
+def ai_prompts_program_reorder(request):
+    """관리자용 - AI 교육 프로그램 20선 카드 순서 저장"""
+    from .ai_program_catalog import AI_PROGRAMS, FEATURED_PROGRAM
+    try:
+        payload = json.loads(request.body)
+    except (ValueError, TypeError):
+        return JsonResponse({'success': False, 'error': '잘못된 요청입니다.'}, status=400)
+
+    order = payload.get('order')
+    if not isinstance(order, list) or not all(isinstance(n, int) for n in order):
+        return JsonResponse({'success': False, 'error': '순서 데이터가 올바르지 않습니다.'}, status=400)
+
+    valid_nos = {p['no'] for p in AI_PROGRAMS} | {FEATURED_PROGRAM['no']}
+    order = [n for n in order if n in valid_nos]
+
+    order_obj = AIPromptCardOrder.objects.order_by('id').first()
+    if order_obj:
+        order_obj.program_order = order
+        order_obj.save(update_fields=['program_order'])
+    else:
+        AIPromptCardOrder.objects.create(program_order=order)
 
     return JsonResponse({'success': True})
 
@@ -1337,6 +1383,39 @@ def api_avatar_draft_save(request):
         return JsonResponse({'ok': False, 'error': 'invalid json'}, status=400)
     AvatarDraft.objects.update_or_create(user=request.user, defaults={'data': data})
     return JsonResponse({'ok': True})
+
+
+def self_exploration(request):
+    """'자기탐색' - my_avatar를 복제한 독립 페이지 (수정해도 AI 아바타 만들기에 영향 없음)"""
+    from .models import SelfExplorationDraft
+    draft_data = {}
+    if request.user.is_authenticated:
+        try:
+            draft_data = request.user.self_exploration_draft.data
+        except SelfExplorationDraft.DoesNotExist:
+            pass
+    return render(request, 'arcade/self_exploration.html', {
+        'draft_data': json.dumps(draft_data),
+        'user_authenticated': request.user.is_authenticated,
+    })
+
+
+@require_POST
+def api_self_exploration_draft_save(request):
+    from .models import SelfExplorationDraft
+    if not request.user.is_authenticated:
+        return JsonResponse({'ok': False, 'error': 'login required'}, status=401)
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'invalid json'}, status=400)
+    SelfExplorationDraft.objects.update_or_create(user=request.user, defaults={'data': data})
+    return JsonResponse({'ok': True})
+
+
+def gwangju_view(request):
+    """'광주를 본다' - 광주 AI 산업/지역자원 소개 페이지 (준비 중, 빈 페이지)"""
+    return render(request, 'arcade/gwangju_view.html')
 
 
 def schedule_view(request):
@@ -2783,13 +2862,21 @@ def member_list(request):
         u.children_list = children if isinstance(children, list) else []
         u.signup_providers = ', '.join(sorted({a.get_provider().name for a in u.socialaccount_set.all()})) or '이메일/아이디 가입'
 
+    # 필터 버튼 표시 순서 (메듀랩 회원 먼저, 그다음 일반 가입 유형, 레거시 유형은 맨 뒤)
+    type_filter_order = [
+        'medulab_member', 'medulab_parent', 'medulab_staff', 'medulab_inactive',
+        'student', 'parent', 'teacher', 'general', 'medulab_teacher',
+    ]
+    type_labels = dict(UserProfile.USER_TYPE_CHOICES)
+    ordered_codes = [c for c in type_filter_order if c in type_labels]
+    ordered_codes += [c for c in type_labels if c not in ordered_codes]
     type_filters = [
         {
             'code': code,
-            'label': label,
+            'label': type_labels[code],
             'active': user_type == code,
         }
-        for code, label in UserProfile.USER_TYPE_CHOICES
+        for code in ordered_codes
     ]
         
     context = {
@@ -2879,7 +2966,17 @@ def member_edit(request, user_id):
         children_rows.append({'info': child, 'link': match})
     extra_links = [l for l in child_links if l.id not in matched_link_ids]
 
+    # 자녀 추가 직후 '저장하고 바로 매칭'으로 넘어온 경우 해당 자녀의 매칭 창을 바로 연다
+    auto_match = None
+    try:
+        match_idx = int(request.GET.get('match_idx', ''))
+        if 0 <= match_idx < len(children_info):
+            auto_match = children_info[match_idx]
+    except (TypeError, ValueError):
+        pass
+
     context = {
+        'auto_match': auto_match,
         'user_form': user_form,
         'profile_form': profile_form,
         'target_user': target_user,
@@ -2963,6 +3060,57 @@ def member_create_child(request, user_id):
         parent=parent_user, child=child_user, defaults={'linked_by': request.user}
     )
     messages.success(request, f'"{child_name or username}" 학생 계정을 새로 만들어 연결했습니다.')
+    return redirect('member_edit', user_id=parent_user.id)
+
+
+@login_required
+@user_passes_test(staff_check)
+@require_POST
+def member_add_child_info(request, user_id):
+    """학부모 계정에 자녀 정보(이름·생년월일·학교·학년)를 관리자가 직접 추가"""
+    parent_user = get_object_or_404(User, pk=user_id)
+    profile, _ = UserProfile.objects.get_or_create(user=parent_user)
+    if profile.user_type not in ('parent', 'medulab_parent'):
+        messages.error(request, '학부모 계정에서만 자녀를 추가할 수 있습니다.')
+        return redirect('member_edit', user_id=parent_user.id)
+
+    name = (request.POST.get('name') or '').strip()[:50]
+    if not name:
+        messages.error(request, '자녀 이름을 입력해 주세요.')
+        return redirect('member_edit', user_id=parent_user.id)
+
+    children = list(profile.children_info) if isinstance(profile.children_info, list) else []
+    children.append({
+        'name': name,
+        'birth_date': (request.POST.get('birth_date') or '').strip()[:20],
+        'school': (request.POST.get('school') or '').strip()[:50],
+        'grade': (request.POST.get('grade') or '').strip()[:10],
+    })
+    profile.children_info = children
+    profile.save(update_fields=['children_info'])
+    messages.success(request, f'자녀 "{name}" 정보를 추가했습니다.')
+
+    url = reverse('member_edit', args=[parent_user.id])
+    if request.POST.get('then') == 'match':
+        url += f'?match_idx={len(children) - 1}'
+    return redirect(url)
+
+
+@login_required
+@user_passes_test(staff_check)
+@require_POST
+def member_remove_child_info(request, user_id, index):
+    """학부모 계정의 자녀 정보 한 줄 삭제 (이미 연결된 학생 계정은 그대로 유지)"""
+    parent_user = get_object_or_404(User, pk=user_id)
+    profile, _ = UserProfile.objects.get_or_create(user=parent_user)
+    children = list(profile.children_info) if isinstance(profile.children_info, list) else []
+    if 0 <= index < len(children):
+        removed = children.pop(index)
+        profile.children_info = children or None
+        profile.save(update_fields=['children_info'])
+        messages.success(request, f'자녀 정보 "{removed.get("name", "")}"를 삭제했습니다. (연결된 학생 계정은 그대로예요)')
+    else:
+        messages.error(request, '삭제할 자녀 정보를 찾을 수 없습니다.')
     return redirect('member_edit', user_id=parent_user.id)
 
 
@@ -3183,17 +3331,34 @@ def class_admin_list(request):
     classes = SchoolClass.objects.select_related('teacher__profile').prefetch_related('enrollments').annotate(
         invoice_total=Count('invoices', distinct=True),
         invoice_unpaid=Count('invoices', filter=Q(invoices__status=TuitionInvoice.STATUS_UNPAID), distinct=True),
+        active_students=Count('enrollments', filter=Q(enrollments__is_active=True), distinct=True),
     )
     search = request.GET.get('q', '').strip()
     if search:
         classes = classes.filter(name__icontains=search)
+    # 기본은 배정 인원이 있는 수업만 (assigned=0 이면 전체)
+    assigned_only = request.GET.get('assigned', '1') != '0'
+    if assigned_only:
+        classes = classes.filter(active_students__gt=0)
     classes_list = list(classes)
 
     preset_queries = {full_query for _, full_query, _, _ in CLASS_PRESET_GROUPS}
-    is_grouped_view = (not search) or (search in preset_queries)
+    is_grouped_view = ((not search) or (search in preset_queries)) and not assigned_only
 
     groups = []
-    if is_grouped_view:
+    if assigned_only:
+        # 배정 인원이 있는 수업만, 요일(월~일) → 시간 오름차순 (요일/시간이 없는 수업은 맨 뒤)
+        day_rank = {'1': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5, '0': 6}
+
+        def schedule_key(c):
+            codes = [day_rank[d] for d in (c.days_of_week or '').split(',') if d in day_rank]
+            if not codes or not c.start_time:
+                return (1, 0, 0, c.name)
+            return (0, min(codes), c.start_time.hour * 60 + c.start_time.minute, c.name)
+
+        classes_list.sort(key=schedule_key)
+        groups = [{'label': None, 'css_class': '', 'rank': None, 'classes': classes_list}] if classes_list else []
+    elif is_grouped_view:
         used_ids = set()
         for short_label, full_query, css_class, rank in CLASS_PRESET_GROUPS:
             if search and search != full_query:
@@ -3218,6 +3383,8 @@ def class_admin_list(request):
     context = {
         'groups': groups,
         'search_query': search,
+        'assigned_only': assigned_only,
+        'assigned_class_count': len(classes_list) if assigned_only else 0,
         'reorder_enabled': is_grouped_view,
         'title': '수업 관리',
     }
@@ -3366,6 +3533,65 @@ def class_enroll_student(request, class_id):
 @login_required
 @user_passes_test(staff_check)
 @require_POST
+def class_move_student(request):
+    """학생 현황에서 수업 배정: mode=move 면 현재 수업(from)에서 다른 수업(to)으로 변경, mode=add 면 수업을 추가 배정.
+    변경할 때 기존 수업 배정은 삭제하지 않고 '수강 중단'으로 바꿔 출석 기록을 보존하고, 할인 정보는 새 수업으로 가져간다."""
+    next_url = request.POST.get('next') or reverse('my_report')
+    student = User.objects.filter(pk=request.POST.get('student_id') or 0).first()
+    to_class = SchoolClass.objects.filter(pk=request.POST.get('to_class_id') or 0).first()
+    if not student or (not to_class and request.POST.get('mode') != 'unassign'):
+        messages.error(request, '학생 또는 수업을 찾을 수 없습니다.')
+        return redirect(next_url)
+
+    mode = request.POST.get('mode') or 'add'
+    old = None
+    if mode == 'unassign':
+        # 미배정으로 변경: 배정을 삭제하지 않고 '수강 중단'으로 바꿔 출석 기록을 보존한다
+        target = ClassEnrollment.objects.filter(
+            student=student, school_class_id=request.POST.get('from_class_id') or 0, is_active=True
+        ).select_related('school_class').first()
+        if not target:
+            messages.error(request, '해제할 수업 배정을 찾을 수 없습니다.')
+        else:
+            target.is_active = False
+            target.save(update_fields=['is_active'])
+            name = student.profile.real_name or student.username
+            messages.success(request, f'{name} 학생의 "{target.school_class.name}" 배정을 해제했습니다.')
+        return redirect(next_url)
+    if mode == 'move':
+        old = ClassEnrollment.objects.filter(
+            student=student, school_class_id=request.POST.get('from_class_id') or 0, is_active=True
+        ).select_related('school_class').first()
+        if old and old.school_class_id == to_class.id:
+            messages.info(request, '이미 이 수업에 배정되어 있어요.')
+            return redirect(next_url)
+
+    new_enrollment, created = ClassEnrollment.objects.get_or_create(
+        school_class=to_class, student=student, defaults={'is_active': True})
+    if not created and not new_enrollment.is_active:
+        new_enrollment.is_active = True
+        new_enrollment.save(update_fields=['is_active'])
+    elif not created and mode != 'move':
+        messages.info(request, '이미 이 수업에 배정되어 있어요.')
+        return redirect(next_url)
+
+    name = student.profile.real_name or student.username
+    if old:
+        if (old.discount_amount or old.discount_reason) and not new_enrollment.discount_amount:
+            new_enrollment.discount_reason = old.discount_reason
+            new_enrollment.discount_amount = old.discount_amount
+            new_enrollment.save(update_fields=['discount_reason', 'discount_amount'])
+        old.is_active = False
+        old.save(update_fields=['is_active'])
+        messages.success(request, f'{name} 학생을 "{old.school_class.name}"에서 "{to_class.name}"(으)로 변경했습니다.')
+    else:
+        messages.success(request, f'{name} 학생을 "{to_class.name}" 수업에 배정했습니다.')
+    return redirect(next_url)
+
+
+@login_required
+@user_passes_test(staff_check)
+@require_POST
 def class_unenroll_student(request, class_id, enrollment_id):
     """수업 배정 해제"""
     school_class = get_object_or_404(SchoolClass, pk=class_id)
@@ -3383,6 +3609,8 @@ def _class_modal_payload(school_class):
             'username': e.student.username,
             'enrolled_at': e.enrolled_at.strftime('%Y.%m.%d'),
             'is_active': e.is_active,
+            'discount_reason': e.discount_reason,
+            'discount_amount': e.discount_amount,
         }
         for e in school_class.enrollments.select_related('student__profile').order_by('-enrolled_at')
     ]
@@ -3393,11 +3621,16 @@ def _class_modal_payload(school_class):
             'amount': inv.amount, 'due_date': inv.due_date.strftime('%Y-%m-%d'),
             'status': inv.status, 'status_label': inv.get_status_display(),
             'period': inv.billing_period_label,
+            'discount_reason': inv.discount_reason, 'discount_amount': inv.discount_amount,
+            'absence_count': inv.absence_count, 'absence_deduction': inv.absence_deduction,
+            'extra_discount_reason': inv.extra_discount_reason, 'extra_discount_amount': inv.extra_discount_amount,
+            'extra_absence_count': inv.extra_absence_count,
         }
         for inv in school_class.invoices.select_related('student__profile').order_by('-due_date', '-created_at')
     ]
     return {
         'ok': True,
+        'discount_types': _discount_types_payload(),
         'class': {'id': school_class.id, 'name': school_class.name, 'tuition_fee': school_class.tuition_fee},
         'enrollments': enrollments,
         'invoices': invoices,
@@ -3420,27 +3653,167 @@ def _json_body(request):
         return {}
 
 
+CLASS_DISCOUNT_MAX = 10_000_000
+
+
+def _clean_enroll_discount(reason, amount):
+    """할인 사유/금액 검증. (사유, 금액, 오류메시지) — 사유가 비면 할인 없음(0원).
+    관리자가 등록한 할인 사유 중 금액이 정해진 것은 그 금액으로 고정한다."""
+    reason = (reason or '').strip()[:50]
+    if not reason:
+        return '', 0, None
+    if ClassDiscountType.objects.filter(name=reason, is_absence=True).exists():
+        return '', 0, '"결석차감"은 청구서의 추가할인(이번 달만)에서만 쓸 수 있어요.'
+    fixed_amount = ClassDiscountType.objects.filter(name=reason, amount__gt=0).values_list('amount', flat=True).first()
+    if fixed_amount:
+        return reason, fixed_amount, None
+    try:
+        amount = int(str(amount).replace(',', '').strip() or 0)
+    except (TypeError, ValueError):
+        return '', 0, '할인 금액을 숫자로 입력해 주세요.'
+    if amount < 0 or amount > CLASS_DISCOUNT_MAX:
+        return '', 0, '할인 금액이 올바르지 않습니다.'
+    if amount == 0:
+        return '', 0, '할인 금액을 입력해 주세요. (할인이 없으면 사유를 "할인 없음"으로 두세요)'
+    return reason, amount, None
+
+
+def _discount_types_payload():
+    return [{'id': t.id, 'name': t.name, 'amount': t.amount, 'is_absence': t.is_absence} for t in ClassDiscountType.objects.all()]
+
+
 @login_required
 @user_passes_test(staff_check)
 @require_POST
 def class_modal_enroll(request, class_id):
-    """모달에서 학생 배정 추가"""
+    """모달에서 학생 배정 추가 (할인 사유/금액을 함께 받아 배정 정보에 저장)"""
     school_class = get_object_or_404(SchoolClass, pk=class_id)
+    body = _json_body(request)
+    reason, amount, err = _clean_enroll_discount(body.get('discount_reason'), body.get('discount_amount'))
+    if err:
+        return JsonResponse({'ok': False, 'error': err}, status=400)
     added = 0
-    for sid in _json_body(request).get('student_ids', []):
+    for sid in body.get('student_ids', []):
         student = User.objects.filter(pk=sid).first()
         if not student:
             continue
         enrollment, created = ClassEnrollment.objects.get_or_create(
-            school_class=school_class, student=student, defaults={'is_active': True})
+            school_class=school_class, student=student,
+            defaults={'is_active': True, 'discount_reason': reason, 'discount_amount': amount})
         if created:
             added += 1
         elif not enrollment.is_active:
             enrollment.is_active = True
-            enrollment.save(update_fields=['is_active'])
+            enrollment.discount_reason = reason
+            enrollment.discount_amount = amount
+            enrollment.save(update_fields=['is_active', 'discount_reason', 'discount_amount'])
             added += 1
     payload = _class_modal_payload(school_class)
-    payload['message'] = f'{added}명을 배정했습니다.' if added else '새로 배정된 학생이 없습니다.'
+    msg = f'{added}명을 배정했습니다.' if added else '새로 배정된 학생이 없습니다.'
+    if added and amount:
+        msg += f' (할인 {reason} -{amount:,}원)'
+    payload['message'] = msg
+    return JsonResponse(payload)
+
+
+@login_required
+@user_passes_test(staff_check)
+@require_POST
+def class_modal_enrollment_discount(request, class_id, enrollment_id):
+    """모달에서 이미 배정된 학생의 할인 사유/금액 수정"""
+    school_class = get_object_or_404(SchoolClass, pk=class_id)
+    enrollment = get_object_or_404(ClassEnrollment, pk=enrollment_id, school_class=school_class)
+    body = _json_body(request)
+    reason, amount, err = _clean_enroll_discount(body.get('discount_reason'), body.get('discount_amount'))
+    if err:
+        return JsonResponse({'ok': False, 'error': err}, status=400)
+    enrollment.discount_reason = reason
+    enrollment.discount_amount = amount
+    enrollment.save(update_fields=['discount_reason', 'discount_amount'])
+    payload = _class_modal_payload(school_class)
+    payload['message'] = (f'할인을 저장했습니다. ({reason} -{amount:,}원) 다음 청구서 생성부터 반영돼요.'
+                          if amount else '할인을 없앴습니다.')
+    return JsonResponse(payload)
+
+
+def _discount_manage_payload():
+    usage = dict(
+        ClassEnrollment.objects.filter(is_active=True).exclude(discount_reason='')
+        .values_list('discount_reason').annotate(n=Count('id')).values_list('discount_reason', 'n')
+    )
+    return {
+        'ok': True,
+        'types': [
+            {'id': t.id, 'name': t.name, 'amount': t.amount, 'is_absence': t.is_absence, 'usage': usage.get(t.name, 0)}
+            for t in ClassDiscountType.objects.all()
+        ],
+    }
+
+
+@login_required
+@user_passes_test(staff_check)
+def class_discount_list(request):
+    """할인 관리 창에 보여줄 할인 사유 목록(JSON)"""
+    return JsonResponse(_discount_manage_payload())
+
+
+@login_required
+@user_passes_test(staff_check)
+@require_POST
+def class_discount_save(request):
+    """할인 사유 추가(id 없음) / 수정(id 있음). 금액 0 = 배정할 때 직접 입력."""
+    body = _json_body(request)
+    name = (body.get('name') or '').strip()[:30]
+    if not name:
+        return JsonResponse({'ok': False, 'error': '할인 사유 이름을 입력해 주세요.'}, status=400)
+    if name in ('직접입력', '__custom'):
+        return JsonResponse({'ok': False, 'error': '"직접입력"은 기본으로 들어 있어서 따로 만들 수 없어요.'}, status=400)
+    try:
+        amount = int(str(body.get('amount') or 0).replace(',', '').strip() or 0)
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': '할인 금액을 숫자로 입력해 주세요.'}, status=400)
+    if amount < 0 or amount > CLASS_DISCOUNT_MAX:
+        return JsonResponse({'ok': False, 'error': '할인 금액이 올바르지 않습니다.'}, status=400)
+
+    type_id = body.get('id')
+    if type_id:
+        dtype = get_object_or_404(ClassDiscountType, pk=type_id)
+        if ClassDiscountType.objects.filter(name=name).exclude(pk=dtype.pk).exists():
+            return JsonResponse({'ok': False, 'error': '같은 이름의 할인 사유가 이미 있어요.'}, status=400)
+        old_name, old_amount = dtype.name, dtype.amount
+        if dtype.is_absence:
+            amount = 0          # 결석차감 유형은 '결석 횟수 × 1회 수업비'로 계산하므로 고정 금액이 없다
+        dtype.name, dtype.amount = name, amount
+        dtype.save()
+        msg = f'"{name}"을 수정했습니다.'
+        # 이름이 바뀌면 이미 배정된 학생의 사유 표시도 함께 바꾼다
+        if old_name != name:
+            ClassEnrollment.objects.filter(discount_reason=old_name).update(discount_reason=name)
+        # 금액이 정해진 유형은 원하면 기존 배정 학생에게도 새 금액을 적용
+        if body.get('apply_existing') and amount:
+            n = ClassEnrollment.objects.filter(discount_reason=name, is_active=True).update(discount_amount=amount)
+            msg += f' (기존 배정 {n}명에게도 {amount:,}원을 적용했어요. 이미 만든 청구서는 그대로예요.)'
+    else:
+        if ClassDiscountType.objects.filter(name=name).exists():
+            return JsonResponse({'ok': False, 'error': '같은 이름의 할인 사유가 이미 있어요.'}, status=400)
+        last = ClassDiscountType.objects.order_by('-display_order').values_list('display_order', flat=True).first() or 0
+        ClassDiscountType.objects.create(name=name, amount=amount, display_order=last + 1)
+        msg = f'할인 사유 "{name}"을 추가했습니다.'
+    payload = _discount_manage_payload()
+    payload['message'] = msg
+    return JsonResponse(payload)
+
+
+@login_required
+@user_passes_test(staff_check)
+@require_POST
+def class_discount_delete(request, type_id):
+    """할인 사유 삭제 (이미 배정된 학생의 할인 기록은 그대로 남는다)"""
+    dtype = get_object_or_404(ClassDiscountType, pk=type_id)
+    name = dtype.name
+    dtype.delete()
+    payload = _discount_manage_payload()
+    payload['message'] = f'"{name}"을 삭제했습니다. (이미 배정된 학생의 할인은 그대로 유지돼요)'
     return JsonResponse(payload)
 
 
@@ -3480,6 +3853,38 @@ def class_modal_invoice_save(request, class_id):
     invoice_id = data.get('id')
     if invoice_id:
         invoice = get_object_or_404(TuitionInvoice, pk=invoice_id, school_class=school_class)
+        # 할인 사유/금액을 함께 보낸 경우(학생 현황의 수정 창) 청구서에 기록된 할인도 수정한다
+        #  · 기본할인(discount_*): 이 청구서 + 학생의 수업 배정 정보(앞으로의 청구서)에 반영
+        #  · 추가할인(extra_*): 이 청구서에만 반영
+        if 'discount_amount' in data or 'extra_reason' in data or 'extra_amount' in data:
+            try:
+                override = _parse_discount_override(data.get('discount_reason'), data.get('discount_amount')) if 'discount_amount' in data else None
+                extra_req = _parse_extra_discount(data.get('extra_reason'), data.get('extra_amount'), data.get('extra_sessions'))
+            except ValueError as exc:
+                return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+            fee_base = invoice.base_amount or school_class.tuition_fee
+            if override is not None:
+                reason, value = override
+                value = max(0, min(value, fee_base - invoice.absence_deduction))
+                invoice.discount_amount = value
+                invoice.discount_reason = ((reason or '').strip()[:50] or '직접입력') if value else ''
+                _persist_base_discount(
+                    ClassEnrollment.objects.filter(school_class=school_class, student=invoice.student).select_related('school_class').first(),
+                    override)
+            if 'extra_reason' in data or 'extra_amount' in data:
+                room = fee_base - invoice.absence_deduction - invoice.discount_amount
+                if extra_req is None:
+                    invoice.extra_discount_reason, invoice.extra_discount_amount, invoice.extra_absence_count = '', 0, 0
+                else:
+                    e_reason, e_amount, e_sessions = extra_req
+                    sessions = 0
+                    if e_reason in _absence_type_names():
+                        sessions = e_sessions
+                        e_amount = sessions * (max(fee_base - invoice.discount_amount, 0) // 4)
+                    e_amount = max(0, min(e_amount, room))
+                    invoice.extra_discount_amount = e_amount
+                    invoice.extra_discount_reason = (e_reason[:50] or '직접입력') if e_amount else ''
+                    invoice.extra_absence_count = sessions if e_amount else 0
     else:
         enrollment = ClassEnrollment.objects.filter(
             school_class=school_class, student_id=data.get('student_id')).select_related('student').first()
@@ -3487,6 +3892,20 @@ def class_modal_invoice_save(request, class_id):
             return JsonResponse({'ok': False, 'error': '이 수업에 배정된 학생을 선택해 주세요.'}, status=400)
         invoice = TuitionInvoice(student=enrollment.student, school_class=school_class,
                                  base_amount=school_class.tuition_fee)
+        # 자동 계산(전월 결석 차감 + 학생 할인) 금액 그대로 생성하면 그 내역(결석/할인)도 함께 기록한다.
+        # 금액을 직접 고쳐서 만든 경우에는 금액만 기록한다.
+        try:
+            override = _parse_discount_override(data.get('discount_reason'), data.get('discount_amount'))
+            extra_req = _parse_extra_discount(data.get('extra_reason'), data.get('extra_amount'), data.get('extra_sessions'))
+        except ValueError as exc:
+            return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+        calc = compute_invoice_amounts(school_class, enrollment, due_date, discount_override=override, extra=extra_req)
+        if amount == calc['amount']:
+            for key in ('absence_count', 'absence_deduction', 'discount_reason', 'discount_amount',
+                        'extra_discount_reason', 'extra_discount_amount', 'extra_absence_count'):
+                setattr(invoice, key, calc[key])
+        # 기본할인은 학생의 배정 정보에도 저장해서 앞으로의 청구서에 계속 적용한다
+        _persist_base_discount(enrollment, override)
 
     invoice.amount = amount
     invoice.due_date = due_date
@@ -3499,6 +3918,29 @@ def class_modal_invoice_save(request, class_id):
     payload = _class_modal_payload(school_class)
     payload['message'] = '청구서를 저장했습니다.'
     return JsonResponse(payload)
+
+
+@login_required
+@user_passes_test(staff_check)
+def class_modal_invoice_preview(request, class_id):
+    """청구서 직접 생성 폼용: 학생·납부기한을 고르면 전월 결석 차감/할인이 반영된 금액을 계산해서 돌려준다"""
+    school_class = get_object_or_404(SchoolClass, pk=class_id)
+    enrollment = ClassEnrollment.objects.filter(
+        school_class=school_class, student_id=request.GET.get('student_id') or 0).first()
+    if not enrollment:
+        return JsonResponse({'ok': False, 'error': '이 수업에 배정된 학생을 선택해 주세요.'}, status=400)
+    try:
+        due_date = timezone.datetime.strptime(str(request.GET.get('due_date', '')), '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'ok': False, 'error': '납부 기한 형식이 올바르지 않습니다.'}, status=400)
+    try:
+        override = _parse_discount_override(request.GET.get('discount_reason'), request.GET.get('discount_amount'))
+        extra_req = _parse_extra_discount(request.GET.get('extra_reason'), request.GET.get('extra_amount'), request.GET.get('extra_sessions'))
+    except ValueError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    calc = compute_invoice_amounts(school_class, enrollment, due_date, discount_override=override, extra=extra_req)
+    calc['ok'] = True
+    return JsonResponse(calc)
 
 
 @login_required
@@ -3534,14 +3976,113 @@ def _month_due_date(today=None):
     return today.replace(day=last_day)
 
 
-def generate_invoices_for_class(school_class, due_date=None):
-    """해당 수업의 활성 배정 학생 전원에게 당월 청구서 생성 (이미 있으면 건너뜀)
-    전월 결석 횟수만큼 회당 단가를 차감해 청구 금액을 계산한다."""
-    due_date = due_date or _month_due_date()
+def _absence_type_names():
+    return set(ClassDiscountType.objects.filter(is_absence=True).values_list('name', flat=True))
+
+
+def compute_invoice_amounts(school_class, enrollment, due_date, discount_override=None, extra=None):
+    """한 학생의 청구 금액 계산 — 일괄 생성(납부관리/수업관리)과 직접 생성이 모두 이 함수를 쓴다.
+    ① 전월 결석(출석 기록) 횟수 × 회당 단가를 차감
+    ② 기본할인(배정 시 정한 할인, 매달 적용)을 차감   — discount_override=(사유, 금액) 으로 바꿔서 계산 가능
+    ③ 추가할인(이번 달만)을 차감                         — extra=(사유, 금액, 결석횟수)
+       사유가 '결석차감' 유형이면 금액 = 결석 횟수 × (기본할인 적용된 수업비 ÷ 4)
+    모두 0원 미만으로는 내려가지 않는다."""
+    fee = school_class.tuition_fee
     period_start = due_date.replace(day=1)
     prev_month_last_day = period_start - timedelta(days=1)
     prev_month_start = prev_month_last_day.replace(day=1)
-    per_session = school_class.per_session_fee
+    scheduled = _class_session_dates(school_class, prev_month_start.year, prev_month_start.month)
+    absence_count = ClassAttendance.objects.filter(
+        enrollment=enrollment, is_present=False, date__in=scheduled,
+    ).count()
+    deduction = min(school_class.per_session_fee * absence_count, fee)
+
+    if discount_override is not None:
+        reason, amount = discount_override
+        discount = max(0, min(int(amount or 0), fee - deduction))
+        reason = (reason or '').strip()[:50] or '직접입력'
+    else:
+        discount = min(enrollment.discount_amount or 0, fee - deduction)
+        reason = enrollment.discount_reason
+
+    extra_reason, extra_amount, extra_sessions = '', 0, 0
+    if extra is not None:
+        e_reason, e_amount, e_sessions = extra
+        e_reason = (e_reason or '').strip()[:50]
+        if e_reason in _absence_type_names():
+            extra_sessions = max(int(e_sessions or 1), 1)
+            per_session = max(fee - discount, 0) // 4          # 할인된 수업비 ÷ 4 = 1회 수업비
+            e_amount = extra_sessions * per_session
+        room = fee - deduction - discount
+        extra_amount = max(0, min(int(e_amount or 0), room))
+        extra_reason = (e_reason or '직접입력') if extra_amount else ''
+        if not extra_amount:
+            extra_sessions = 0
+
+    return {
+        'base_amount': fee,
+        'absence_count': absence_count,
+        'absence_deduction': deduction,
+        'discount_reason': reason if discount else '',
+        'discount_amount': discount,
+        'extra_discount_reason': extra_reason,
+        'extra_discount_amount': extra_amount,
+        'extra_absence_count': extra_sessions,
+        'amount': fee - deduction - discount - extra_amount,
+    }
+
+
+def _parse_extra_discount(reason, amount, sessions):
+    """추가할인 요청값 → (사유, 금액, 결석횟수) 또는 None(없음). 잘못된 값이면 ValueError"""
+    reason = (reason or '').strip()
+    if not reason and (amount is None or str(amount).strip() in ('', '0')):
+        return None
+    is_absence = reason in _absence_type_names()
+    try:
+        sessions_v = int(str(sessions or 1).strip() or 1)
+        amount_v = 0 if is_absence else int(str(amount or 0).replace(',', '').strip() or 0)
+    except (TypeError, ValueError):
+        raise ValueError('추가할인 금액/횟수를 숫자로 입력해 주세요.')
+    if sessions_v < 1 or sessions_v > 31 or amount_v < 0 or amount_v > CLASS_DISCOUNT_MAX:
+        raise ValueError('추가할인 금액/횟수가 올바르지 않습니다.')
+    if not is_absence and amount_v == 0:
+        if reason:
+            raise ValueError('추가할인 금액을 입력해 주세요.')
+        return None
+    return (reason, amount_v, sessions_v)
+
+
+def _persist_base_discount(enrollment, override):
+    """기본할인(매달 적용)을 학생의 수업 배정 정보에 저장한다. 금액이 0이면 기본할인을 없앤다."""
+    if enrollment is None or override is None:
+        return
+    reason, value = override
+    value = max(0, min(int(value or 0), enrollment.school_class.tuition_fee))
+    enrollment.discount_amount = value
+    enrollment.discount_reason = ((reason or '').strip()[:50] or '직접입력') if value else ''
+    enrollment.save(update_fields=['discount_reason', 'discount_amount'])
+
+
+def _parse_discount_override(reason, amount):
+    """요청에서 받은 할인 사유/금액 → (사유, 금액) 또는 None(보내지 않음). 잘못된 값이면 ValueError"""
+    if amount is None or str(amount).strip() == '':
+        if (reason or '').strip():
+            raise ValueError('할인 금액을 입력해 주세요.')
+        return None if amount is None else ('', 0)
+    try:
+        value = int(str(amount).replace(',', '').strip())
+    except (TypeError, ValueError):
+        raise ValueError('할인 금액을 숫자로 입력해 주세요.')
+    if value < 0 or value > CLASS_DISCOUNT_MAX:
+        raise ValueError('할인 금액이 올바르지 않습니다.')
+    return ((reason or '').strip(), value)
+
+
+def generate_invoices_for_class(school_class, due_date=None):
+    """해당 수업의 활성 배정 학생 전원에게 당월 청구서 생성 (이미 있으면 건너뜀)
+    전월 결석 차감 + 학생별 할인을 반영한 금액으로 만든다 (compute_invoice_amounts)."""
+    due_date = due_date or _month_due_date()
+    period_start = due_date.replace(day=1)
 
     created = 0
     for enrollment in school_class.enrollments.filter(is_active=True).select_related('student'):
@@ -3551,21 +4092,8 @@ def generate_invoices_for_class(school_class, due_date=None):
         ).exists()
         if exists:
             continue
-
-        prev_month_scheduled_dates = _class_session_dates(school_class, prev_month_start.year, prev_month_start.month)
-        absence_count = ClassAttendance.objects.filter(
-            enrollment=enrollment, is_present=False,
-            date__in=prev_month_scheduled_dates,
-        ).count()
-        deduction = min(per_session * absence_count, school_class.tuition_fee)
-        amount = school_class.tuition_fee - deduction
-
-        TuitionInvoice.objects.create(
-            student=enrollment.student, school_class=school_class,
-            amount=amount, base_amount=school_class.tuition_fee,
-            absence_count=absence_count, absence_deduction=deduction,
-            due_date=due_date,
-        )
+        calc = compute_invoice_amounts(school_class, enrollment, due_date)
+        TuitionInvoice.objects.create(student=enrollment.student, school_class=school_class, due_date=due_date, **calc)
         created += 1
     return created
 
@@ -6030,6 +6558,14 @@ def _build_report_context(user, view_year=None, view_month=None):
     return context
 
 
+def _class_time_range(start, end):
+    """수업 시간 표시용: '16:00~18:00' (종료 시간이 없으면 시작 시간만)"""
+    if not start:
+        return ''
+    text = start.strftime('%H:%M')
+    return f'{text}~{end.strftime("%H:%M")}' if end else text
+
+
 def _render_staff_student_dashboard(request):
     """관리자(직원)용 메듀랩 학생회원 현황 대시보드 (요약 통계 + 학생 목록)"""
     from django.utils import timezone
@@ -6055,20 +6591,58 @@ def _render_staff_student_dashboard(request):
     today_attended_ids = {
         uid for uid, t in today_attendance_types.items() if t in (Attendance.TYPE_PRESENT, Attendance.TYPE_MAKEUP)
     }
+    # 이번 달 출석 횟수 = 출석 + 보강, 접속 횟수 = '접속'으로만 기록된 날 (서로 겹치지 않는다)
     month_attendance_counts = {}
+    month_access_counts = {}
     for row in (
         Attendance.objects.filter(user_id__in=student_ids, date__year=current_year, date__month=current_month)
         .values('user_id')
-        .annotate(cnt=Count('id'))
+        .annotate(
+            attended=Count('id', filter=Q(attendance_type__in=(Attendance.TYPE_PRESENT, Attendance.TYPE_MAKEUP))),
+            access=Count('id', filter=Q(attendance_type=Attendance.TYPE_ACCESS)),
+        )
     ):
-        month_attendance_counts[row['user_id']] = row['cnt']
+        month_attendance_counts[row['user_id']] = row['attended']
+        month_access_counts[row['user_id']] = row['access']
+
+    # 이번 달 청구서 상세 (완납/미납 칸을 눌러 수정하는 창에 사용)
+    month_invoice_rows = {}
+    for inv in (
+        TuitionInvoice.objects.filter(
+            student_id__in=student_ids, due_date__year=current_year, due_date__month=current_month,
+            status__in=(TuitionInvoice.STATUS_PAID, TuitionInvoice.STATUS_UNPAID),
+        ).select_related('school_class').order_by('school_class__name', 'id')
+    ):
+        month_invoice_rows.setdefault(inv.student_id, []).append({
+            'id': inv.id, 'class_id': inv.school_class_id, 'class_name': inv.school_class.name,
+            'amount': inv.amount, 'base_amount': inv.base_amount or inv.amount,
+            'absence_count': inv.absence_count, 'absence_deduction': inv.absence_deduction,
+            'discount_reason': inv.discount_reason, 'discount_amount': inv.discount_amount,
+            'extra_discount_reason': inv.extra_discount_reason, 'extra_discount_amount': inv.extra_discount_amount,
+            'extra_absence_count': inv.extra_absence_count,
+            'due_date': inv.due_date.strftime('%Y-%m-%d'), 'status': inv.status,
+        })
+
+    # 이번 달(납부 기한 기준) 수납 현황: 취소된 청구서는 제외
+    month_pay = {}
+    for row in (
+        TuitionInvoice.objects.filter(
+            student_id__in=student_ids, due_date__year=current_year, due_date__month=current_month,
+            status__in=(TuitionInvoice.STATUS_PAID, TuitionInvoice.STATUS_UNPAID),
+        ).values('student_id', 'status').annotate(total=Sum('amount'), cnt=Count('id'))
+    ):
+        info = month_pay.setdefault(row['student_id'], {'paid': 0, 'unpaid': 0, 'paid_cnt': 0, 'unpaid_cnt': 0})
+        key = 'paid' if row['status'] == TuitionInvoice.STATUS_PAID else 'unpaid'
+        info[key] += row['total'] or 0
+        info[key + '_cnt'] += row['cnt']
 
     # 오늘 요일에 배정된 활성 수업이 있는 학생 = 오늘 출석해야 할 학생
     code_for_py_weekday = {0: '1', 1: '2', 2: '3', 3: '4', 4: '5', 5: '6', 6: '0'}
     today_code = code_for_py_weekday[today.weekday()]
     today_scheduled_ids = set()
-    today_class_info = {}  # student_id -> (start_time, class_name) — 여러 수업이면 가장 이른 시간
+    today_class_info = {}  # student_id -> (start_time, class_name, end_time) — 여러 수업이면 가장 이른 시간
     enrolled_class_names = {}  # student_id -> [class_name, ...] — 오늘 여부와 무관하게 배정된 모든 수업
+    enrolled_class_ids = {}  # student_id -> [class_id, ...]
     per_day_entries = {}  # day_code -> [(start_time, class_name, student_id), ...] — 수업요일별 보기용
     assigned_student_ids = set()
     for enrollment in (
@@ -6077,15 +6651,16 @@ def _render_staff_student_dashboard(request):
     ):
         sc = enrollment.school_class
         enrolled_class_names.setdefault(enrollment.student_id, []).append(sc.name)
+        enrolled_class_ids.setdefault(enrollment.student_id, []).append(sc.id)
         assigned_student_ids.add(enrollment.student_id)
         codes = sc.days_of_week.split(',') if sc.days_of_week else []
         if today_code in codes:
             today_scheduled_ids.add(enrollment.student_id)
             existing = today_class_info.get(enrollment.student_id)
             if existing is None or (sc.start_time and sc.start_time < existing[0]):
-                today_class_info[enrollment.student_id] = (sc.start_time, sc.name)
+                today_class_info[enrollment.student_id] = (sc.start_time, sc.name, sc.end_time)
         for code in codes:
-            per_day_entries.setdefault(code, []).append((sc.start_time, sc.name, enrollment.student_id))
+            per_day_entries.setdefault(code, []).append((sc.start_time, sc.name, enrollment.student_id, sc.id, sc.end_time))
 
     all_classes = list(
         SchoolClass.objects.filter(is_active=True)
@@ -6096,10 +6671,31 @@ def _render_staff_student_dashboard(request):
         s.attended_today = s.id in today_attended_ids
         s.today_attendance_type = today_attendance_types.get(s.id)
         s.month_attendance_count = month_attendance_counts.get(s.id, 0)
+        s.month_access_count = month_access_counts.get(s.id, 0)
+        pay = month_pay.get(s.id)
+        if not pay:
+            s.pay_state, s.pay_label, s.pay_amount = 'none', '청구서 없음', 0
+        else:
+            total = pay['paid'] + pay['unpaid']
+            if pay['unpaid_cnt'] == 0:
+                s.pay_state, s.pay_label, s.pay_amount = 'paid', '완납', pay['paid']
+            elif pay['paid_cnt'] == 0:
+                s.pay_state, s.pay_label, s.pay_amount = 'unpaid', '미납', pay['unpaid']
+            else:
+                s.pay_state, s.pay_label, s.pay_amount = 'partial', '일부 납부', pay['paid']
+            s.pay_total = total
+        s.enrolled_class_ids = enrolled_class_ids.get(s.id, [])
+        s.month_invoices_json = json.dumps(month_invoice_rows.get(s.id, []), ensure_ascii=False)
+        # '청구서 없음' 버튼에서 여는 청구서 생성 창에 쓸 수업 목록 (배정 중인 수업)
+        s.invoice_classes_json = json.dumps(
+            [{'id': cid, 'name': cname} for cid, cname in zip(s.enrolled_class_ids, enrolled_class_names.get(s.id, []))],
+            ensure_ascii=False,
+        )
         s.scheduled_today = s.id in today_scheduled_ids
         info = today_class_info.get(s.id)
         s.today_class_name = info[1] if info else ''
         s.today_class_time = info[0] if info else None
+        s.today_class_end = info[2] if info else None
         s.enrolled_class_names = enrolled_class_names.get(s.id, [])
         s.parent_link = s.parent_links.all()[0] if s.parent_links.all() else None
 
@@ -6120,12 +6716,18 @@ def _render_staff_student_dashboard(request):
     if sort_mode == 'name':
         for s in sorted(students, key=lambda s: (s.profile.real_name or s.username)):
             if s.today_class_time:
-                row = {'time_label': s.today_class_time.strftime('%H:%M'), 'class_name': s.today_class_name, 'class_note': ''}
+                row = {'time_label': s.today_class_time.strftime('%H:%M'), 'time_range': _class_time_range(s.today_class_time, s.today_class_end),
+                       'class_name': s.today_class_name, 'class_note': ''}
             elif s.enrolled_class_names:
                 row = {'time_label': '', 'class_name': ', '.join(s.enrolled_class_names), 'class_note': '(오늘 수업 없음)'}
             else:
                 row = {'time_label': '', 'class_name': '', 'class_note': ''}
-            row.update({'student': s, 'day_label': None, 'show_assign': not (s.today_class_time or s.enrolled_class_names) and bool(all_classes)})
+            row.update({
+                'student': s, 'day_label': None,
+                'show_assign': not (s.today_class_time or s.enrolled_class_names) and bool(all_classes),
+                'class_id': s.enrolled_class_ids[0] if len(s.enrolled_class_ids) == 1 else '',
+                'can_assign': bool(all_classes) and bool(s.enrolled_class_names),
+            })
             student_rows.append(row)
     else:
         day_order = ['1', '2', '3', '4', '5', '6', '0']
@@ -6137,12 +6739,14 @@ def _render_staff_student_dashboard(request):
                 t[0] is None, t[0],
                 students_by_id[t[2]].profile.real_name or students_by_id[t[2]].username,
             ))
-            for start_time, class_name, sid in entries:
+            for start_time, class_name, sid, class_id, end_time in entries:
                 student_rows.append({
                     'student': students_by_id[sid],
                     'day_label': f'{SchoolClass.DAY_LABELS[code]}요일',
                     'time_label': start_time.strftime('%H:%M') if start_time else '',
+                    'time_range': _class_time_range(start_time, end_time),
                     'class_name': class_name, 'class_note': '', 'show_assign': False,
+                    'class_id': class_id, 'can_assign': bool(all_classes),
                 })
         unassigned = sorted(
             (s for s in students if s.id not in assigned_student_ids),
@@ -6154,7 +6758,7 @@ def _render_staff_student_dashboard(request):
                 'show_assign': bool(all_classes),
             })
 
-    total_students = len(students)
+    total_students = len(assigned_student_ids)  # 수강중(활성 수업 배정이 있는) 학생 수
     today_attended_count = len(today_attended_ids)
     today_scheduled_count = len(today_scheduled_ids)
     pending_approval_count = UserProfile.objects.filter(
@@ -6188,6 +6792,8 @@ def _render_staff_student_dashboard(request):
         'sort_mode': sort_mode,
         'current_month': current_month,
         'all_classes': all_classes,
+        'default_due_date': _month_due_date(today).strftime('%Y-%m-%d'),
+        'discount_types_json': json.dumps(_discount_types_payload(), ensure_ascii=False),
     }
     return render(request, 'arcade/admin/staff_student_dashboard.html', context)
 

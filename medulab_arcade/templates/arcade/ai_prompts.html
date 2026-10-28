@@ -136,6 +136,23 @@
     position:absolute; top:14px; right:14px; font-size:18px; color:#c3bbe8;
     line-height:1; pointer-events:none;
   }
+
+  .ap-program-grid.arrange-mode .pg-card {
+    cursor: grab;
+    border: 2px dashed rgba(140,107,250,0.4);
+  }
+  .ap-program-grid.arrange-mode .pg-card:active { cursor: grabbing; }
+  .pg-card.dragging { opacity: .4; }
+  .pg-card.drag-over { box-shadow: 0 0 0 3px #8C6BFA inset; }
+
+  /* 맨 앞 강조 캠프 카드 */
+  .pg-featured { background:linear-gradient(135deg,#2F6BFF,#7C4DFF); color:#fff; border:none; box-shadow:0 10px 30px rgba(124,77,255,.3); margin-bottom:20px; }
+  .pg-featured .pg-title, .pg-featured .pg-desc, .pg-featured .pg-meta { color:#fff !important; }
+  .pg-featured .pg-no { color:#fff; }
+  .pg-featured .pg-tag { background:rgba(255,255,255,.25); color:#fff; }
+  .pg-featured .pg-icon { background:rgba(255,255,255,.15); }
+  .pg-featured .pg-meta { border-top-color:rgba(255,255,255,.3); }
+  .pg-featured .pg-tool { background:#fff; color:#4C3FC2 !important; }
 </style>
 {% endblock %}
 
@@ -148,11 +165,18 @@
     <span class="ap-count">현재 이용 가능 {{ ready_count }} / 20 프로그램 · 나머지는 차근차근 준비 중이에요</span>
   </div>
 
-  <div class="ap-program-grid">
+  {% if user.is_staff %}
+  <div class="ap-arrange-bar">
+    <button type="button" id="pgArrangeToggle" class="ap-arrange-btn" onclick="pgToggleArrange()">🔀 프로그램 순서 편집</button>
+    <div class="ap-arrange-hint" id="pgArrangeHint">카드를 드래그해서 순서를 바꾼 뒤, "저장하고 완료" 버튼을 눌러 주세요!</div>
+  </div>
+  {% endif %}
+
+  <div class="ap-program-grid" id="pgGrid">
     {% for p in programs %}
-    <div class="pg-card" style="--c: {% cycle '#2F6BFF' '#7C4DFF' '#FF8A3D' '#17B890' %};">
+    <div class="pg-card{% if p.featured %} pg-featured{% endif %}" data-no="{{ p.no }}" style="--c: {% cycle '#2F6BFF' '#7C4DFF' '#FF8A3D' '#17B890' %};">
       <div class="pg-head">
-        <span class="pg-no">{{ p.no|stringformat:"02d" }}</span>
+        <span class="pg-no">{{ forloop.counter|stringformat:"02d" }}</span>
         <span class="pg-title">{{ p.title }}</span>
       </div>
       <div><span class="pg-tag">{{ p.tag }}</span></div>
@@ -166,6 +190,7 @@
       {% else %}
       <div class="pg-soon">🛠️ 준비 중</div>
       {% endif %}
+      {% if user.is_staff %}<span class="ap-drag-handle">⠿</span>{% endif %}
     </div>
     {% endfor %}
   </div>
@@ -199,6 +224,103 @@
 {% endblock %}
 
 {% block extra_js %}
+{% if user.is_staff %}
+<script>
+let pgArranging = false;
+let pgDragSrc = null;
+
+function pgToggleArrange() {
+  pgArranging = !pgArranging;
+  const grid = document.getElementById('pgGrid');
+  const btn = document.getElementById('pgArrangeToggle');
+  const hint = document.getElementById('pgArrangeHint');
+
+  grid.classList.toggle('arrange-mode', pgArranging);
+  hint.classList.toggle('show', pgArranging);
+
+  if (pgArranging) {
+    btn.textContent = '✅ 저장하고 완료';
+    btn.classList.add('on');
+    pgEnableDrag();
+  } else {
+    btn.textContent = '🔀 프로그램 순서 편집';
+    btn.classList.remove('on');
+    pgSaveOrder();
+  }
+}
+
+function pgEnableDrag() {
+  document.querySelectorAll('#pgGrid .pg-card').forEach(card => {
+    card.setAttribute('draggable', 'true');
+  });
+}
+
+document.getElementById('pgGrid').addEventListener('click', function(e) {
+  if (pgArranging) {
+    const link = e.target.closest('a');
+    if (link) e.preventDefault();
+  }
+});
+
+document.getElementById('pgGrid').addEventListener('dragstart', function(e) {
+  const card = e.target.closest('.pg-card');
+  if (!card || !pgArranging) return;
+  pgDragSrc = card;
+  card.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+});
+
+document.getElementById('pgGrid').addEventListener('dragend', function(e) {
+  const card = e.target.closest('.pg-card');
+  if (card) card.classList.remove('dragging');
+  document.querySelectorAll('#pgGrid .pg-card.drag-over').forEach(c => c.classList.remove('drag-over'));
+});
+
+document.getElementById('pgGrid').addEventListener('dragover', function(e) {
+  if (!pgArranging) return;
+  const target = e.target.closest('.pg-card');
+  if (!target || target === pgDragSrc) return;
+  e.preventDefault();
+  target.classList.add('drag-over');
+});
+
+document.getElementById('pgGrid').addEventListener('dragleave', function(e) {
+  const target = e.target.closest('.pg-card');
+  if (target) target.classList.remove('drag-over');
+});
+
+document.getElementById('pgGrid').addEventListener('drop', function(e) {
+  const target = e.target.closest('.pg-card');
+  if (!target || !pgDragSrc || target === pgDragSrc) return;
+  e.preventDefault();
+  target.classList.remove('drag-over');
+
+  const grid = document.getElementById('pgGrid');
+  const cards = Array.from(grid.children);
+  const srcIndex = cards.indexOf(pgDragSrc);
+  const targetIndex = cards.indexOf(target);
+
+  if (srcIndex < targetIndex) {
+    target.after(pgDragSrc);
+  } else {
+    target.before(pgDragSrc);
+  }
+});
+
+function pgSaveOrder() {
+  const nos = Array.from(document.querySelectorAll('#pgGrid .pg-card'))
+    .map(card => parseInt(card.dataset.no, 10));
+
+  fetch('{% url "ai_prompts_program_reorder" %}', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+    body: JSON.stringify({ order: nos })
+  }).then(r => r.json()).then(res => {
+    if (!res.success) alert('순서 저장에 실패했습니다: ' + (res.error || ''));
+  }).catch(() => alert('순서 저장 중 오류가 발생했습니다.'));
+}
+</script>
+{% endif %}
 {% if user.is_staff and other_cards %}
 <script>
 let apArranging = false;

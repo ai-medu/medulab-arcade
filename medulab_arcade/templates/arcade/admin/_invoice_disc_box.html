@@ -1,0 +1,20 @@
+<div class="dsc-wrap" id="{{ p }}Disc">
+    <div class="dsc-group dsc-base">
+        <div class="dsc-title">기본할인 <small>· 매달 적용 (학생의 수업 배정 정보에도 저장돼요)</small></div>
+        <div class="dsc-row">
+            <select id="{{ p }}BaseSel" class="dsc-in"></select>
+            <input type="number" id="{{ p }}BaseAmt" class="dsc-in" min="0" step="1000" placeholder="기본할인 금액(원)">
+        </div>
+        <input type="text" id="{{ p }}BaseCustom" class="dsc-in" maxlength="50" placeholder="기본할인 사유를 직접 입력" style="display:none; margin-top:6px;">
+    </div>
+    <div class="dsc-group dsc-extra">
+        <div class="dsc-title">추가할인 <small>· 이번 달만 적용</small></div>
+        <div class="dsc-row">
+            <select id="{{ p }}ExtraSel" class="dsc-in"></select>
+            <div class="dsc-sess" id="{{ p }}ExtraSessWrap" style="display:none;"><input type="number" id="{{ p }}ExtraSessions" class="dsc-in" min="1" max="31" value="1"><span>회</span></div>
+            <input type="number" id="{{ p }}ExtraAmt" class="dsc-in" min="0" step="1000" placeholder="추가할인 금액(원)">
+        </div>
+        <input type="text" id="{{ p }}ExtraCustom" class="dsc-in" maxlength="50" placeholder="추가할인 사유를 직접 입력" style="display:none; margin-top:6px;">
+        <div class="dsc-hint" id="{{ p }}ExtraHint"></div>
+    </div>
+</div>
