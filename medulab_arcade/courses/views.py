@@ -1124,7 +1124,13 @@ def learning_program_edit(request, program_id):
     if request.method == "POST":
         form = CourseForm(request.POST, request.FILES, instance=program)
         if form.is_valid():
-            form.save()
+            program = form.save(commit=False)
+            # 새 이미지를 고르지 않고 '현재 이미지 삭제'를 체크했을 때만 삭제
+            if request.POST.get("delete_image") and "image" not in request.FILES and program.image:
+                program.image.delete(save=False)
+                program.image = None
+            program.save()
+            form.save_m2m()
             messages.success(request, f"'{program.name}' 과정이 수정되었습니다.")
             return redirect("student_course_list")
     else:
