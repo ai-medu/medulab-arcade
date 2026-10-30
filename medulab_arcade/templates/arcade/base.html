@@ -1278,11 +1278,19 @@
                 clearInterval(timerIntervalId);
                 
                 let expireTime = localStorage.getItem('sessionExpireTime');
+                // 저장된 만료시각이 '이 로그인 세션'의 것이 아니면(이전 로그인에서 남은 값) 버리고 새로 시작
+                const sessionKey = "{{ request.session.session_key|default:'' }}";
+                let storedKey = null;
+                try { storedKey = localStorage.getItem('sessionExpireKey'); } catch (e) {}
+                if (expireTime && storedKey !== sessionKey) {
+                    expireTime = null;
+                }
                 console.log("[SessionTimer] Read expireTime from localStorage:", expireTime);
-                
+
                 if (!expireTime || isRefresh) {
                     expireTime = Date.now() + sessionDuration * 1000;
                     localStorage.setItem('sessionExpireTime', expireTime);
+                    localStorage.setItem('sessionExpireKey', sessionKey);
                     console.log("[SessionTimer] Set new expireTime:", expireTime);
                 } else {
                     expireTime = parseInt(expireTime, 10);
