@@ -2147,10 +2147,10 @@ def _exam_gen_dir(item):
     return os.path.join(settings.MEDIA_ROOT, "exam_gen", f"item{item.id}")
 
 
-def _exam_gen_url(item, no):
-    path = os.path.join(_exam_gen_dir(item), f"q{no}.gen")
+def _exam_gen_url(item, no, prefix="q"):
+    path = os.path.join(_exam_gen_dir(item), f"{prefix}{no}.gen")
     if os.path.exists(path):
-        return f"{settings.MEDIA_URL}exam_gen/item{item.id}/q{no}.gen"
+        return f"{settings.MEDIA_URL}exam_gen/item{item.id}/{prefix}{no}.gen"
     return ""
 
 
@@ -2201,6 +2201,7 @@ def _grade_exam(item, answers, self_ok):
         details.append({
             "no": q["no"], "kind": kind, "points": pts, "ok": ok, "mine": mine,
             "answer": q.get("answer"), "explain": q.get("explain", ""), "answer_image": q.get("answer_image", ""),
+            "answer_gen": _exam_gen_url(item, q["no"], "a"),
         })
     return {"score": total, "max": max_total, "details": details}
 

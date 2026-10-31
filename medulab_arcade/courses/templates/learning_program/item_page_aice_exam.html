@@ -65,7 +65,7 @@
 {% block content %}
 <div class="aice-wrap exam">
     <div class="aice-ide">
-        <iframe src="https://aicodiny.com/codex" title="AI Codiny" allow="microphone; camera"></iframe>
+        <iframe id="codinyFrame" src="https://aicodiny.com/aice/codex-iframe" title="AI Codiny" allow="microphone; camera"></iframe>
     </div>
 
     <form id="aiceCsrfForm" style="display:none;">{% csrf_token %}</form>
@@ -120,6 +120,61 @@
     var $ = function (id) { return document.getElementById(id); };
     var CIRC = ['①', '②', '③', '④', '⑤'];
 
+    // ── AI Codiny 연동 (aicodiny.com/aice/codex-iframe 의 postMessage API: postGEN / getGEN) ──
+    var frame = document.getElementById('codinyFrame');
+    var CODINY_ORIGIN = 'https://aicodiny.com';
+    var codinyReady = false, openedNo = null, openSeq = 0, pendingSave = null;
+    function codinyPost(msg) { try { frame.contentWindow.postMessage(msg, '*'); } catch (e) {} }
+    function setCodinyStatus(t, ok) {
+        var el = document.getElementById('exCodinyMsg');
+        if (el) { el.textContent = t; el.style.color = ok === false ? '#dc2626' : ok ? '#16a34a' : '#64748b'; }
+    }
+    function workKey(no) { return '_work' + no; }
+    function stripGen(g) { try { g.thumbnailUrl = ''; } catch (e) {} return g; }
+    // 현재 코디니 작업을 가져와 저장(풀던 코딩 보존). 실행 중이면 건너뛴다.
+    function saveWork(no, done) {
+        if (!codinyReady || !no || openedNo !== no) { done(); return; }
+        var finishedSave = false;
+        function end() { if (finishedSave) return; finishedSave = true; pendingSave = null; done(); }
+        pendingSave = { cb: function (gen) { if (gen && typeof gen === 'object') store(workKey(no), stripGen(gen)); end(); } };
+        codinyPost({ type: 'getGEN', question_id: String(no) });
+        setTimeout(end, 2500);
+    }
+    function loadGenInto(url, qno, okText) {
+        var seq = ++openSeq;
+        setCodinyStatus('문제 파일을 코디니에 여는 중…');
+        fetch(url, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
+            .then(function (gen) {
+                if (seq !== openSeq) return;
+                codinyPost({ type: 'postGEN', gen: gen, question_id: String(qno) });
+                openedNo = qno;
+                setCodinyStatus('✅ ' + okText, true);
+            }).catch(function () { setCodinyStatus('문제 파일을 자동으로 열지 못했어요. 아래 "파일 받기"로 받아서 코디니에서 열어 주세요.', false); });
+    }
+    function openQuestion(q) {
+        if (!q.gen_url) { openedNo = null; return; }
+        if (!codinyReady) { setCodinyStatus('코디니를 불러오는 중이에요. 잠시만 기다려 주세요…'); return; }
+        var mine = load(workKey(q.no));
+        if (mine) {
+            ++openSeq;
+            codinyPost({ type: 'postGEN', gen: mine, question_id: String(q.no) });
+            openedNo = q.no; setCodinyStatus('✅ 이전에 풀던 코딩을 이어서 열었어요.', true);
+        } else {
+            loadGenInto(q.gen_url, q.no, '문제 파일을 코디니에 열었어요. 바로 풀어 보세요!');
+        }
+    }
+    window.addEventListener('message', function (e) {
+        if (e.origin !== CODINY_ORIGIN || !e.data || typeof e.data !== 'object') return;
+        var d = e.data;
+        if (d.type === 'notify_loadingState' && d.message === 'loaded') {
+            if (!codinyReady) { codinyReady = true; setTimeout(function () { if (!finished) openQuestion(qs[cur]); }, 400); }
+        } else if (d.type === 'response_getGEN' && pendingSave) {
+            pendingSave.cb(d.gen === 'ignore' ? null : d.gen);
+        } else if (d.type === 'response_postGEN' && d.message === 'fail') {
+            setCodinyStatus('코디니에서 파일을 여는 데 실패했어요. 아래 "파일 받기"로 받아서 직접 열어 주세요.', false);
+        }
+    });
+
     function store(k, v) { try { if (v === null) localStorage.removeItem(KEY + k); else localStorage.setItem(KEY + k, JSON.stringify(v)); } catch (e) {} }
     function load(k) { try { var v = localStorage.getItem(KEY + k); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
     function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -164,14 +219,22 @@
         }
         h += '<div class="ex-gen">';
         if (q.gen_url) {
-            h += '📂 <b>문제 파일(.gen)</b>을 받아 왼쪽 AI Codiny에서 열어 주세요.<br><a class="dl" href="' + q.gen_url + '" download>⬇ 문항 ' + q.no + ' 문제 파일 받기</a>';
+            h += '📂 <b>문제 파일이 왼쪽 코디니에 자동으로 열려요.</b><div id="exCodinyMsg" style="margin-top:4px;font-size:12.5px;"></div>';
+            h += '<div style="margin-top:8px;font-size:12px;color:#64748b;"><a href="#" id="exReset" style="color:#3b6df0;font-weight:700;">처음 문제 파일로 다시 열기</a> · <a href="' + q.gen_url + '" download style="color:#64748b;">파일 받기</a></div>';
         } else {
-            h += '<span class="none">📂 이 문항의 문제 파일(.gen)이 아직 등록되지 않았어요.</span>';
+            h += '<span class="none">📂 이 문항은 코디니 파일이 필요 없어요.</span>';
         }
         if (IS_STAFF) h += '<br><label class="up">⬆ .gen 업로드(관리자)<input type="file" accept=".gen" data-up="' + q.no + '" style="display:none"></label>';
         h += '</div>';
         body.innerHTML = h;
         body.scrollTop = 0;
+        var rs = document.getElementById('exReset');
+        if (rs) rs.onclick = function (ev) {
+            ev.preventDefault();
+            if (!confirm('지금 코딩한 내용이 지워지고 처음 문제 파일로 돌아가요. 계속할까요?')) return;
+            store(workKey(q.no), null);
+            if (codinyReady) loadGenInto(q.gen_url, q.no, '문제 파일을 처음 상태로 다시 열었어요.');
+        };
         $('exPrev').disabled = cur === 0;
         $('exNext').disabled = cur === n - 1;
     }
@@ -182,7 +245,7 @@
         var c = e.target.closest('[data-c]');
         if (c && !finished) { answers[qs[cur].no] = parseInt(c.dataset.c, 10); persist(); render(); return; }
         var d = e.target.closest('.ex-dot');
-        if (d) { cur = parseInt(d.dataset.i, 10); render(); }
+        if (d) { goto(parseInt(d.dataset.i, 10)); }
     });
     body.addEventListener('change', function (e) {
         var up = e.target.getAttribute && e.target.getAttribute('data-up');
@@ -193,8 +256,13 @@
                 if (j.ok) { qs[parseInt(up, 10) - 1].gen_url = j.url; render(); } else alert(j.message || '업로드 실패');
             });
     });
-    $('exPrev').onclick = function () { if (cur > 0) { cur--; render(); } };
-    $('exNext').onclick = function () { if (cur < qs.length - 1) { cur++; render(); } };
+    function goto(i) {
+        if (i === cur || i < 0 || i >= qs.length) return;
+        var prev = qs[cur];
+        saveWork(prev.no, function () { cur = i; render(); openQuestion(qs[cur]); });
+    }
+    $('exPrev').onclick = function () { goto(cur - 1); };
+    $('exNext').onclick = function () { goto(cur + 1); };
     $('aiceToggle').onclick = function () {
         var p = $('aicePanel'), c = p.classList.toggle('collapsed'); this.textContent = c ? '‹' : '›';
     };
@@ -216,7 +284,8 @@
     function submit(auto) {
         $('exSubmitting').classList.add('show');
         var t0 = Date.now();
-        post(function (res) {
+        saveWork(qs[cur].no, function () { post(handleSubmitted); });
+        function handleSubmitted(res) {
             var wait = Math.max(0, 1200 - (Date.now() - t0));
             setTimeout(function () {
                 $('exSubmitting').classList.remove('show');
@@ -224,7 +293,7 @@
                 finished = true; clearInterval(timerId); store('_end', null);
                 showResult(res);
             }, wait);
-        });
+        }
     }
 
     function showResult(res) {
@@ -240,6 +309,7 @@
             h += '<div class="ex-res"><div class="rh"><span>문항 ' + d.no + ' <span style="font-weight:600;color:#64748b;font-size:12px;">(' + d.points + '점)</span></span><span class="' + cls + '">' + status + '</span></div>';
             if (d.kind !== 'build') h += '<div class="ex" style="margin-top:4px;">내 답: ' + (d.mine ? CIRC[d.mine - 1] : '미응답') + ' · 정답: ' + CIRC[d.answer - 1] + '</div>';
             h += '<div class="ex">💡 ' + esc(d.explain) + '</div>';
+            if (d.answer_gen) h += '<button type="button" class="ex-retry" style="margin-top:8px;padding:8px;" data-agen="' + d.answer_gen + '" data-ano="' + d.no + '">🧩 정답 코드를 코디니에서 보기</button>';
             if (d.answer_image) {
                 h += '<img src="' + d.answer_image + '" alt="정답 블록">';
                 h += '<label class="chk"><input type="checkbox" data-self="' + d.no + '"' + (d.ok ? ' checked' : '') + '> 내 코드가 정답과 같아요</label>';
@@ -251,13 +321,17 @@
         body.querySelectorAll('[data-self]').forEach(function (cb) {
             cb.onchange = function () { selfOk[cb.dataset.self] = cb.checked; post(function (r) { if (r.ok) showResult(r); }); };
         });
+        body.querySelectorAll('[data-agen]').forEach(function (b) {
+            b.onclick = function () { loadGenInto(b.dataset.agen, parseInt(b.dataset.ano, 10), '정답 코드를 코디니에 열었어요. (내가 코딩한 내용은 저장돼 있어요)'); openedNo = null; };
+        });
         $('exRetry').onclick = function () {
-            finished = false; answers = {}; selfOk = {}; cur = 0; persist(); store('_end', null);
-            foot.style.display = ''; render(); startTimer();
+            finished = false; answers = {}; selfOk = {}; cur = 0; persist(); store('_end', null); qs.forEach(function (x) { store(workKey(x.no), null); }); openedNo = null;
+            foot.style.display = ''; render(); startTimer(); openQuestion(qs[0]);
         };
     }
 
     if (SAVED && SAVED.exam) {
+        finished = true;
         showResult(SAVED);
     } else {
         answers = load('_ans') || {}; selfOk = load('_self') || {};
