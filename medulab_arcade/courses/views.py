@@ -1299,7 +1299,12 @@ def student_course_list(request):
     elif selected_program_type.isdigit() and int(selected_program_type) in contest_prep_ids:
         all_programs = all_programs.filter(program_type_id__in=contest_prep_ids)
     elif selected_program_type.isdigit():
-        all_programs = all_programs.filter(program_type_id=int(selected_program_type))
+        pt_id = int(selected_program_type)
+        type_filter = Q(program_type_id=pt_id)
+        selected_type = available_program_types.filter(id=pt_id).first()
+        if selected_type and selected_type.name == "파이썬코딩":
+            type_filter |= Q(name__icontains="파이썬") | Q(name__icontains="python") | Q(description__icontains="파이썬") | Q(description__icontains="python")
+        all_programs = all_programs.filter(type_filter)
 
     # 학부모가 자녀의 교육프로그램 현황을 보는 경우 처리
     viewing_child = None
