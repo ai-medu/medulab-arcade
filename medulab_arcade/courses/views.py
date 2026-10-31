@@ -2182,26 +2182,87 @@ def _build_exam_context(item, progress):
     }
 
 
-def _grade_exam(item, answers, self_ok):
+_GEN_NS = "{https://developers.google.com/blockly/xml}"
+
+
+def _gen_canon_block(el, objmap):
+    """블록 하나를 id/좌표가 빠진 정규화 문자열로 바꾼다 (shadow와 일반 블록은 같게 취급)."""
+    parts = [el.get("type") or ""]
+    for ch in el:
+        tag = ch.tag.replace(_GEN_NS, "")
+        if tag == "field":
+            v = (ch.text or "").strip()
+            parts.append("f:%s=%s" % (ch.get("name"), objmap.get(v, v)))
+        elif tag in ("value", "statement"):
+            inner = [c for c in ch if c.tag.replace(_GEN_NS, "") in ("block", "shadow")]
+            blocks = [c for c in inner if c.tag.replace(_GEN_NS, "") == "block"]
+            pick = blocks[0] if blocks else (inner[0] if inner else None)
+            if pick is not None:
+                parts.append("%s:%s=(%s)" % (tag[0], ch.get("name"), _gen_canon_block(pick, objmap)))
+        elif tag == "next":
+            nb = [c for c in ch if c.tag.replace(_GEN_NS, "") == "block"]
+            if nb:
+                parts.append("next=(%s)" % _gen_canon_block(nb[0], objmap))
+    return "|".join(parts)
+
+
+def _gen_main_program(gen):
+    """코디니 작업(.gen)에서 '시작 버튼을 클릭했을 때' 로 시작하는 메인 프로그램만 정규화해 돌려준다.
+    (화면에 흩어진 보기 블록 등 연결되지 않은 블록은 무시)"""
+    try:
+        sc = gen["scenes"][0]
+        objmap = {o["objectId"]: o.get("objectName", "") for o in sc.get("objects", [])}
+        root = ET.fromstring(sc["blockXml"])
+    except (KeyError, IndexError, TypeError, ET.ParseError):
+        return None
+    mains = [b for b in root if b.tag.replace(_GEN_NS, "") == "block" and b.get("type") == "eventloop_object_start_click"]
+    if not mains:
+        return None
+    return sorted(_gen_canon_block(b, objmap) for b in mains)
+
+
+def _exam_answer_program(item, no):
+    path = os.path.join(_exam_gen_dir(item), f"a{no}.gen")
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as f:
+            return _gen_main_program(json.load(f))
+    except (ValueError, OSError):
+        return None
+
+
+def _grade_exam(item, answers, self_ok, works=None):
     data = json.loads(item.exam_data)
+    works = works or {}
     total = 0
     max_total = 0
     details = []
     for q in data.get("questions", []):
         no = str(q["no"]); pts = q.get("points", 10); max_total += pts
         kind = q.get("kind", "mcq")
+        # 코디니 작업 자동 채점: 정답 .gen의 메인 프로그램과 비교
+        auto = "none"
+        ans_prog = _exam_answer_program(item, q["no"]) if kind != "mcq" else None
+        if ans_prog is not None:
+            mine_prog = _gen_main_program(works[no]) if isinstance(works.get(no), dict) else None
+            if mine_prog is None:
+                auto = "none"
+            else:
+                auto = "match" if mine_prog == ans_prog else "mismatch"
+        mine = answers.get(no)
         if kind == "build":
-            ok = bool(self_ok.get(no))
-            mine = None
+            ok = auto == "match" or bool(self_ok.get(no))
         else:
-            mine = answers.get(no)
-            ok = mine is not None and int(mine) == int(q.get("answer", 0))
+            choice_ok = mine is not None and int(mine) == int(q.get("answer", 0))
+            ok = choice_ok or auto == "match"
         if ok:
             total += pts
         details.append({
             "no": q["no"], "kind": kind, "points": pts, "ok": ok, "mine": mine,
             "answer": q.get("answer"), "explain": q.get("explain", ""), "answer_image": q.get("answer_image", ""),
-            "answer_gen": _exam_gen_url(item, q["no"], "a"),
+            "answer_gen": _exam_gen_url(item, q["no"], "a"), "auto": auto,
+            "auto_only": ans_prog is not None and kind == "build",
         })
     return {"score": total, "max": max_total, "details": details}
 
@@ -2216,7 +2277,8 @@ def submit_exam(request, item_id):
         body = json.loads(request.body.decode("utf-8"))
         answers = {str(k): v for k, v in (body.get("answers") or {}).items() if v is not None}
         self_ok = {str(k): bool(v) for k, v in (body.get("self") or {}).items()}
-        result = _grade_exam(item, answers, self_ok)
+        works = {str(k): v for k, v in (body.get("works") or {}).items() if isinstance(v, dict)}
+        result = _grade_exam(item, answers, self_ok, works)
     except (ValueError, TypeError, KeyError):
         return JsonResponse({"ok": False, "message": "답안 형식이 올바르지 않습니다."}, status=400)
     result["answers"] = answers
