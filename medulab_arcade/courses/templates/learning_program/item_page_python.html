@@ -353,7 +353,11 @@
             
             <div id="answer-box" class="section-part" style="display:none; background: rgba(168, 85, 247, 0.05);">
                 <div class="part-label" style="color: var(--accent-purple);">✅ 정답 공개</div>
+                {% if user.is_staff or user_progress.completed %}
                 <pre class="code-view" id="answer-code-pre" style="color: var(--accent-purple); {% if not user.is_staff %}user-select: none; -webkit-user-select: none;{% endif %}">{{ item.answer_code }}{% if user.is_staff %}<button class="btn-copy" onclick="copyAnswerCode()">복사</button>{% endif %}</pre>
+                {% else %}
+                <div class="part-content" style="font-size: 14px; color: var(--text-muted);">🔒 채점하기를 눌러 정답을 맞히면 정답을 볼 수 있어요.</div>
+                {% endif %}
             </div>
         </div>
 
@@ -368,7 +372,7 @@
             
             <div class="btn-group">
                 <button class="btn-mini" onclick="toggleAux('hint-box')">힌트 보기</button>
-                <button class="btn-mini" onclick="toggleAux('answer-box')">정답 보기</button>
+                <button class="btn-mini" onclick="showAnswer()">정답 보기</button>
             </div>
             <div class="btn-group">
                 {% if prev_item %}
@@ -464,6 +468,7 @@
 <script>
     const isObjective = {{ is_objective|yesno:'true,false' }};
     const objectiveNextUrl = `{% if next_item %}{% url 'item_page' next_item.id %}{% endif %}`;
+    const answerUnlocked = {{ user_progress.completed|yesno:'true,false' }} || {{ user.is_staff|yesno:'true,false' }};
 
     {% if is_mock_exam and exam_minutes %}
     (function () {
@@ -571,6 +576,14 @@
         el.style.display = (el.style.display === 'block') ? 'none' : 'block';
     }
 
+    function showAnswer() {
+        if (!answerUnlocked) {
+            showToast('채점하기를 눌러 정답을 맞히면 정답을 볼 수 있어요!', 'error');
+            return;
+        }
+        toggleAux('answer-box');
+    }
+
     function showToast(msg, type) {
         const t = document.getElementById('toast');
         t.innerText = msg;
@@ -658,6 +671,9 @@
                 gd.style.color = "#10b981";
                 showToast("정답입니다!", 'success');
                 showNewBadgeToast(data.new_badges);
+                if (!answerUnlocked) {
+                    setTimeout(() => { window.location.reload(); }, 1200);
+                }
             } else {
                 gd.innerText = "❌ 오답입니다.";
                 gd.style.background = "rgba(239, 68, 68, 0.2)";
@@ -754,6 +770,9 @@
 
     // 정답 코드 복사
     function copyAnswerCode() {
+        if (!answerUnlocked) {
+            return;
+        }
         const code = `{{ item.answer_code|escapejs }}`;
         const btn = event.currentTarget;
         copyText(code, btn);
