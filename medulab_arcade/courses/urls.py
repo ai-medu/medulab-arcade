@@ -80,7 +80,6 @@ urlpatterns = [
     # API
     path('api/grade/', views.grade_code, name='grade_code'),
     path('api/item/<int:item_id>/exam/submit/', views.submit_exam, name='submit_exam'),
-    path('api/item/<int:item_id>/exam/gen/<int:no>/', views.upload_exam_gen, name='upload_exam_gen'),
     path('api/item/<int:item_id>/ppt-exam/start/', views.start_ppt_exam, name='start_ppt_exam'),
     path('api/item/<int:item_id>/ppt-exam/submit/', views.submit_ppt_exam, name='submit_ppt_exam'),
     path('api/program/<int:program_id>/structure/', views.api_program_structure, name='api_program_structure'),

@@ -112,7 +112,6 @@
     var EXAM = {{ exam.json|safe }};
     var SAVED = {{ exam.saved_json|safe }};
     var ITEM_ID = {{ item.id }};
-    var IS_STAFF = {{ user.is_staff|yesno:"true,false" }};
     var CSRF = document.querySelector('#aiceCsrfForm input[name=csrfmiddlewaretoken]').value;
     var KEY = 'aiceExam_' + ITEM_ID;
     var qs = EXAM.questions, cur = 0, answers = {}, selfOk = {}, finished = false, timerId = null, endAt = 0;
@@ -199,7 +198,7 @@
     function render() {
         var q = qs[cur], n = qs.length;
         var dots = '<div class="ex-dots">' + qs.map(function (x, i) {
-            var done = answers[x.no] !== undefined || (x.kind === 'build' && selfOk[x.no]);
+            var done = x.kind === 'mcq' ? answers[x.no] !== undefined : !!load(workKey(x.no)) || (x.no === qs[cur].no && openedNo === x.no);
             return '<button type="button" class="ex-dot' + (i === cur ? ' cur' : done ? ' done' : '') + '" data-i="' + i + '">' + x.no + '</button>';
         }).join('') + '</div>';
         var h = dots + '<div class="ex-qhead"><span>문항 ' + q.no + '<span class="ex-qtype">' + esc(q.label) + ' · ' + q.points + '점</span></span><span class="cnt">' + (cur + 1) + '/' + n + '</span></div>';
@@ -210,12 +209,9 @@
                 return '<div class="ex-choice' + (answers[q.no] === i + 1 ? ' sel' : '') + '" data-c="' + (i + 1) + '">' + CIRC[i] + ' ' + esc(c) + '</div>';
             }).join('') + '</div>';
         } else if (q.kind === 'fill') {
-            h += '<div class="ex-hint">위 그림의 ①~④ 중 빈칸에 들어갈 블록을 골라 주세요. 왼쪽 AI Codiny에서 직접 고쳐도 되고, 코딩한 블록이 정답과 같거나 선택한 번호가 맞으면 정답이에요.</div>';
-            h += '<div class="ex-circle-row">' + q.choices.map(function (c, i) {
-                return '<div class="ex-circle' + (answers[q.no] === i + 1 ? ' sel' : '') + '" data-c="' + (i + 1) + '">' + c + '</div>';
-            }).join('') + '</div>';
+            h += '<div class="ex-hint">왼쪽 AI Codiny에서 빨간 네모 부분의 블록을 직접 고치거나 채워 완성하세요. 보기 블록은 그림과 코디니 화면에 있어요. 코딩한 블록이 정답과 같으면 정답으로 채점돼요.</div>';
         } else {
-            h += '<div class="ex-hint">왼쪽 AI Codiny에서 직접 코딩해 보세요. 다 끝나면 오른쪽 아래 <b>시험종료하기</b>를 눌러 제출하면 코딩한 블록이 정답과 자동으로 비교돼요.</div>';
+            h += '<div class="ex-hint">왼쪽 AI Codiny에서 직접 코딩해 보세요. 다 끝나면 오른쪽 아래 <b>시험종료하기</b>를 눌러 제출하면 코딩한 블록이 정답과 비교돼요.</div>';
         }
         h += '<div class="ex-gen">';
         if (q.gen_url) {
@@ -224,7 +220,6 @@
         } else {
             h += '<span class="none">📂 이 문항은 코디니 파일이 필요 없어요.</span>';
         }
-        if (IS_STAFF) h += '<br><label class="up">⬆ .gen 업로드(관리자)<input type="file" accept=".gen" data-up="' + q.no + '" style="display:none"></label>';
         h += '</div>';
         body.innerHTML = h;
         body.scrollTop = 0;
@@ -247,15 +242,6 @@
         var d = e.target.closest('.ex-dot');
         if (d) { goto(parseInt(d.dataset.i, 10)); }
     });
-    body.addEventListener('change', function (e) {
-        var up = e.target.getAttribute && e.target.getAttribute('data-up');
-        if (!up || !e.target.files.length) return;
-        var fd = new FormData(); fd.append('file', e.target.files[0]);
-        fetch('/courses/api/item/' + ITEM_ID + '/exam/gen/' + up + '/', { method: 'POST', headers: { 'X-CSRFToken': CSRF }, body: fd })
-            .then(function (r) { return r.json(); }).then(function (j) {
-                if (j.ok) { qs[parseInt(up, 10) - 1].gen_url = j.url; render(); } else alert(j.message || '업로드 실패');
-            });
-    });
     function goto(i) {
         if (i === cur || i < 0 || i >= qs.length) return;
         var prev = qs[cur];
@@ -268,8 +254,8 @@
     };
 
     $('exEnd').onclick = function () {
-        var un = qs.filter(function (q) { return q.kind !== 'build' && answers[q.no] === undefined; }).length;
-        $('exConfirmMsg').textContent = un ? '아직 답하지 않은 객관식·빈칸 문항이 ' + un + '개 있어요. 그래도 제출할까요?' : '제출하면 바로 채점돼요. 제출할까요?';
+        var un = qs.filter(function (q) { return q.kind === 'mcq' && answers[q.no] === undefined; }).length;
+        $('exConfirmMsg').textContent = un ? '아직 답하지 않은 객관식 문항이 ' + un + '개 있어요. 그래도 제출할까요?' : '제출하면 코딩한 블록과 선택한 답이 바로 채점돼요. 제출할까요?';
         $('exConfirm').classList.add('show');
     };
     $('exConfirmNo').onclick = function () { $('exConfirm').classList.remove('show'); };
@@ -312,13 +298,13 @@
         $('exTimer').textContent = '시험 종료';
         $('exTimer').classList.remove('warn');
         selfOk = res.self || {}; answers = res.answers || {};
-        var h = '<div class="ex-score"><div class="big">' + res.score + ' / ' + res.max + '점</div><div class="sub">코디니에서 코딩한 블록을 정답과 자동으로 비교해 채점했어요.</div></div>';
+        var h = '<div class="ex-score"><div class="big">' + res.score + ' / ' + res.max + '점</div><div class="sub">이론 문항은 선택한 답으로, 실습 문항은 코디니에서 코딩한 블록을 정답과 비교해 채점했어요.</div></div>';
         res.details.forEach(function (d) {
             var q = qs[d.no - 1], status, cls;
             if (d.kind === 'build') { status = d.ok ? '정답 (+' + d.points + ')' : '오답'; cls = d.ok ? 'ok' : 'no'; }
             else { status = d.ok ? '정답' : '오답'; cls = d.ok ? 'ok' : 'no'; }
             h += '<div class="ex-res"><div class="rh"><span>문항 ' + d.no + ' <span style="font-weight:600;color:#64748b;font-size:12px;">(' + d.points + '점)</span></span><span class="' + cls + '">' + status + '</span></div>';
-            if (d.kind !== 'build') h += '<div class="ex" style="margin-top:4px;">내 답: ' + (d.mine ? CIRC[d.mine - 1] : '미응답') + ' · 정답: ' + CIRC[d.answer - 1] + '</div>';
+            if (d.kind === 'mcq') h += '<div class="ex" style="margin-top:4px;">내 답: ' + (d.mine ? CIRC[d.mine - 1] : '미응답') + ' · 정답: ' + CIRC[d.answer - 1] + '</div>';
             if (d.auto === 'match') h += '<div class="ex" style="margin-top:4px;color:#16a34a;font-weight:700;">🤖 자동 채점: 코딩한 블록이 정답과 같아요</div>';
             else if (d.auto === 'mismatch') h += '<div class="ex" style="margin-top:4px;color:#dc2626;font-weight:700;">🤖 자동 채점: 코딩한 블록이 정답과 달라요</div>';
             else if (d.auto === 'none' && d.kind !== 'mcq') h += '<div class="ex" style="margin-top:4px;color:#94a3b8;">🤖 자동 채점: 코디니에서 코딩한 내용이 없어요</div>';
@@ -326,15 +312,11 @@
             if (d.answer_gen) h += '<button type="button" class="ex-retry" style="margin-top:8px;padding:8px;" data-agen="' + d.answer_gen + '" data-ano="' + d.no + '">🧩 정답 코드를 코디니에서 보기</button>';
             if (d.answer_image) {
                 h += '<img src="' + d.answer_image + '" alt="정답 블록">';
-                if (d.auto !== 'match') h += '<label class="chk"><input type="checkbox" data-self="' + d.no + '"' + (selfOk[d.no] ? ' checked' : '') + '> 정답과 블록 모양은 다르지만 같은 결과로 동작해요 (스스로 확인)</label>';
             }
             h += '</div>';
         });
         h += '<button type="button" class="ex-retry" id="exRetry">🔁 다시 풀기</button>';
         body.innerHTML = h; body.scrollTop = 0;
-        body.querySelectorAll('[data-self]').forEach(function (cb) {
-            cb.onchange = function () { selfOk[cb.dataset.self] = cb.checked; post(function (r) { if (r.ok) showResult(r); }); };
-        });
         body.querySelectorAll('[data-agen]').forEach(function (b) {
             b.onclick = function () { loadGenInto(b.dataset.agen, parseInt(b.dataset.ano, 10), '정답 코드를 코디니에 열었어요. (내가 코딩한 내용은 저장돼 있어요)'); openedNo = null; };
         });

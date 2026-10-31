@@ -2250,19 +2250,18 @@ def _grade_exam(item, answers, self_ok, works=None):
                 auto = "none"
             else:
                 auto = "match" if mine_prog == ans_prog else "mismatch"
-        mine = answers.get(no)
-        if kind == "build":
-            ok = auto == "match" or bool(self_ok.get(no))
+        mine = answers.get(no) if kind == "mcq" else None
+        if kind == "mcq":
+            ok = mine is not None and int(mine) == int(q.get("answer", 0))
         else:
-            choice_ok = mine is not None and int(mine) == int(q.get("answer", 0))
-            ok = choice_ok or auto == "match"
+            # 실습형은 코디니에서 코딩한 블록과 정답 .gen 비교로만 채점
+            ok = auto == "match"
         if ok:
             total += pts
         details.append({
             "no": q["no"], "kind": kind, "points": pts, "ok": ok, "mine": mine,
             "answer": q.get("answer"), "explain": q.get("explain", ""), "answer_image": q.get("answer_image", ""),
             "answer_gen": _exam_gen_url(item, q["no"], "a"), "auto": auto,
-            "auto_only": ans_prog is not None and kind == "build",
         })
     return {"score": total, "max": max_total, "details": details}
 
@@ -2290,23 +2289,6 @@ def submit_exam(request, item_id):
     progress.last_output = json.dumps(result, ensure_ascii=False)
     progress.save()
     return JsonResponse({"ok": True, **result})
-
-
-@login_required
-@user_passes_test(is_admin)
-@require_POST
-def upload_exam_gen(request, item_id, no):
-    item = get_object_or_404(Item, id=item_id)
-    f = request.FILES.get("file")
-    if not item.exam_data or not f:
-        return JsonResponse({"ok": False, "message": "파일이 없습니다."}, status=400)
-    if not f.name.lower().endswith(".gen"):
-        return JsonResponse({"ok": False, "message": ".gen 파일만 올릴 수 있습니다."}, status=400)
-    os.makedirs(_exam_gen_dir(item), exist_ok=True)
-    with open(os.path.join(_exam_gen_dir(item), f"q{int(no)}.gen"), "wb") as out:
-        for chunk in f.chunks():
-            out.write(chunk)
-    return JsonResponse({"ok": True, "url": _exam_gen_url(item, int(no))})
 
 
 @login_required
