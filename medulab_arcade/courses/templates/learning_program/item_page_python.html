@@ -283,6 +283,59 @@
         color: var(--text-muted);
         line-height: 1.7;
     }
+
+    /* 코드 실행 애니메이션 */
+    .viz-stage { display: none; margin-top: 12px; }
+    .viz-controls { display: flex; gap: 8px; margin-top: 10px; }
+    .viz-controls button {
+        flex: 1; padding: 7px; border-radius: 6px; border: 1px solid rgba(125, 211, 252, 0.3);
+        background: rgba(125, 211, 252, 0.08); color: #7dd3fc; cursor: pointer; font-size: 12px; font-weight: 700;
+    }
+    .viz-controls button:hover { background: rgba(125, 211, 252, 0.18); }
+    .viz-controls button:disabled { opacity: 0.35; cursor: default; }
+    .viz-code {
+        background: #0b0d12; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
+        padding: 10px 0; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7;
+        color: #94a3b8; margin-top: 10px;
+    }
+    .viz-code .vline { padding: 1px 14px; white-space: pre; }
+    .viz-code .vline.active { background: rgba(59, 130, 246, 0.18); color: #fff; border-left: 3px solid #3b82f6; padding-left: 11px; }
+    .viz-desc {
+        margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: rgba(251, 191, 36, 0.08);
+        border: 1px solid rgba(251, 191, 36, 0.25); color: #fde68a; font-size: 13.5px; line-height: 1.6; min-height: 20px;
+    }
+    .viz-board { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; min-height: 10px; }
+    .viz-var {
+        display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px;
+        background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); font-size: 13px;
+        transition: all 0.25s;
+    }
+    .viz-var.flash { background: rgba(16, 185, 129, 0.22); border-color: rgba(16, 185, 129, 0.5); transform: scale(1.06); }
+    .viz-var .vname { color: #7dd3fc; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+    .viz-var .vval { color: #fff; font-family: 'JetBrains Mono', monospace; }
+    .viz-var .vtype { color: #64748b; font-size: 10px; }
+    .viz-collection { margin-top: 10px; }
+    .viz-collection-label { font-size: 11px; color: #64748b; font-weight: 700; margin-bottom: 6px; }
+    .viz-cells { display: flex; gap: 4px; flex-wrap: wrap; }
+    .viz-cell {
+        min-width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+        border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; background: rgba(255,255,255,0.03);
+        font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #cbd5e1; position: relative; transition: all 0.25s;
+        padding: 0 6px;
+    }
+    .viz-cell.idx::after {
+        content: attr(data-idx); position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
+        font-size: 9px; color: #475569;
+    }
+    .viz-cell.hit { background: rgba(16, 185, 129, 0.3); border-color: #10b981; color: #fff; transform: scale(1.15); }
+    .viz-cell.cmp { background: rgba(251, 191, 36, 0.25); border-color: #fbbf24; color: #fff; }
+    .viz-cell.dim { opacity: 0.35; }
+    .viz-console {
+        margin-top: 10px; background: #000; border-radius: 8px; padding: 10px 12px; min-height: 36px;
+        font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #10b981; white-space: pre-wrap;
+        border: 1px solid rgba(16, 185, 129, 0.15);
+    }
+    .viz-step-count { font-size: 11px; color: #64748b; text-align: center; margin-top: 6px; }
 </style>
 {% endblock %}
 
@@ -310,6 +363,27 @@
                     {% endif %}
                 </div>
             </div>
+
+            <!-- 1.5 코드 실행 애니메이션 -->
+            {% if item.viz_data %}
+            <div class="section-part">
+                <div class="part-label">🎬 코드 실행 과정 보기</div>
+                <button class="btn-mini" style="background: rgba(125, 211, 252, 0.1); color: #7dd3fc; width: 100%;" onclick="toggleViz()">▶ 애니메이션으로 보기</button>
+                <div id="viz-stage" class="viz-stage">
+                    <div id="viz-code" class="viz-code"></div>
+                    <div id="viz-desc" class="viz-desc"></div>
+                    <div id="viz-board" class="viz-board"></div>
+                    <div id="viz-collections"></div>
+                    <div id="viz-console" class="viz-console"></div>
+                    <div class="viz-controls">
+                        <button id="viz-prev" onclick="vizStep(-1)">◀ 이전</button>
+                        <button id="viz-auto" onclick="vizAuto()">⏯ 자동재생</button>
+                        <button id="viz-next" onclick="vizStep(1)">다음 ▶</button>
+                    </div>
+                    <div id="viz-count" class="viz-step-count"></div>
+                </div>
+            </div>
+            {% endif %}
 
             <!-- 2. 예시 코드 (유형이 '예제'이고 데이터가 있을 때만 노출) -->
             {% if item.item_type == 'example' and item.answer_code %}
@@ -777,5 +851,131 @@
         const btn = event.currentTarget;
         copyText(code, btn);
     }
+
+    // ===== 코드 실행 애니메이션 =====
+    {% if item.viz_data %}
+    const vizData = {{ item.viz_data|safe }};
+    const vizLines = vizData.code.split('\n');
+    let vizIdx = -1;
+    let vizVars = {};
+    let vizTimer = null;
+    let vizStarted = false;
+
+    function vizRenderCode(activeLine) {
+        const el = document.getElementById('viz-code');
+        el.innerHTML = vizLines.map((line, i) => {
+            const n = i + 1;
+            const cls = (n === activeLine) ? 'vline active' : 'vline';
+            const safe = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') || ' ';
+            return `<div class="${cls}">${safe}</div>`;
+        }).join('');
+    }
+
+    function vizEsc(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function vizRenderBoard(flashName) {
+        const board = document.getElementById('viz-board');
+        board.innerHTML = Object.keys(vizVars).map(name => {
+            const v = vizVars[name];
+            const flash = (name === flashName) ? ' flash' : '';
+            return `<div class="viz-var${flash}"><span class="vname">${vizEsc(name)}</span><span class="vval">${vizEsc(v.value)}</span><span class="vtype">${vizEsc(v.type || '')}</span></div>`;
+        }).join('');
+    }
+
+    function vizRenderCollections(collections) {
+        const wrap = document.getElementById('viz-collections');
+        if (!collections || !collections.length) { wrap.innerHTML = ''; return; }
+        wrap.innerHTML = collections.map(col => {
+            const toSet = (v) => Array.isArray(v) ? v : (v != null ? [v] : []);
+            const hitSet = toSet(col.hit_idx);
+            const cmpSet = toSet(col.cmp_idx);
+            const dimSet = toSet(col.dim_idx);
+            const cells = col.items.map((item, i) => {
+                let cls = 'viz-cell idx';
+                if (hitSet.includes(i)) cls += ' hit';
+                else if (cmpSet.includes(i)) cls += ' cmp';
+                else if (dimSet.includes(i)) cls += ' dim';
+                return `<div class="${cls}" data-idx="${col.index_labels ? vizEsc(col.index_labels[i]) : i}">${vizEsc(item)}</div>`;
+            }).join('');
+            return `<div class="viz-collection"><div class="viz-collection-label">${vizEsc(col.label || '')}</div><div class="viz-cells">${cells}</div></div>`;
+        }).join('');
+    }
+
+    function vizApplyStep(i) {
+        const step = vizData.steps[i];
+        if (!step) return;
+        vizRenderCode(step.line || null);
+        document.getElementById('viz-desc').innerText = step.desc || '';
+
+        let flashName = null;
+        if (step.set_vars) {
+            step.set_vars.forEach(sv => {
+                vizVars[sv.name] = { value: sv.value, type: sv.type };
+                flashName = sv.name;
+            });
+        }
+        if (step.clear_vars) {
+            step.clear_vars.forEach(n => { delete vizVars[n]; });
+        }
+        vizRenderBoard(flashName);
+        vizRenderCollections(step.collections);
+
+        const consoleEl = document.getElementById('viz-console');
+        if (step.console_lines) {
+            consoleEl.innerText = step.console_lines.join('\n');
+        }
+
+        document.getElementById('viz-count').innerText = `${i + 1} / ${vizData.steps.length}`;
+        document.getElementById('viz-prev').disabled = (i <= 0);
+        document.getElementById('viz-next').disabled = (i >= vizData.steps.length - 1);
+    }
+
+    function vizRebuildUpTo(i) {
+        vizVars = {};
+        for (let k = 0; k <= i; k++) {
+            vizApplyStep(k);
+        }
+    }
+
+    function vizStep(delta) {
+        const next = vizIdx + delta;
+        if (next < 0 || next >= vizData.steps.length) return;
+        vizIdx = next;
+        vizRebuildUpTo(vizIdx);
+    }
+
+    function vizAuto() {
+        const btn = document.getElementById('viz-auto');
+        if (vizTimer) {
+            clearInterval(vizTimer);
+            vizTimer = null;
+            btn.innerText = '⏯ 자동재생';
+            return;
+        }
+        btn.innerText = '⏸ 정지';
+        vizTimer = setInterval(() => {
+            if (vizIdx >= vizData.steps.length - 1) {
+                clearInterval(vizTimer);
+                vizTimer = null;
+                btn.innerText = '⏯ 자동재생';
+                return;
+            }
+            vizStep(1);
+        }, 1400);
+    }
+
+    function toggleViz() {
+        const stage = document.getElementById('viz-stage');
+        const isOpen = stage.style.display === 'block';
+        stage.style.display = isOpen ? 'none' : 'block';
+        if (!isOpen && !vizStarted) {
+            vizStarted = true;
+            vizIdx = 0;
+            vizRebuildUpTo(0);
+        }
+    }
+    {% endif %}
 </script>
 {% endblock %}

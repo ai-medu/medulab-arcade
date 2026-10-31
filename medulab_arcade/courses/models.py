@@ -105,6 +105,7 @@ class Item(models.Model):
     expected_output = models.TextField("예상 출력값", blank=True, null=True)
     due_date = models.DateTimeField("제출 기한", blank=True, null=True)
     exam_data = models.TextField("모의평가 시험 데이터(JSON)", blank=True, null=True, help_text="AICE 모의평가 시험 화면용 문항 데이터. 비워두면 일반 항목으로 표시됩니다.")
+    viz_data = models.JSONField("코드 실행 애니메이션 데이터", blank=True, null=True, help_text="단계별 코드 실행 시각화용 steps 배열. 비워두면 애니메이션 버튼이 표시되지 않습니다.")
 
     class Meta:
         ordering = ["chapter", "number"]
