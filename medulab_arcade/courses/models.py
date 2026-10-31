@@ -104,6 +104,7 @@ class Item(models.Model):
     example_input = models.TextField("테스트용 입력값", blank=True, null=True)
     expected_output = models.TextField("예상 출력값", blank=True, null=True)
     due_date = models.DateTimeField("제출 기한", blank=True, null=True)
+    exam_data = models.TextField("모의평가 시험 데이터(JSON)", blank=True, null=True, help_text="AICE 모의평가 시험 화면용 문항 데이터. 비워두면 일반 항목으로 표시됩니다.")
 
     class Meta:
         ordering = ["chapter", "number"]

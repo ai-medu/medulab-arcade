@@ -1124,7 +1124,13 @@ def learning_program_edit(request, program_id):
     if request.method == "POST":
         form = CourseForm(request.POST, request.FILES, instance=program)
         if form.is_valid():
-            form.save()
+            program = form.save(commit=False)
+            # 새 이미지를 고르지 않고 '현재 이미지 삭제'를 체크했을 때만 삭제
+            if request.POST.get("delete_image") and "image" not in request.FILES and program.image:
+                program.image.delete(save=False)
+                program.image = None
+            program.save()
+            form.save_m2m()
             messages.success(request, f"'{program.name}' 과정이 수정되었습니다.")
             return redirect("student_course_list")
     else:
@@ -2098,6 +2104,10 @@ def item_page(request, item_id):
         except (TypeError, ValueError, json.JSONDecodeError):
             feedback_data = None
 
+    exam_ctx = _build_exam_context(item, progress) if item.exam_data else None
+    if exam_ctx:
+        template_name = "learning_program/item_page_aice_exam.html"
+
     chapter_title = item.chapter.title or ""
     is_mock_exam = "모의고사" in chapter_title
     exam_minutes = None
@@ -2133,7 +2143,178 @@ def item_page(request, item_id):
         "no_coding": not item.requires_coding,
         "is_mock_exam": is_mock_exam,
         "exam_minutes": exam_minutes,
+        "exam": exam_ctx,
     })
+
+
+# --- AICE 모의평가 시험 화면 ---
+def _exam_gen_dir(item):
+    return os.path.join(settings.MEDIA_ROOT, "exam_gen", f"item{item.id}")
+
+
+def _exam_gen_url(item, no, prefix="q"):
+    path = os.path.join(_exam_gen_dir(item), f"{prefix}{no}.gen")
+    if os.path.exists(path):
+        return f"{settings.MEDIA_URL}exam_gen/item{item.id}/{prefix}{no}.gen"
+    return ""
+
+
+def _build_exam_context(item, progress):
+    """시험 화면용 데이터. 정답/해설은 제출 전에는 내려보내지 않는다."""
+    try:
+        data = json.loads(item.exam_data)
+    except (TypeError, ValueError):
+        return None
+    questions = []
+    for q in data.get("questions", []):
+        questions.append({
+            "no": q["no"], "kind": q.get("kind", "mcq"), "points": q.get("points", 10),
+            "label": q.get("label", ""), "text": q.get("text", ""), "image": q.get("image", ""),
+            "choices": q.get("choices", []), "gen_url": _exam_gen_url(item, q["no"]),
+        })
+    saved = None
+    if getattr(progress, "completed", False) and progress.last_output:
+        try:
+            saved = json.loads(progress.last_output)
+            if not isinstance(saved, dict) or "exam" not in saved:
+                saved = None
+        except (TypeError, ValueError):
+            saved = None
+    return {
+        "title": data.get("title", "시험"), "minutes": data.get("minutes", 50),
+        "questions": questions, "json": json.dumps({"title": data.get("title", ""), "minutes": data.get("minutes", 50), "questions": questions}, ensure_ascii=False),
+        "saved_json": json.dumps(saved, ensure_ascii=False) if saved else "null",
+    }
+
+
+_GEN_NS = "{https://developers.google.com/blockly/xml}"
+
+
+def _gen_canon_block(el, objmap):
+    """블록 하나를 id/좌표가 빠진 정규화 문자열로 바꾼다 (shadow와 일반 블록은 같게 취급)."""
+    parts = [el.get("type") or ""]
+    for ch in el:
+        tag = ch.tag.replace(_GEN_NS, "")
+        if tag == "field":
+            v = (ch.text or "").strip()
+            parts.append("f:%s=%s" % (ch.get("name"), objmap.get(v, v)))
+        elif tag in ("value", "statement"):
+            inner = [c for c in ch if c.tag.replace(_GEN_NS, "") in ("block", "shadow")]
+            blocks = [c for c in inner if c.tag.replace(_GEN_NS, "") == "block"]
+            pick = blocks[0] if blocks else (inner[0] if inner else None)
+            if pick is not None:
+                parts.append("%s:%s=(%s)" % (tag[0], ch.get("name"), _gen_canon_block(pick, objmap)))
+        elif tag == "next":
+            nb = [c for c in ch if c.tag.replace(_GEN_NS, "") == "block"]
+            if nb:
+                parts.append("next=(%s)" % _gen_canon_block(nb[0], objmap))
+    return "|".join(parts)
+
+
+def _gen_id_map(gen):
+    """오브젝트/소리/장면/신호 id -> 이름 (id는 매번 달라질 수 있어 이름으로 비교)"""
+    m = {}
+    for sc in gen.get("scenes", []):
+        if sc.get("sceneId"):
+            m[sc["sceneId"]] = sc.get("sceneName", "")
+        for o in sc.get("objects", []):
+            if o.get("objectId"):
+                m[o["objectId"]] = o.get("objectName", "")
+        for so in sc.get("sounds", []):
+            if so.get("resId"):
+                m[so["resId"]] = so.get("title", "")
+    for sg in gen.get("signals", []) or []:
+        if sg.get("signalId"):
+            m[sg["signalId"]] = sg.get("signalName", "")
+    return m
+
+
+def _gen_main_program(gen):
+    """코디니 작업(.gen)의 모든 장면에서 이벤트 블록(시작 버튼 클릭, 키보드, 클릭, 신호 등)으로 시작하는
+    프로그램들을 정규화해 돌려준다. 화면에 흩어진 보기 블록 등 이벤트에 연결되지 않은 블록은 무시한다."""
+    try:
+        objmap = _gen_id_map(gen)
+        out = []
+        for si, sc in enumerate(gen["scenes"]):
+            root = ET.fromstring(sc["blockXml"])
+            for b in root:
+                if b.tag.replace(_GEN_NS, "") == "block" and (b.get("type") or "").startswith("eventloop_"):
+                    out.append("%d:%s" % (si, _gen_canon_block(b, objmap)))
+    except (KeyError, IndexError, TypeError, ET.ParseError):
+        return None
+    if not out:
+        return None
+    return sorted(out)
+
+
+def _exam_answer_program(item, no):
+    path = os.path.join(_exam_gen_dir(item), f"a{no}.gen")
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as f:
+            return _gen_main_program(json.load(f))
+    except (ValueError, OSError):
+        return None
+
+
+def _grade_exam(item, answers, self_ok, works=None):
+    data = json.loads(item.exam_data)
+    works = works or {}
+    total = 0
+    max_total = 0
+    details = []
+    for q in data.get("questions", []):
+        no = str(q["no"]); pts = q.get("points", 10); max_total += pts
+        kind = q.get("kind", "mcq")
+        # 코디니 작업 자동 채점: 정답 .gen의 메인 프로그램과 비교
+        auto = "none"
+        ans_prog = _exam_answer_program(item, q["no"]) if kind != "mcq" else None
+        if ans_prog is not None:
+            mine_prog = _gen_main_program(works[no]) if isinstance(works.get(no), dict) else None
+            if mine_prog is None:
+                auto = "none"
+            else:
+                auto = "match" if mine_prog == ans_prog else "mismatch"
+        mine = answers.get(no) if kind == "mcq" else None
+        if kind == "mcq":
+            ok = mine is not None and int(mine) == int(q.get("answer", 0))
+        else:
+            # 실습형은 코디니에서 코딩한 블록과 정답 .gen 비교로만 채점
+            ok = auto == "match"
+        if ok:
+            total += pts
+        details.append({
+            "no": q["no"], "kind": kind, "points": pts, "ok": ok, "mine": mine,
+            "answer": q.get("answer"), "explain": q.get("explain", ""), "answer_image": q.get("answer_image", ""),
+            "answer_gen": _exam_gen_url(item, q["no"], "a"), "auto": auto,
+        })
+    return {"score": total, "max": max_total, "details": details, "guide": data.get("answer_pages", [])}
+
+
+@login_required
+@require_POST
+def submit_exam(request, item_id):
+    item = get_object_or_404(Item, id=item_id)
+    if not item.exam_data:
+        raise Http404
+    try:
+        body = json.loads(request.body.decode("utf-8"))
+        answers = {str(k): v for k, v in (body.get("answers") or {}).items() if v is not None}
+        self_ok = {str(k): bool(v) for k, v in (body.get("self") or {}).items()}
+        works = {str(k): v for k, v in (body.get("works") or {}).items() if isinstance(v, dict)}
+        result = _grade_exam(item, answers, self_ok, works)
+    except (ValueError, TypeError, KeyError):
+        return JsonResponse({"ok": False, "message": "답안 형식이 올바르지 않습니다."}, status=400)
+    result["answers"] = answers
+    result["self"] = self_ok
+    result["exam"] = True
+    progress, _ = UserProgress.objects.get_or_create(user=request.user, item=item)
+    progress.score = result["score"]
+    progress.completed = True
+    progress.last_output = json.dumps(result, ensure_ascii=False)
+    progress.save()
+    return JsonResponse({"ok": True, **result})
 
 
 @login_required

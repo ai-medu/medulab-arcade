@@ -935,11 +935,18 @@
                         </div>
                     </div>
 
-                    <!-- 2. 타자연습 -->
-                    <a href="{% url 'typing_home' %}" class="nav-link"
-                        style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); white-space: nowrap;">
-                        ⌨️ 타자연습
-                    </a>
+                    <!-- 2. 매일연습 -->
+                    <div class="nav-dropdown">
+                        <button class="nav-link dropdown-toggle"
+                            style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); white-space: nowrap; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                            ⌨️ 매일연습 <span style="font-size: 10px;">▼</span>
+                        </button>
+                        <div class="dropdown-content">
+                            <a href="{% url 'mouse_practice' %}">🖱️ 마우스연습</a>
+                            <a href="{% url 'typing_home' %}">⌨️ 타자연습</a>
+                            <a href="{% url 'typing_game' %}">🎮 타자게임</a>
+                        </div>
+                    </div>
 
                     <!-- 3. 러닝센터 -->
                     <div class="nav-dropdown">
@@ -1278,11 +1285,19 @@
                 clearInterval(timerIntervalId);
                 
                 let expireTime = localStorage.getItem('sessionExpireTime');
+                // 저장된 만료시각이 '이 로그인 세션'의 것이 아니면(이전 로그인에서 남은 값) 버리고 새로 시작
+                const sessionKey = "{{ request.session.session_key|default:'' }}";
+                let storedKey = null;
+                try { storedKey = localStorage.getItem('sessionExpireKey'); } catch (e) {}
+                if (expireTime && storedKey !== sessionKey) {
+                    expireTime = null;
+                }
                 console.log("[SessionTimer] Read expireTime from localStorage:", expireTime);
-                
+
                 if (!expireTime || isRefresh) {
                     expireTime = Date.now() + sessionDuration * 1000;
                     localStorage.setItem('sessionExpireTime', expireTime);
+                    localStorage.setItem('sessionExpireKey', sessionKey);
                     console.log("[SessionTimer] Set new expireTime:", expireTime);
                 } else {
                     expireTime = parseInt(expireTime, 10);
