@@ -2099,6 +2099,10 @@ def item_page(request, item_id):
         except (TypeError, ValueError, json.JSONDecodeError):
             feedback_data = None
 
+    exam_ctx = _build_exam_context(item, progress) if item.exam_data else None
+    if exam_ctx:
+        template_name = "learning_program/item_page_aice_exam.html"
+
     chapter_title = item.chapter.title or ""
     is_mock_exam = "모의고사" in chapter_title
     exam_minutes = None
@@ -2134,7 +2138,112 @@ def item_page(request, item_id):
         "no_coding": not item.requires_coding,
         "is_mock_exam": is_mock_exam,
         "exam_minutes": exam_minutes,
+        "exam": exam_ctx,
     })
+
+
+# --- AICE 모의평가 시험 화면 ---
+def _exam_gen_dir(item):
+    return os.path.join(settings.MEDIA_ROOT, "exam_gen", f"item{item.id}")
+
+
+def _exam_gen_url(item, no):
+    path = os.path.join(_exam_gen_dir(item), f"q{no}.gen")
+    if os.path.exists(path):
+        return f"{settings.MEDIA_URL}exam_gen/item{item.id}/q{no}.gen"
+    return ""
+
+
+def _build_exam_context(item, progress):
+    """시험 화면용 데이터. 정답/해설은 제출 전에는 내려보내지 않는다."""
+    try:
+        data = json.loads(item.exam_data)
+    except (TypeError, ValueError):
+        return None
+    questions = []
+    for q in data.get("questions", []):
+        questions.append({
+            "no": q["no"], "kind": q.get("kind", "mcq"), "points": q.get("points", 10),
+            "label": q.get("label", ""), "text": q.get("text", ""), "image": q.get("image", ""),
+            "choices": q.get("choices", []), "gen_url": _exam_gen_url(item, q["no"]),
+        })
+    saved = None
+    if getattr(progress, "completed", False) and progress.last_output:
+        try:
+            saved = json.loads(progress.last_output)
+            if not isinstance(saved, dict) or "exam" not in saved:
+                saved = None
+        except (TypeError, ValueError):
+            saved = None
+    return {
+        "title": data.get("title", "시험"), "minutes": data.get("minutes", 50),
+        "questions": questions, "json": json.dumps({"title": data.get("title", ""), "minutes": data.get("minutes", 50), "questions": questions}, ensure_ascii=False),
+        "saved_json": json.dumps(saved, ensure_ascii=False) if saved else "null",
+    }
+
+
+def _grade_exam(item, answers, self_ok):
+    data = json.loads(item.exam_data)
+    total = 0
+    max_total = 0
+    details = []
+    for q in data.get("questions", []):
+        no = str(q["no"]); pts = q.get("points", 10); max_total += pts
+        kind = q.get("kind", "mcq")
+        if kind == "build":
+            ok = bool(self_ok.get(no))
+            mine = None
+        else:
+            mine = answers.get(no)
+            ok = mine is not None and int(mine) == int(q.get("answer", 0))
+        if ok:
+            total += pts
+        details.append({
+            "no": q["no"], "kind": kind, "points": pts, "ok": ok, "mine": mine,
+            "answer": q.get("answer"), "explain": q.get("explain", ""), "answer_image": q.get("answer_image", ""),
+        })
+    return {"score": total, "max": max_total, "details": details}
+
+
+@login_required
+@require_POST
+def submit_exam(request, item_id):
+    item = get_object_or_404(Item, id=item_id)
+    if not item.exam_data:
+        raise Http404
+    try:
+        body = json.loads(request.body.decode("utf-8"))
+        answers = {str(k): v for k, v in (body.get("answers") or {}).items() if v is not None}
+        self_ok = {str(k): bool(v) for k, v in (body.get("self") or {}).items()}
+        result = _grade_exam(item, answers, self_ok)
+    except (ValueError, TypeError, KeyError):
+        return JsonResponse({"ok": False, "message": "답안 형식이 올바르지 않습니다."}, status=400)
+    result["answers"] = answers
+    result["self"] = self_ok
+    result["exam"] = True
+    progress, _ = UserProgress.objects.get_or_create(user=request.user, item=item)
+    progress.score = result["score"]
+    progress.completed = True
+    progress.last_output = json.dumps(result, ensure_ascii=False)
+    progress.save()
+    return JsonResponse({"ok": True, **result})
+
+
+@login_required
+@user_passes_test(is_admin)
+@require_POST
+def upload_exam_gen(request, item_id, no):
+    item = get_object_or_404(Item, id=item_id)
+    f = request.FILES.get("file")
+    if not item.exam_data or not f:
+        return JsonResponse({"ok": False, "message": "파일이 없습니다."}, status=400)
+    if not f.name.lower().endswith(".gen"):
+        return JsonResponse({"ok": False, "message": ".gen 파일만 올릴 수 있습니다."}, status=400)
+    os.makedirs(_exam_gen_dir(item), exist_ok=True)
+    with open(os.path.join(_exam_gen_dir(item), f"q{int(no)}.gen"), "wb") as out:
+        for chunk in f.chunks():
+            out.write(chunk)
+    return JsonResponse({"ok": True, "url": _exam_gen_url(item, int(no))})
 
 
 @login_required
