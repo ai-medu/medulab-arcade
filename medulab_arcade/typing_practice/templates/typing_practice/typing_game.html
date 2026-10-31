@@ -1,0 +1,118 @@
+{% extends "arcade/base.html" %}
+
+{% block title %}타자게임 - 매일연습{% endblock %}
+
+{% block extra_css %}
+<style>
+.tg-wrap { max-width: 900px; margin: 30px auto; padding: 0 20px; text-align: center; }
+.tg-wrap h1 { font-size: 26px; font-weight: 900; margin: 0 0 6px; }
+.tg-sub { color: var(--text-muted); font-size: 14px; margin-bottom: 16px; }
+.tg-tabs { display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; }
+.tg-tab { padding: 8px 16px; border-radius: 12px; border: 1px solid var(--border); background: transparent; color: var(--text-secondary); font-weight: 700; cursor: pointer; }
+.tg-tab.active { background: rgba(59,130,246,0.15); border-color: rgba(59,130,246,0.5); color: #3b82f6; }
+.tg-info { display: flex; justify-content: center; gap: 24px; margin-bottom: 10px; font-weight: 700; }
+.tg-info b { color: #3b82f6; }
+.tg-board { position: relative; height: 440px; border-radius: 18px; overflow: hidden; border: 2px solid var(--border); background: linear-gradient(#dbeafe, #eff6ff); }
+.tg-ground { position: absolute; left: 0; right: 0; bottom: 0; height: 14px; background: #22c55e; }
+.tg-word { position: absolute; padding: 5px 12px; border-radius: 999px; background: #fff; color: #1e293b; font-weight: 800; font-size: 17px; box-shadow: 0 2px 8px rgba(0,0,0,.25); white-space: nowrap; }
+.tg-word.hit { background: #fde68a; }
+.tg-msg { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: rgba(15,23,42,.55); color: #fff; z-index: 5; padding: 20px; }
+.tg-msg .big { font-size: 24px; font-weight: 900; }
+.tg-btn { padding: 12px 28px; border-radius: 14px; border: none; background: linear-gradient(135deg,#3b82f6,#8b5cf6); color: #fff; font-weight: 800; font-size: 16px; cursor: pointer; }
+.tg-input { width: 100%; max-width: 420px; margin-top: 14px; padding: 14px 18px; border-radius: 14px; border: 2px solid var(--border); font-size: 18px; text-align: center; background: var(--bg-card); color: var(--text-primary, inherit); outline: none; }
+.tg-input:focus { border-color: #3b82f6; }
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="tg-wrap">
+    <h1>🎮 타자게임</h1>
+    <p class="tg-sub">떨어지는 낱말을 땅에 닿기 전에 똑같이 입력하고 Enter를 누르세요!</p>
+    <div class="tg-tabs">
+        <button class="tg-tab active" data-lang="ko">한글</button>
+        <button class="tg-tab" data-lang="en">영어</button>
+    </div>
+    <div class="tg-info"><span>점수 <b id="tgScore">0</b></span><span>목숨 <b id="tgLife">❤️❤️❤️</b></span><span>최고 <b id="tgBest">0</b></span></div>
+    <div class="tg-board" id="tgBoard"><div class="tg-ground"></div></div>
+    <input type="text" id="tgInput" class="tg-input" placeholder="여기에 입력하고 Enter" autocomplete="off" disabled>
+</main>
+<script>
+(function () {
+    var WORDS = {
+        ko: ['사과','바나나','컴퓨터','키보드','마우스','로봇','코딩','인공지능','학교','친구','하늘','바다','고양이','강아지','비행기','우주선','도서관','운동장','무지개','자전거','선생님','숙제','게임','프로그램','알고리즘','데이터','화면','메듀랩','축구','피자'],
+        en: ['apple','banana','robot','coding','mouse','keyboard','school','friend','cloud','python','game','space','rocket','tiger','happy','smile','music','light','water','green','scratch','block','input','output','loop','if','data','laptop','pizza','study']
+    };
+    var lang = 'ko', score = 0, life = 3, items = [], raf = null, spawnT = 0, last = 0, running = false;
+    var board = document.getElementById('tgBoard'), input = document.getElementById('tgInput');
+    var scoreEl = document.getElementById('tgScore'), lifeEl = document.getElementById('tgLife'), bestEl = document.getElementById('tgBest');
+    function bestKey() { return 'tgBest_' + lang; }
+    function getBest() { try { return parseInt(localStorage.getItem(bestKey()) || '0', 10); } catch (e) { return 0; } }
+    function setBest(v) { try { localStorage.setItem(bestKey(), v); } catch (e) {} }
+    function hearts() { lifeEl.textContent = life > 0 ? new Array(life + 1).join('❤️') : '💔'; }
+    function overlay(big, small, btn) {
+        var d = document.createElement('div'); d.className = 'tg-msg'; d.id = 'tgMsg';
+        d.innerHTML = '<div class="big">' + big + '</div><div>' + small + '</div><button class="tg-btn">' + btn + '</button>';
+        board.appendChild(d); d.querySelector('button').onclick = start;
+        input.disabled = true;
+    }
+    function clearItems() { items.forEach(function (w) { w.el.remove(); }); items = []; }
+    function start() {
+        var m = document.getElementById('tgMsg'); if (m) m.remove();
+        clearItems(); score = 0; life = 3; spawnT = 0; running = true; last = performance.now();
+        scoreEl.textContent = 0; hearts(); bestEl.textContent = getBest();
+        input.disabled = false; input.value = ''; input.focus();
+        cancelAnimationFrame(raf); raf = requestAnimationFrame(loop);
+    }
+    function spawn() {
+        var list = WORDS[lang], text = list[Math.floor(Math.random() * list.length)];
+        var el = document.createElement('div'); el.className = 'tg-word'; el.textContent = text;
+        board.appendChild(el);
+        var x = Math.random() * Math.max(10, board.clientWidth - el.offsetWidth - 20) + 10;
+        el.style.left = x + 'px';
+        items.push({ el: el, text: text, y: -30, speed: 38 + Math.min(score, 200) * 0.45 + Math.random() * 14 });
+    }
+    function loop(now) {
+        if (!running) return;
+        var dt = Math.min(0.05, (now - last) / 1000); last = now;
+        spawnT -= dt;
+        if (spawnT <= 0) { spawn(); spawnT = Math.max(0.7, 2.0 - score / 150); }
+        var H = board.clientHeight - 14 - 32;
+        for (var i = items.length - 1; i >= 0; i--) {
+            var w = items[i]; w.y += w.speed * dt; w.el.style.top = w.y + 'px';
+            if (w.y >= H) { w.el.remove(); items.splice(i, 1); life--; hearts(); if (life <= 0) return over(); }
+        }
+        raf = requestAnimationFrame(loop);
+    }
+    function over() {
+        running = false; cancelAnimationFrame(raf);
+        var best = getBest(), msg = '';
+        if (score > best) { setBest(score); bestEl.textContent = score; msg = ' 🏆 최고 기록이에요!'; }
+        overlay('게임 끝! ' + score + '점', '수고했어요.' + msg, '다시 하기');
+    }
+    input.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' || e.isComposing || !running) return;
+        var v = input.value.trim(); input.value = '';
+        if (!v) return;
+        var hit = -1;
+        for (var i = 0; i < items.length; i++) if (items[i].text === v && (hit < 0 || items[i].y > items[hit].y)) hit = i;
+        if (hit >= 0) {
+            var w = items.splice(hit, 1)[0]; w.el.classList.add('hit');
+            setTimeout(function () { w.el.remove(); }, 150);
+            score += 10; scoreEl.textContent = score;
+        }
+    });
+    document.querySelectorAll('.tg-tab').forEach(function (b) {
+        b.addEventListener('click', function () {
+            document.querySelectorAll('.tg-tab').forEach(function (x) { x.classList.remove('active'); });
+            b.classList.add('active'); lang = b.dataset.lang;
+            running = false; cancelAnimationFrame(raf); clearItems();
+            var m = document.getElementById('tgMsg'); if (m) m.remove();
+            bestEl.textContent = getBest(); score = 0; scoreEl.textContent = 0; life = 3; hearts();
+            overlay('준비되셨나요?', lang === 'ko' ? '한글 낱말을 입력해요' : '영어 단어를 입력해요', '시작하기');
+        });
+    });
+    bestEl.textContent = getBest();
+    overlay('준비되셨나요?', '한글 낱말을 입력해요', '시작하기');
+})();
+</script>
+{% endblock %}

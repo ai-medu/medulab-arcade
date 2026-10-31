@@ -1,0 +1,114 @@
+{% extends "arcade/base.html" %}
+
+{% block title %}마우스연습 - 매일연습{% endblock %}
+
+{% block extra_css %}
+<style>
+.mp-wrap { max-width: 900px; margin: 30px auto; padding: 0 20px; text-align: center; }
+.mp-wrap h1 { font-size: 26px; font-weight: 900; margin: 0 0 6px; }
+.mp-sub { color: var(--text-muted); font-size: 14px; margin-bottom: 20px; }
+.mp-tabs { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; flex-wrap: wrap; }
+.mp-tab { padding: 10px 18px; border-radius: 12px; border: 1px solid var(--border); background: transparent; color: var(--text-secondary); font-weight: 700; cursor: pointer; font-size: 14px; }
+.mp-tab.active { background: rgba(59,130,246,0.15); border-color: rgba(59,130,246,0.5); color: #3b82f6; }
+.mp-info { display: flex; justify-content: center; gap: 24px; margin-bottom: 12px; font-weight: 700; font-size: 15px; }
+.mp-info b { color: #3b82f6; }
+.mp-board { position: relative; height: 420px; border: 2px dashed var(--border); border-radius: 18px; overflow: hidden; user-select: none; background: rgba(59,130,246,0.04); }
+.mp-msg { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; padding: 20px; z-index: 5; }
+.mp-msg .big { font-size: 22px; font-weight: 900; }
+.mp-start { padding: 12px 28px; border-radius: 14px; border: none; background: linear-gradient(135deg,#3b82f6,#8b5cf6); color: #fff; font-weight: 800; font-size: 16px; cursor: pointer; }
+.mp-target { position: absolute; width: 64px; height: 64px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fca5a5, #ef4444); border: 3px solid #fff; box-shadow: 0 4px 14px rgba(0,0,0,.3); cursor: pointer; }
+.mp-target.dbl { background: radial-gradient(circle at 35% 35%, #fde68a, #f59e0b); }
+.mp-drag { position: absolute; width: 60px; height: 60px; border-radius: 14px; background: radial-gradient(circle at 35% 35%, #86efac, #22c55e); border: 3px solid #fff; box-shadow: 0 4px 14px rgba(0,0,0,.3); cursor: grab; touch-action: none; }
+.mp-zone { position: absolute; width: 100px; height: 100px; border-radius: 18px; border: 3px dashed #3b82f6; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #3b82f6; font-size: 13px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="mp-wrap">
+    <h1>🖱️ 마우스연습</h1>
+    <p class="mp-sub">마우스와 친해지는 연습이에요. 연습 종류를 고르고 시작해 보세요!</p>
+    <div class="mp-tabs">
+        <button class="mp-tab active" data-mode="click">👆 클릭</button>
+        <button class="mp-tab" data-mode="dbl">✌️ 더블클릭</button>
+        <button class="mp-tab" data-mode="drag">✋ 드래그</button>
+    </div>
+    <div class="mp-info"><span>남은 개수 <b id="mpLeft">10</b></span><span>시간 <b id="mpTime">0.0</b>초</span></div>
+    <div class="mp-board" id="mpBoard"></div>
+</main>
+<script>
+(function () {
+    var TOTAL = 10, mode = 'click', left = TOTAL, t0 = 0, timer = null, running = false;
+    var board = document.getElementById('mpBoard');
+    var leftEl = document.getElementById('mpLeft'), timeEl = document.getElementById('mpTime');
+    var HELP = { click: '빨간 공을 클릭하세요', dbl: '노란 공을 빠르게 두 번 클릭하세요', drag: '초록 상자를 점선 칸으로 끌어다 놓으세요' };
+
+    function rnd(a, b) { return Math.floor(a + Math.random() * (b - a)); }
+    function message(big, small, btn) {
+        board.innerHTML = '<div class="mp-msg"><div class="big">' + big + '</div><div>' + small + '</div><button class="mp-start" id="mpStart">' + btn + '</button></div>';
+        document.getElementById('mpStart').onclick = start;
+    }
+    function reset() {
+        running = false; clearInterval(timer); left = TOTAL; leftEl.textContent = TOTAL; timeEl.textContent = '0.0';
+        message('준비되셨나요?', HELP[mode], '시작하기');
+    }
+    function finish() {
+        running = false; clearInterval(timer);
+        var sec = ((Date.now() - t0) / 1000).toFixed(1);
+        timeEl.textContent = sec;
+        message('🎉 잘했어요! ' + sec + '초', TOTAL + '개를 모두 성공했어요', '다시 하기');
+    }
+    function start() {
+        running = true; left = TOTAL; leftEl.textContent = left; t0 = Date.now();
+        clearInterval(timer);
+        timer = setInterval(function () { timeEl.textContent = ((Date.now() - t0) / 1000).toFixed(1); }, 100);
+        next();
+    }
+    function done() {
+        left--; leftEl.textContent = left;
+        if (left <= 0) finish(); else next();
+    }
+    function next() {
+        board.innerHTML = '';
+        var W = board.clientWidth, H = board.clientHeight;
+        if (mode === 'drag') return nextDrag(W, H);
+        var el = document.createElement('div');
+        el.className = 'mp-target' + (mode === 'dbl' ? ' dbl' : '');
+        el.style.left = rnd(10, W - 74) + 'px'; el.style.top = rnd(10, H - 74) + 'px';
+        if (mode === 'dbl') el.addEventListener('dblclick', done); else el.addEventListener('click', done);
+        board.appendChild(el);
+    }
+    function nextDrag(W, H) {
+        var zone = document.createElement('div'); zone.className = 'mp-zone'; zone.textContent = '여기에!';
+        var zl = rnd(10, W - 110), zt = rnd(10, H - 110);
+        zone.style.left = zl + 'px'; zone.style.top = zt + 'px';
+        var box = document.createElement('div'); box.className = 'mp-drag';
+        var bl, bt;
+        do { bl = rnd(10, W - 70); bt = rnd(10, H - 70); } while (Math.abs(bl - zl) < 130 && Math.abs(bt - zt) < 130);
+        box.style.left = bl + 'px'; box.style.top = bt + 'px';
+        board.appendChild(zone); board.appendChild(box);
+        var dx = 0, dy = 0, drag = false;
+        box.addEventListener('pointerdown', function (e) {
+            drag = true; box.setPointerCapture(e.pointerId); box.style.cursor = 'grabbing';
+            dx = e.clientX - box.offsetLeft; dy = e.clientY - box.offsetTop;
+        });
+        box.addEventListener('pointermove', function (e) {
+            if (!drag) return;
+            box.style.left = Math.max(0, Math.min(W - 60, e.clientX - dx)) + 'px';
+            box.style.top = Math.max(0, Math.min(H - 60, e.clientY - dy)) + 'px';
+        });
+        box.addEventListener('pointerup', function () {
+            if (!drag) return; drag = false; box.style.cursor = 'grab';
+            var cx = box.offsetLeft + 30, cy = box.offsetTop + 30;
+            if (cx > zl && cx < zl + 100 && cy > zt && cy < zt + 100) done();
+        });
+    }
+    document.querySelectorAll('.mp-tab').forEach(function (b) {
+        b.addEventListener('click', function () {
+            document.querySelectorAll('.mp-tab').forEach(function (x) { x.classList.remove('active'); });
+            b.classList.add('active'); mode = b.dataset.mode; reset();
+        });
+    });
+    reset();
+})();
+</script>
+{% endblock %}

@@ -658,6 +658,16 @@ def generate_content_api(request):
 def is_staff_check(user):
     return user.is_staff
 
+def mouse_practice(request):
+    """매일연습 — 마우스연습"""
+    return render(request, 'typing_practice/mouse_practice.html')
+
+
+def typing_game(request):
+    """매일연습 — 타자게임 (떨어지는 낱말 맞추기)"""
+    return render(request, 'typing_practice/typing_game.html')
+
+
 def typing_home(request):
     """타자연습 메인 대시보드"""
     user_best = TypingScore.objects.filter(user=request.user).order_by('-score')[:5] if request.user.is_authenticated else []

@@ -3,6 +3,8 @@ from . import views
 
 urlpatterns = [
     path('', views.typing_home, name='typing_home'),
+    path('mouse/', views.mouse_practice, name='mouse_practice'),
+    path('game/', views.typing_game, name='typing_game'),
     path('practice/keys/', views.practice_keys, name='practice_keys'),
     path('practice/words/', views.practice_text, {'content_type': 'word'}, name='practice_words'),
     path('practice/short/', views.practice_text, {'content_type': 'short'}, name='practice_short'),
