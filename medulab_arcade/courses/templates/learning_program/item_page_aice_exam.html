@@ -202,9 +202,13 @@
             return '<button type="button" class="ex-dot' + (i === cur ? ' cur' : done ? ' done' : '') + '" data-i="' + i + '">' + x.no + '</button>';
         }).join('') + '</div>';
         var h = dots + '<div class="ex-qhead"><span>문항 ' + q.no + '<span class="ex-qtype">' + esc(q.label) + ' · ' + q.points + '점</span></span><span class="cnt">' + (cur + 1) + '/' + n + '</span></div>';
-        h += '<div class="ex-text">' + esc(q.text) + '</div>';
+        if (q.text) h += '<div class="ex-text">' + esc(q.text) + '</div>';
         if (q.image) h += '<img class="ex-img" src="' + q.image + '" alt="문항 ' + q.no + ' 그림">';
-        if (q.kind === 'mcq') {
+        if (q.kind === 'mcq' && q.choices[0] === '') {
+            h += '<div class="ex-hint">위 문제를 읽고 알맞은 번호를 골라 주세요.</div><div class="ex-circle-row">' + q.choices.map(function (c, i) {
+                return '<div class="ex-circle' + (answers[q.no] === i + 1 ? ' sel' : '') + '" data-c="' + (i + 1) + '">' + CIRC[i] + '</div>';
+            }).join('') + '</div>';
+        } else if (q.kind === 'mcq') {
             h += '<div class="ex-choices">' + q.choices.map(function (c, i) {
                 return '<div class="ex-choice' + (answers[q.no] === i + 1 ? ' sel' : '') + '" data-c="' + (i + 1) + '">' + CIRC[i] + ' ' + esc(c) + '</div>';
             }).join('') + '</div>';
@@ -266,8 +270,17 @@
         var out = {};
         qs.forEach(function (q) {
             var g = load(workKey(q.no));
-            if (g && g.scenes && g.scenes[0]) {
-                out[q.no] = { scenes: [{ blockXml: g.scenes[0].blockXml, objects: (g.scenes[0].objects || []).map(function (o) { return { objectId: o.objectId, objectName: o.objectName }; }) }] };
+            if (g && g.scenes && g.scenes.length) {
+                out[q.no] = {
+                    scenes: g.scenes.map(function (sc) {
+                        return {
+                            sceneId: sc.sceneId, sceneName: sc.sceneName, blockXml: sc.blockXml,
+                            objects: (sc.objects || []).map(function (o) { return { objectId: o.objectId, objectName: o.objectName }; }),
+                            sounds: (sc.sounds || []).map(function (s) { return { resId: s.resId, title: s.title }; })
+                        };
+                    }),
+                    signals: g.signals || []
+                };
             }
         });
         return out;
@@ -308,13 +321,16 @@
             if (d.auto === 'match') h += '<div class="ex" style="margin-top:4px;color:#16a34a;font-weight:700;">🤖 자동 채점: 코딩한 블록이 정답과 같아요</div>';
             else if (d.auto === 'mismatch') h += '<div class="ex" style="margin-top:4px;color:#dc2626;font-weight:700;">🤖 자동 채점: 코딩한 블록이 정답과 달라요</div>';
             else if (d.auto === 'none' && d.kind !== 'mcq') h += '<div class="ex" style="margin-top:4px;color:#94a3b8;">🤖 자동 채점: 코디니에서 코딩한 내용이 없어요</div>';
-            h += '<div class="ex">💡 ' + esc(d.explain) + '</div>';
+            if (d.explain) h += '<div class="ex">💡 ' + esc(d.explain) + '</div>';
             if (d.answer_gen) h += '<button type="button" class="ex-retry" style="margin-top:8px;padding:8px;" data-agen="' + d.answer_gen + '" data-ano="' + d.no + '">🧩 정답 코드를 코디니에서 보기</button>';
             if (d.answer_image) {
                 h += '<img src="' + d.answer_image + '" alt="정답 블록">';
             }
             h += '</div>';
         });
+        if (res.guide && res.guide.length) {
+            h += '<details class="ex-res"><summary style="font-weight:800;cursor:pointer;">📖 교재 정답 및 해설 보기</summary>' + res.guide.map(function (u) { return '<img src="' + u + '" alt="정답 및 해설">'; }).join('') + '</details>';
+        }
         h += '<button type="button" class="ex-retry" id="exRetry">🔁 다시 풀기</button>';
         body.innerHTML = h; body.scrollTop = 0;
         body.querySelectorAll('[data-agen]').forEach(function (b) {

@@ -2206,19 +2206,40 @@ def _gen_canon_block(el, objmap):
     return "|".join(parts)
 
 
+def _gen_id_map(gen):
+    """오브젝트/소리/장면/신호 id -> 이름 (id는 매번 달라질 수 있어 이름으로 비교)"""
+    m = {}
+    for sc in gen.get("scenes", []):
+        if sc.get("sceneId"):
+            m[sc["sceneId"]] = sc.get("sceneName", "")
+        for o in sc.get("objects", []):
+            if o.get("objectId"):
+                m[o["objectId"]] = o.get("objectName", "")
+        for so in sc.get("sounds", []):
+            if so.get("resId"):
+                m[so["resId"]] = so.get("title", "")
+    for sg in gen.get("signals", []) or []:
+        if sg.get("signalId"):
+            m[sg["signalId"]] = sg.get("signalName", "")
+    return m
+
+
 def _gen_main_program(gen):
-    """코디니 작업(.gen)에서 '시작 버튼을 클릭했을 때' 로 시작하는 메인 프로그램만 정규화해 돌려준다.
-    (화면에 흩어진 보기 블록 등 연결되지 않은 블록은 무시)"""
+    """코디니 작업(.gen)의 모든 장면에서 이벤트 블록(시작 버튼 클릭, 키보드, 클릭, 신호 등)으로 시작하는
+    프로그램들을 정규화해 돌려준다. 화면에 흩어진 보기 블록 등 이벤트에 연결되지 않은 블록은 무시한다."""
     try:
-        sc = gen["scenes"][0]
-        objmap = {o["objectId"]: o.get("objectName", "") for o in sc.get("objects", [])}
-        root = ET.fromstring(sc["blockXml"])
+        objmap = _gen_id_map(gen)
+        out = []
+        for si, sc in enumerate(gen["scenes"]):
+            root = ET.fromstring(sc["blockXml"])
+            for b in root:
+                if b.tag.replace(_GEN_NS, "") == "block" and (b.get("type") or "").startswith("eventloop_"):
+                    out.append("%d:%s" % (si, _gen_canon_block(b, objmap)))
     except (KeyError, IndexError, TypeError, ET.ParseError):
         return None
-    mains = [b for b in root if b.tag.replace(_GEN_NS, "") == "block" and b.get("type") == "eventloop_object_start_click"]
-    if not mains:
+    if not out:
         return None
-    return sorted(_gen_canon_block(b, objmap) for b in mains)
+    return sorted(out)
 
 
 def _exam_answer_program(item, no):
@@ -2263,7 +2284,7 @@ def _grade_exam(item, answers, self_ok, works=None):
             "answer": q.get("answer"), "explain": q.get("explain", ""), "answer_image": q.get("answer_image", ""),
             "answer_gen": _exam_gen_url(item, q["no"], "a"), "auto": auto,
         })
-    return {"score": total, "max": max_total, "details": details}
+    return {"score": total, "max": max_total, "details": details, "guide": data.get("answer_pages", [])}
 
 
 @login_required
