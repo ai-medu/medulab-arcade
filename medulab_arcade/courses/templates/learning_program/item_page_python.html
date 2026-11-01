@@ -316,11 +316,13 @@
     .viz-var .vtype { color: #64748b; font-size: 10px; }
     .viz-collection { margin-top: 10px; }
     .viz-collection-label { font-size: 11px; color: #64748b; font-weight: 700; margin-bottom: 6px; }
-    .viz-cells { display: flex; gap: 4px; flex-wrap: wrap; }
+    .viz-cells-wrap { position: relative; padding-top: 26px; }
+    .viz-cells { display: flex; gap: 4px; flex-wrap: wrap; position: relative; }
     .viz-cell {
         min-width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
         border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; background: rgba(255,255,255,0.03);
-        font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #cbd5e1; position: relative; transition: all 0.25s;
+        font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #cbd5e1; position: relative;
+        transition: background-color 0.3s, border-color 0.3s, transform 0.3s, opacity 0.3s;
         padding: 0 6px;
     }
     .viz-cell.idx::after {
@@ -330,6 +332,18 @@
     .viz-cell.hit { background: rgba(16, 185, 129, 0.3); border-color: #10b981; color: #fff; transform: scale(1.15); }
     .viz-cell.cmp { background: rgba(251, 191, 36, 0.25); border-color: #fbbf24; color: #fff; }
     .viz-cell.dim { opacity: 0.35; }
+    .viz-pointer {
+        position: absolute; top: 0; left: 0; font-size: 20px; line-height: 1; opacity: 0;
+        transform: translate(-50%, 0) rotate(180deg); transform-origin: center;
+        transition: left 0.45s cubic-bezier(.4,0,.2,1), opacity 0.25s;
+        pointer-events: none;
+    }
+    .viz-pointer.hit { animation: vizPointerPop 0.45s ease; }
+    @keyframes vizPointerPop {
+        0% { transform: translate(-50%, 0) rotate(180deg) scale(1); }
+        50% { transform: translate(-50%, -4px) rotate(180deg) scale(1.5); }
+        100% { transform: translate(-50%, 0) rotate(180deg) scale(1); }
+    }
     .viz-console {
         margin-top: 10px; background: #000; border-radius: 8px; padding: 10px 12px; min-height: 36px;
         font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #10b981; white-space: pre-wrap;
@@ -389,7 +403,7 @@
             {% if item.item_type == 'example' and item.answer_code %}
             <div class="section-part">
                 <div class="part-label">💻 예시 코드</div>
-                <pre class="code-view" id="example-code-pre">{{ item.answer_code }}{% if user.is_staff %}<button class="btn-copy" onclick="copyExampleCode()">복사</button>{% endif %}</pre>
+                <pre class="code-view" id="example-code-pre">{{ item.answer_code }}</pre>
             </div>
             {% endif %}
 
@@ -835,13 +849,6 @@
         });
     }
 
-    // 예시 코드 복사
-    function copyExampleCode() {
-        const code = `{{ item.answer_code|escapejs }}`;
-        const btn = event.currentTarget;
-        copyText(code, btn);
-    }
-
     // 정답 코드 복사
     function copyAnswerCode() {
         if (!answerUnlocked) {
@@ -858,6 +865,7 @@
     const vizLines = vizData.code.split('\n');
     let vizIdx = -1;
     let vizVars = {};
+    let vizCollEls = {};
     let vizTimer = null;
     let vizStarted = false;
 
@@ -886,21 +894,65 @@
 
     function vizRenderCollections(collections) {
         const wrap = document.getElementById('viz-collections');
-        if (!collections || !collections.length) { wrap.innerHTML = ''; return; }
-        wrap.innerHTML = collections.map(col => {
-            const toSet = (v) => Array.isArray(v) ? v : (v != null ? [v] : []);
+        const incomingLabels = new Set((collections || []).map(c => c.label || ''));
+        Object.keys(vizCollEls).forEach(label => {
+            if (!incomingLabels.has(label)) {
+                vizCollEls[label].container.remove();
+                delete vizCollEls[label];
+            }
+        });
+        if (!collections || !collections.length) return;
+
+        const toSet = (v) => Array.isArray(v) ? v : (v != null ? [v] : []);
+
+        collections.forEach(col => {
+            const label = col.label || '';
+            let entry = vizCollEls[label];
+            if (!entry) {
+                const container = document.createElement('div');
+                container.className = 'viz-collection';
+                container.innerHTML = `<div class="viz-collection-label">${vizEsc(label)}</div><div class="viz-cells-wrap"><div class="viz-pointer">👆</div><div class="viz-cells"></div></div>`;
+                wrap.appendChild(container);
+                entry = {
+                    container,
+                    cellsEl: container.querySelector('.viz-cells'),
+                    pointerEl: container.querySelector('.viz-pointer'),
+                    items: null,
+                };
+                vizCollEls[label] = entry;
+            }
+
+            const itemsChanged = !entry.items || entry.items.length !== col.items.length ||
+                entry.items.some((v, i) => v !== col.items[i]);
+            if (itemsChanged) {
+                entry.cellsEl.innerHTML = col.items.map((it, i) =>
+                    `<div class="viz-cell idx" data-idx="${col.index_labels ? vizEsc(col.index_labels[i]) : i}">${vizEsc(it)}</div>`
+                ).join('');
+                entry.items = col.items.slice();
+            }
+
             const hitSet = toSet(col.hit_idx);
             const cmpSet = toSet(col.cmp_idx);
             const dimSet = toSet(col.dim_idx);
-            const cells = col.items.map((item, i) => {
-                let cls = 'viz-cell idx';
-                if (hitSet.includes(i)) cls += ' hit';
-                else if (cmpSet.includes(i)) cls += ' cmp';
-                else if (dimSet.includes(i)) cls += ' dim';
-                return `<div class="${cls}" data-idx="${col.index_labels ? vizEsc(col.index_labels[i]) : i}">${vizEsc(item)}</div>`;
-            }).join('');
-            return `<div class="viz-collection"><div class="viz-collection-label">${vizEsc(col.label || '')}</div><div class="viz-cells">${cells}</div></div>`;
-        }).join('');
+            const cellEls = entry.cellsEl.children;
+            for (let i = 0; i < cellEls.length; i++) {
+                cellEls[i].classList.remove('hit', 'cmp', 'dim');
+                if (hitSet.includes(i)) cellEls[i].classList.add('hit');
+                else if (cmpSet.includes(i)) cellEls[i].classList.add('cmp');
+                else if (dimSet.includes(i)) cellEls[i].classList.add('dim');
+            }
+
+            const targetIdx = cmpSet.length ? cmpSet[0] : (hitSet.length ? hitSet[0] : null);
+            if (targetIdx != null && cellEls[targetIdx]) {
+                const cellEl = cellEls[targetIdx];
+                entry.pointerEl.style.opacity = '1';
+                entry.pointerEl.style.left = (cellEl.offsetLeft + cellEl.offsetWidth / 2) + 'px';
+                entry.pointerEl.classList.toggle('hit', hitSet.includes(targetIdx));
+            } else {
+                entry.pointerEl.style.opacity = '0';
+                entry.pointerEl.classList.remove('hit');
+            }
+        });
     }
 
     function vizApplyStep(i) {
@@ -934,6 +986,8 @@
 
     function vizRebuildUpTo(i) {
         vizVars = {};
+        vizCollEls = {};
+        document.getElementById('viz-collections').innerHTML = '';
         for (let k = 0; k <= i; k++) {
             vizApplyStep(k);
         }
@@ -943,7 +997,13 @@
         const next = vizIdx + delta;
         if (next < 0 || next >= vizData.steps.length) return;
         vizIdx = next;
-        vizRebuildUpTo(vizIdx);
+        if (delta > 0) {
+            // 한 칸 전진: 기존 DOM을 유지한 채 갱신 → 포인터가 부드럽게 이동
+            vizApplyStep(vizIdx);
+        } else {
+            // 뒤로 가기: 되돌릴 방법이 없으므로 처음부터 다시 재생
+            vizRebuildUpTo(vizIdx);
+        }
     }
 
     function vizAuto() {
