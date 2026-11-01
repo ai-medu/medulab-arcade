@@ -956,6 +956,42 @@ def _trace_format_value(value):
         return "<표시 불가>"
 
 
+_TRACE_COND_RE = re.compile(r'^(if|elif|while)\s+(.+):\s*$')
+
+
+def _trace_eval_condition(frame, line_text, allowed_builtins):
+    """if/elif/while 줄이면 조건식을 현재 변수값으로 치환해 보여주고 실제 결과를 계산한다."""
+    stripped = (line_text or "").strip()
+    m = _TRACE_COND_RE.match(stripped)
+    if not m:
+        return None
+    cond_type, expr = m.group(1), m.group(2).strip()
+    try:
+        value = eval(compile(expr, "<cond>", "eval"), {"__builtins__": allowed_builtins}, dict(frame.f_locals))
+    except Exception:
+        return None
+
+    substituted = expr
+    names = sorted((n for n in frame.f_locals if not n.startswith("__")), key=len, reverse=True)
+    for name in names:
+        try:
+            rep = _trace_format_value(frame.f_locals[name])
+        except Exception:
+            continue
+        substituted = re.sub(
+            r'(?<![A-Za-z0-9_가-힣])' + re.escape(name) + r'(?![A-Za-z0-9_가-힣])',
+            rep,
+            substituted,
+        )
+
+    return {
+        "type": cond_type,
+        "expr": expr,
+        "substituted": substituted,
+        "result": _trace_format_value(value),
+    }
+
+
 def _trace_capture_frames(frame):
     frames = []
     f = frame
@@ -983,6 +1019,7 @@ def trace_exec(code, input_str=""):
     """학생 코드를 한 줄씩 추적해 (줄 번호, 변수 상태, 누적 출력) 스텝 목록을 만든다."""
     old_stdout = sys.stdout
     sys.stdout = captured = io.StringIO()
+    src_lines = code.split("\n")
 
     class MockInput:
         def __init__(self, data):
@@ -1017,10 +1054,13 @@ def trace_exec(code, input_str=""):
             if len(events) >= _TRACE_MAX_STEPS:
                 truncated["flag"] = True
                 raise _TraceLimitExceeded()
+            line_no = frame.f_lineno
+            line_text = src_lines[line_no - 1] if 0 <= line_no - 1 < len(src_lines) else ""
             events.append({
-                "line": frame.f_lineno,
+                "line": line_no,
                 "frames": _trace_capture_frames(frame),
                 "output": captured.getvalue(),
+                "cond": _trace_eval_condition(frame, line_text, allowed_builtins),
             })
             return tracer
         if event_type == "return" and frame.f_code.co_name == "<module>":
@@ -1060,10 +1100,13 @@ def trace_exec(code, input_str=""):
             frames_disp, output_disp, err = final_frames["value"], final_output["value"], None
         else:
             frames_disp, output_disp, err = ev["frames"], ev["output"], error_msg
-        steps.append({"line": ev["line"], "frames": frames_disp, "output": output_disp, "error": err})
+        steps.append({
+            "line": ev["line"], "frames": frames_disp, "output": output_disp, "error": err,
+            "cond": ev.get("cond"),
+        })
 
     if not events and error_msg:
-        steps.append({"line": None, "frames": [], "output": "", "error": error_msg})
+        steps.append({"line": None, "frames": [], "output": "", "error": error_msg, "cond": None})
 
     return {"steps": steps, "truncated": truncated["flag"]}
 
