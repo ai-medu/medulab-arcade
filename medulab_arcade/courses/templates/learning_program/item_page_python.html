@@ -284,72 +284,91 @@
         line-height: 1.7;
     }
 
-    /* 코드 실행 애니메이션 */
-    .viz-stage { display: none; margin-top: 12px; }
-    .viz-controls { display: flex; gap: 8px; margin-top: 10px; }
-    .viz-controls button {
-        flex: 1; padding: 7px; border-radius: 6px; border: 1px solid rgba(125, 211, 252, 0.3);
-        background: rgba(125, 211, 252, 0.08); color: #7dd3fc; cursor: pointer; font-size: 12px; font-weight: 700;
+    /* 코드 실행 과정 모달 (실시간 트레이싱) */
+    .trace-overlay {
+        display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.72);
+        z-index: 5000; align-items: center; justify-content: center; padding: 24px;
     }
-    .viz-controls button:hover { background: rgba(125, 211, 252, 0.18); }
-    .viz-controls button:disabled { opacity: 0.35; cursor: default; }
-    .viz-code {
-        background: #0b0d12; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
-        padding: 10px 0; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7;
-        color: #94a3b8; margin-top: 10px;
+    .trace-overlay.open { display: flex; }
+    .trace-modal {
+        width: 100%; max-width: 1100px; height: 86vh; background: #15171f; border-radius: 16px;
+        border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+        display: flex; flex-direction: column; overflow: hidden;
     }
-    .viz-code .vline { padding: 1px 14px; white-space: pre; }
-    .viz-code .vline.active { background: rgba(59, 130, 246, 0.18); color: #fff; border-left: 3px solid #3b82f6; padding-left: 11px; }
-    .viz-desc {
-        margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: rgba(251, 191, 36, 0.08);
-        border: 1px solid rgba(251, 191, 36, 0.25); color: #fde68a; font-size: 13.5px; line-height: 1.6; min-height: 20px;
+    .trace-header {
+        padding: 14px 20px; border-bottom: 1px solid rgba(255,255,255,0.08);
+        display: flex; align-items: center; justify-content: space-between;
     }
-    .viz-board { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; min-height: 10px; }
-    .viz-var {
-        display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px;
-        background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); font-size: 13px;
-        transition: all 0.25s;
+    .trace-header strong { color: #fff; font-size: 15px; }
+    .trace-close {
+        background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #cbd5e1;
+        border-radius: 8px; width: 30px; height: 30px; cursor: pointer; font-size: 14px;
     }
-    .viz-var.flash { background: rgba(16, 185, 129, 0.22); border-color: rgba(16, 185, 129, 0.5); transform: scale(1.06); }
-    .viz-var .vname { color: #7dd3fc; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
-    .viz-var .vval { color: #fff; font-family: 'JetBrains Mono', monospace; }
-    .viz-var .vtype { color: #64748b; font-size: 10px; }
-    .viz-collection { margin-top: 10px; }
-    .viz-collection-label { font-size: 11px; color: #64748b; font-weight: 700; margin-bottom: 6px; }
-    .viz-cells-wrap { position: relative; padding-top: 26px; }
-    .viz-cells { display: flex; gap: 4px; flex-wrap: wrap; position: relative; }
-    .viz-cell {
-        min-width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
-        border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; background: rgba(255,255,255,0.03);
-        font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #cbd5e1; position: relative;
-        transition: background-color 0.3s, border-color 0.3s, transform 0.3s, opacity 0.3s;
-        padding: 0 6px;
+    .trace-close:hover { background: rgba(239,68,68,0.2); color: #fff; }
+    .trace-body { flex: 1; display: flex; gap: 0; overflow: hidden; }
+    .trace-code-pane {
+        width: 42%; background: #0b0d12; overflow-y: auto; padding: 14px 0;
+        font-family: 'JetBrains Mono', monospace; font-size: 13.5px; line-height: 1.9;
+        border-right: 1px solid rgba(255,255,255,0.08);
     }
-    .viz-cell.idx::after {
-        content: attr(data-idx); position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
-        font-size: 9px; color: #475569;
+    .trace-code-pane .tline { padding: 1px 16px; white-space: pre; color: #8b94a8; position: relative; }
+    .trace-code-pane .tline .tln { display: inline-block; width: 22px; color: #3a3f4d; user-select: none; }
+    .trace-code-pane .tline.active {
+        background: rgba(168, 85, 247, 0.18); color: #fff; border-left: 3px solid #a855f7; padding-left: 13px;
     }
-    .viz-cell.hit { background: rgba(16, 185, 129, 0.3); border-color: #10b981; color: #fff; transform: scale(1.15); }
-    .viz-cell.cmp { background: rgba(251, 191, 36, 0.25); border-color: #fbbf24; color: #fff; }
-    .viz-cell.dim { opacity: 0.35; }
-    .viz-pointer {
-        position: absolute; top: 0; left: 0; font-size: 20px; line-height: 1; opacity: 0;
-        transform: translate(-50%, 0) rotate(180deg); transform-origin: center;
-        transition: left 0.45s cubic-bezier(.4,0,.2,1), opacity 0.25s;
-        pointer-events: none;
+    .trace-state-pane { width: 58%; display: flex; flex-direction: column; overflow-y: auto; padding: 18px 20px; gap: 14px; }
+    .trace-desc {
+        padding: 10px 14px; border-radius: 10px; background: rgba(168, 85, 247, 0.08);
+        border: 1px solid rgba(168, 85, 247, 0.25); color: #e9d5ff; font-size: 13.5px; min-height: 18px;
     }
-    .viz-pointer.hit { animation: vizPointerPop 0.45s ease; }
-    @keyframes vizPointerPop {
-        0% { transform: translate(-50%, 0) rotate(180deg) scale(1); }
-        50% { transform: translate(-50%, -4px) rotate(180deg) scale(1.5); }
-        100% { transform: translate(-50%, 0) rotate(180deg) scale(1); }
+    .trace-desc.error { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.35); color: #fca5a5; white-space: pre-wrap; }
+    .trace-frame { border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: rgba(255,255,255,0.02); padding: 12px 14px; }
+    .trace-frame-label { font-size: 11px; font-weight: 800; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .trace-boxes { display: flex; flex-wrap: wrap; gap: 10px; }
+    .trace-box {
+        position: relative; display: flex; flex-direction: column; min-width: 64px; border-radius: 10px;
+        border: 2px solid rgba(125, 211, 252, 0.35); background: rgba(125, 211, 252, 0.06); overflow: hidden;
+        animation: traceBoxIn 0.35s ease;
     }
-    .viz-console {
-        margin-top: 10px; background: #000; border-radius: 8px; padding: 10px 12px; min-height: 36px;
-        font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #10b981; white-space: pre-wrap;
-        border: 1px solid rgba(16, 185, 129, 0.15);
+    @keyframes traceBoxIn { 0% { transform: scale(0.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+    .trace-box.pulse { animation: traceBoxPulse 0.5s ease; }
+    @keyframes traceBoxPulse {
+        0% { transform: scale(1); }
+        40% { transform: scale(1.12); border-color: #34d399; background: rgba(52, 211, 153, 0.18); }
+        100% { transform: scale(1); }
     }
-    .viz-step-count { font-size: 11px; color: #64748b; text-align: center; margin-top: 6px; }
+    .trace-box-name {
+        font-size: 10.5px; font-weight: 800; color: #7dd3fc; background: rgba(125,211,252,0.12);
+        padding: 3px 8px; font-family: 'JetBrains Mono', monospace;
+    }
+    .trace-box-value {
+        padding: 8px 10px; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 14px;
+        word-break: break-all;
+    }
+    .trace-box-type { position: absolute; top: 2px; right: 6px; font-size: 8.5px; color: #475569; }
+    .trace-output-wrap { margin-top: auto; }
+    .trace-output-label { font-size: 11px; font-weight: 800; color: #64748b; margin-bottom: 6px; text-transform: uppercase; }
+    .trace-output {
+        background: #000; border: 1px solid rgba(16,185,129,0.2); border-radius: 10px; padding: 12px 14px;
+        min-height: 48px; font-family: 'JetBrains Mono', monospace; font-size: 13.5px; color: #10b981;
+        white-space: pre-wrap; position: relative;
+    }
+    .trace-flight {
+        position: fixed; z-index: 6000; padding: 4px 10px; border-radius: 6px; background: #34d399; color: #000;
+        font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; pointer-events: none;
+        transition: left 0.6s cubic-bezier(.3,0,.2,1), top 0.6s cubic-bezier(.3,0,.2,1), opacity 0.6s;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+    }
+    .trace-controls { padding: 12px 20px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 10px; }
+    .trace-controls button {
+        padding: 8px 16px; border-radius: 8px; border: 1px solid rgba(168, 85, 247, 0.3);
+        background: rgba(168, 85, 247, 0.1); color: #c4b5fd; cursor: pointer; font-size: 13px; font-weight: 700;
+    }
+    .trace-controls button:hover { background: rgba(168, 85, 247, 0.22); }
+    .trace-controls button:disabled { opacity: 0.3; cursor: default; }
+    .trace-step-count { color: #64748b; font-size: 12px; margin-left: auto; }
+    .trace-truncated { color: #fbbf24; font-size: 11.5px; margin-top: 4px; }
+    .trace-loading { display: flex; align-items: center; justify-content: center; flex: 1; color: #94a3b8; font-size: 14px; }
 </style>
 {% endblock %}
 
@@ -377,27 +396,6 @@
                     {% endif %}
                 </div>
             </div>
-
-            <!-- 1.5 코드 실행 애니메이션 -->
-            {% if item.viz_data %}
-            <div class="section-part">
-                <div class="part-label">🎬 코드 실행 과정 보기</div>
-                <button class="btn-mini" style="background: rgba(125, 211, 252, 0.1); color: #7dd3fc; width: 100%;" onclick="toggleViz()">▶ 애니메이션으로 보기</button>
-                <div id="viz-stage" class="viz-stage">
-                    <div id="viz-code" class="viz-code"></div>
-                    <div id="viz-desc" class="viz-desc"></div>
-                    <div id="viz-board" class="viz-board"></div>
-                    <div id="viz-collections"></div>
-                    <div id="viz-console" class="viz-console"></div>
-                    <div class="viz-controls">
-                        <button id="viz-prev" onclick="vizStep(-1)">◀ 이전</button>
-                        <button id="viz-auto" onclick="vizAuto()">⏯ 자동재생</button>
-                        <button id="viz-next" onclick="vizStep(1)">다음 ▶</button>
-                    </div>
-                    <div id="viz-count" class="viz-step-count"></div>
-                </div>
-            </div>
-            {% endif %}
 
             <!-- 2. 예시 코드 (유형이 '예제'이고 데이터가 있을 때만 노출) -->
             {% if item.item_type == 'example' and item.answer_code %}
@@ -512,6 +510,7 @@
             <div id="editor">{{ user_progress.code|default:"" }}</div>
         </div>
         <div class="editor-footer">
+            <button class="btn-main" style="background: rgba(168, 85, 247, 0.15); color: #c4b5fd; border: 1px solid rgba(168, 85, 247, 0.3);" onclick="openTraceModal()">🎬 실행 과정 보기</button>
             <button class="btn-main btn-run" onclick="runCode()">실행 (Run)</button>
             <button class="btn-main btn-grade" onclick="submitCode()">채점하기 (Grade)</button>
         </div>
@@ -546,6 +545,39 @@
 </div>
 
 <div id="toast" style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); padding: 12px 30px; border-radius: 10px; z-index: 9999; display: none; font-weight: 800; box-shadow: 0 10px 30px rgba(0,0,0,0.5);"></div>
+
+<!-- 코드 실행 과정 모달 -->
+<div id="trace-overlay" class="trace-overlay">
+    <div class="trace-modal">
+        <div class="trace-header">
+            <strong>🎬 내 코드가 실행되는 과정</strong>
+            <button class="trace-close" onclick="closeTraceModal()">✕</button>
+        </div>
+        <div id="trace-loading" class="trace-loading">코드를 분석하는 중...</div>
+        <div id="trace-content" style="display:none; flex: 1; overflow: hidden; display: flex; flex-direction: column;">
+            <div class="trace-body">
+                <div id="trace-code-pane" class="trace-code-pane"></div>
+                <div class="trace-state-pane">
+                    <div id="trace-desc" class="trace-desc"></div>
+                    <div id="trace-frames"></div>
+                    <div class="trace-output-wrap">
+                        <div class="trace-output-label">🖥 출력 (OUTPUT)</div>
+                        <div id="trace-output" class="trace-output"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="trace-controls">
+                <button id="trace-prev" onclick="traceStep(-1)">◀ 이전</button>
+                <button id="trace-auto" onclick="traceAuto()">⏯ 자동재생</button>
+                <button id="trace-next" onclick="traceStep(1)">다음 ▶</button>
+                <div>
+                    <span id="trace-count" class="trace-step-count"></span>
+                    <div id="trace-truncated" class="trace-truncated" style="display:none;">⚠ 실행 과정이 너무 길어 일부만 표시해요.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}
 
@@ -859,183 +891,257 @@
         copyText(code, btn);
     }
 
-    // ===== 코드 실행 애니메이션 =====
-    {% if item.viz_data %}
-    const vizData = {{ item.viz_data|safe }};
-    const vizLines = vizData.code.split('\n');
-    let vizIdx = -1;
-    let vizVars = {};
-    let vizCollEls = {};
-    let vizTimer = null;
-    let vizStarted = false;
+    // ===== 코드 실행 과정 모달 (내가 작성한 코드를 실시간으로 추적) =====
+    let traceSteps = [];
+    let traceLines = [];
+    let traceIdx = -1;
+    let traceTimer = null;
+    let traceBoxEls = {}; // name -> box element (현재 보이는 박스들, 변수 영속 표시용)
+    let tracePrevOutput = '';
 
-    function vizRenderCode(activeLine) {
-        const el = document.getElementById('viz-code');
-        el.innerHTML = vizLines.map((line, i) => {
-            const n = i + 1;
-            const cls = (n === activeLine) ? 'vline active' : 'vline';
-            const safe = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') || ' ';
-            return `<div class="${cls}">${safe}</div>`;
-        }).join('');
-    }
-
-    function vizEsc(s) {
+    function traceEsc(s) {
         return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
-    function vizRenderBoard(flashName) {
-        const board = document.getElementById('viz-board');
-        board.innerHTML = Object.keys(vizVars).map(name => {
-            const v = vizVars[name];
-            const flash = (name === flashName) ? ' flash' : '';
-            return `<div class="viz-var${flash}"><span class="vname">${vizEsc(name)}</span><span class="vval">${vizEsc(v.value)}</span><span class="vtype">${vizEsc(v.type || '')}</span></div>`;
+    function openTraceModal() {
+        if (isObjective) return;
+        const overlay = document.getElementById('trace-overlay');
+        overlay.classList.add('open');
+        document.getElementById('trace-loading').style.display = 'flex';
+        document.getElementById('trace-content').style.display = 'none';
+
+        const code = editor.getValue();
+        if (!code.trim()) {
+            showToast('코드를 먼저 작성해 주세요.', 'error');
+            overlay.classList.remove('open');
+            return;
+        }
+        traceLines = code.split('\n');
+        const inputData = getSerializedInput();
+
+        const fd = new FormData();
+        fd.append('code', code);
+        fd.append('input', inputData);
+        fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch('{% url "trace_code" %}', { method: 'POST', body: fd })
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('trace-loading').style.display = 'none';
+            document.getElementById('trace-content').style.display = 'flex';
+            if (data.error) {
+                showToast(data.error, 'error');
+                closeTraceModal();
+                return;
+            }
+            traceSteps = data.steps || [];
+            document.getElementById('trace-truncated').style.display = data.truncated ? 'block' : 'none';
+            if (!traceSteps.length) {
+                showToast('실행할 코드가 없어요.', 'error');
+                closeTraceModal();
+                return;
+            }
+            traceIdx = 0;
+            traceBoxEls = {};
+            tracePrevOutput = '';
+            document.getElementById('trace-frames').innerHTML = '';
+            document.getElementById('trace-output').innerText = '';
+            traceApplyStep(0, false);
+        })
+        .catch(() => {
+            showToast('실행 과정을 불러오지 못했어요.', 'error');
+            closeTraceModal();
+        });
+    }
+
+    function closeTraceModal() {
+        document.getElementById('trace-overlay').classList.remove('open');
+        if (traceTimer) { clearInterval(traceTimer); traceTimer = null; }
+        document.getElementById('trace-auto').innerText = '⏯ 자동재생';
+    }
+
+    function traceRenderCode(activeLine) {
+        const el = document.getElementById('trace-code-pane');
+        el.innerHTML = traceLines.map((line, i) => {
+            const n = i + 1;
+            const cls = (n === activeLine) ? 'tline active' : 'tline';
+            const safe = traceEsc(line) || ' ';
+            return `<div class="${cls}" data-line="${n}"><span class="tln">${n}</span>${safe}</div>`;
         }).join('');
+        if (activeLine) {
+            const activeEl = el.querySelector(`[data-line="${activeLine}"]`);
+            if (activeEl) activeEl.scrollIntoView({ block: 'center' });
+        }
     }
 
-    function vizRenderCollections(collections) {
-        const wrap = document.getElementById('viz-collections');
-        const incomingLabels = new Set((collections || []).map(c => c.label || ''));
-        Object.keys(vizCollEls).forEach(label => {
-            if (!incomingLabels.has(label)) {
-                vizCollEls[label].container.remove();
-                delete vizCollEls[label];
-            }
-        });
-        if (!collections || !collections.length) return;
-
-        const toSet = (v) => Array.isArray(v) ? v : (v != null ? [v] : []);
-
-        collections.forEach(col => {
-            const label = col.label || '';
-            let entry = vizCollEls[label];
-            if (!entry) {
-                const container = document.createElement('div');
-                container.className = 'viz-collection';
-                container.innerHTML = `<div class="viz-collection-label">${vizEsc(label)}</div><div class="viz-cells-wrap"><div class="viz-pointer">👆</div><div class="viz-cells"></div></div>`;
-                wrap.appendChild(container);
-                entry = {
-                    container,
-                    cellsEl: container.querySelector('.viz-cells'),
-                    pointerEl: container.querySelector('.viz-pointer'),
-                    items: null,
-                };
-                vizCollEls[label] = entry;
-            }
-
-            const itemsChanged = !entry.items || entry.items.length !== col.items.length ||
-                entry.items.some((v, i) => v !== col.items[i]);
-            if (itemsChanged) {
-                entry.cellsEl.innerHTML = col.items.map((it, i) =>
-                    `<div class="viz-cell idx" data-idx="${col.index_labels ? vizEsc(col.index_labels[i]) : i}">${vizEsc(it)}</div>`
-                ).join('');
-                entry.items = col.items.slice();
-            }
-
-            const hitSet = toSet(col.hit_idx);
-            const cmpSet = toSet(col.cmp_idx);
-            const dimSet = toSet(col.dim_idx);
-            const cellEls = entry.cellsEl.children;
-            for (let i = 0; i < cellEls.length; i++) {
-                cellEls[i].classList.remove('hit', 'cmp', 'dim');
-                if (hitSet.includes(i)) cellEls[i].classList.add('hit');
-                else if (cmpSet.includes(i)) cellEls[i].classList.add('cmp');
-                else if (dimSet.includes(i)) cellEls[i].classList.add('dim');
-            }
-
-            const targetIdx = cmpSet.length ? cmpSet[0] : (hitSet.length ? hitSet[0] : null);
-            if (targetIdx != null && cellEls[targetIdx]) {
-                const cellEl = cellEls[targetIdx];
-                entry.pointerEl.style.opacity = '1';
-                entry.pointerEl.style.left = (cellEl.offsetLeft + cellEl.offsetWidth / 2) + 'px';
-                entry.pointerEl.classList.toggle('hit', hitSet.includes(targetIdx));
-            } else {
-                entry.pointerEl.style.opacity = '0';
-                entry.pointerEl.classList.remove('hit');
-            }
-        });
+    function traceBoxKey(frameLabel, name) {
+        return frameLabel + '::' + name;
     }
 
-    function vizApplyStep(i) {
-        const step = vizData.steps[i];
-        if (!step) return;
-        vizRenderCode(step.line || null);
-        document.getElementById('viz-desc').innerText = step.desc || '';
+    function traceRenderFrames(frames) {
+        const wrap = document.getElementById('trace-frames');
+        const seenKeys = new Set();
+        const seenFrameLabels = new Set((frames || []).map(f => f.label));
 
-        let flashName = null;
-        if (step.set_vars) {
-            step.set_vars.forEach(sv => {
-                vizVars[sv.name] = { value: sv.value, type: sv.type };
-                flashName = sv.name;
+        // 사라진 함수 프레임(함수 호출이 끝난 경우) 제거
+        Array.from(wrap.children).forEach(child => {
+            if (!seenFrameLabels.has(child.dataset.frameLabel)) {
+                child.remove();
+            }
+        });
+
+        (frames || []).forEach(frame => {
+            let frameEl = wrap.querySelector(`[data-frame-label="${CSS.escape(frame.label)}"]`);
+            if (!frameEl) {
+                frameEl = document.createElement('div');
+                frameEl.className = 'trace-frame';
+                frameEl.dataset.frameLabel = frame.label;
+                frameEl.innerHTML = `<div class="trace-frame-label">${frame.label === '전역' ? '🌐 전역 변수' : '📦 ' + traceEsc(frame.label) + '() 함수 안'}</div><div class="trace-boxes"></div>`;
+                wrap.appendChild(frameEl);
+            }
+            const boxesEl = frameEl.querySelector('.trace-boxes');
+            const seenNamesHere = new Set();
+
+            (frame.vars || []).forEach(v => {
+                const key = traceBoxKey(frame.label, v.name);
+                seenKeys.add(key);
+                seenNamesHere.add(v.name);
+                let box = traceBoxEls[key];
+                if (!box) {
+                    box = document.createElement('div');
+                    box.className = 'trace-box';
+                    box.innerHTML = `<span class="trace-box-type"></span><span class="trace-box-name"></span><span class="trace-box-value"></span>`;
+                    boxesEl.appendChild(box);
+                    traceBoxEls[key] = box;
+                }
+                const valEl = box.querySelector('.trace-box-value');
+                const prevVal = valEl.innerText;
+                box.querySelector('.trace-box-name').innerText = v.name;
+                box.querySelector('.trace-box-type').innerText = v.type || '';
+                valEl.innerText = v.value;
+                if (prevVal !== '' && prevVal !== v.value) {
+                    box.classList.remove('pulse'); void box.offsetWidth; box.classList.add('pulse');
+                }
             });
-        }
-        if (step.clear_vars) {
-            step.clear_vars.forEach(n => { delete vizVars[n]; });
-        }
-        vizRenderBoard(flashName);
-        vizRenderCollections(step.collections);
 
-        const consoleEl = document.getElementById('viz-console');
-        if (step.console_lines) {
-            consoleEl.innerText = step.console_lines.join('\n');
-        }
-
-        document.getElementById('viz-count').innerText = `${i + 1} / ${vizData.steps.length}`;
-        document.getElementById('viz-prev').disabled = (i <= 0);
-        document.getElementById('viz-next').disabled = (i >= vizData.steps.length - 1);
+            // 이 프레임에서 사라진 변수(드물지만) 제거
+            Object.keys(traceBoxEls).forEach(key => {
+                if (key.startsWith(frame.label + '::') && !seenKeys.has(key)) {
+                    const el = traceBoxEls[key];
+                    if (el && el.parentElement === boxesEl) el.remove();
+                    delete traceBoxEls[key];
+                }
+            });
+        });
     }
 
-    function vizRebuildUpTo(i) {
-        vizVars = {};
-        vizCollEls = {};
-        document.getElementById('viz-collections').innerHTML = '';
-        for (let k = 0; k <= i; k++) {
-            vizApplyStep(k);
+    function traceFindSourceBox(lineText) {
+        // 방금 실행된 줄에 등장하는 변수 이름 중, 현재 박스로 떠 있는 것을 찾아 '출발점'으로 사용
+        if (!lineText) return null;
+        const names = Object.keys(traceBoxEls);
+        for (const key of names) {
+            const varName = key.split('::').pop();
+            const re = new RegExp('(^|[^A-Za-z0-9_가-힣])' + varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^A-Za-z0-9_가-힣]|$)');
+            if (re.test(lineText) && traceBoxEls[key]) {
+                return traceBoxEls[key];
+            }
         }
+        return null;
     }
 
-    function vizStep(delta) {
-        const next = vizIdx + delta;
-        if (next < 0 || next >= vizData.steps.length) return;
-        vizIdx = next;
-        if (delta > 0) {
-            // 한 칸 전진: 기존 DOM을 유지한 채 갱신 → 포인터가 부드럽게 이동
-            vizApplyStep(vizIdx);
+    function traceFlyToOutput(text, sourceEl) {
+        const outputEl = document.getElementById('trace-output');
+        const outRect = outputEl.getBoundingClientRect();
+        const startRect = sourceEl ? sourceEl.getBoundingClientRect() : outRect;
+
+        const ghost = document.createElement('div');
+        ghost.className = 'trace-flight';
+        ghost.innerText = text.length > 24 ? text.slice(0, 24) + '…' : text;
+        ghost.style.left = startRect.left + startRect.width / 2 + 'px';
+        ghost.style.top = startRect.top + 'px';
+        ghost.style.opacity = '1';
+        document.body.appendChild(ghost);
+
+        requestAnimationFrame(() => {
+            ghost.style.left = (outRect.left + 16) + 'px';
+            ghost.style.top = (outRect.top + 10) + 'px';
+            ghost.style.opacity = '0.2';
+        });
+        setTimeout(() => ghost.remove(), 650);
+    }
+
+    function traceApplyStep(i, animateOutput) {
+        const step = traceSteps[i];
+        if (!step) return;
+        traceRenderCode(step.line);
+        const descEl = document.getElementById('trace-desc');
+        if (step.error) {
+            descEl.className = 'trace-desc error';
+            descEl.innerText = '❌ 오류 발생: ' + step.error;
         } else {
-            // 뒤로 가기: 되돌릴 방법이 없으므로 처음부터 다시 재생
-            vizRebuildUpTo(vizIdx);
+            descEl.className = 'trace-desc';
+            const lineText = step.line ? (traceLines[step.line - 1] || '').trim() : '';
+            descEl.innerText = lineText ? `실행 중: ${lineText}` : '';
+        }
+
+        traceRenderFrames(step.frames);
+
+        const outputEl = document.getElementById('trace-output');
+        const newOutput = step.output || '';
+        if (animateOutput && newOutput.length > tracePrevOutput.length && newOutput.startsWith(tracePrevOutput)) {
+            const added = newOutput.slice(tracePrevOutput.length).replace(/\n+$/, '');
+            if (added) {
+                const lineText = step.line ? traceLines[step.line - 1] : '';
+                const src = traceFindSourceBox(lineText);
+                traceFlyToOutput(added, src);
+            }
+        }
+        outputEl.innerText = newOutput;
+        tracePrevOutput = newOutput;
+
+        document.getElementById('trace-count').innerText = `${i + 1} / ${traceSteps.length}`;
+        document.getElementById('trace-prev').disabled = (i <= 0);
+        document.getElementById('trace-next').disabled = (i >= traceSteps.length - 1);
+    }
+
+    function traceRebuildUpTo(i) {
+        traceBoxEls = {};
+        tracePrevOutput = '';
+        document.getElementById('trace-frames').innerHTML = '';
+        for (let k = 0; k <= i; k++) {
+            traceApplyStep(k, false);
         }
     }
 
-    function vizAuto() {
-        const btn = document.getElementById('viz-auto');
-        if (vizTimer) {
-            clearInterval(vizTimer);
-            vizTimer = null;
+    function traceStep(delta) {
+        const next = traceIdx + delta;
+        if (next < 0 || next >= traceSteps.length) return;
+        traceIdx = next;
+        if (delta > 0) {
+            traceApplyStep(traceIdx, true);
+        } else {
+            traceRebuildUpTo(traceIdx);
+        }
+    }
+
+    function traceAuto() {
+        const btn = document.getElementById('trace-auto');
+        if (traceTimer) {
+            clearInterval(traceTimer);
+            traceTimer = null;
             btn.innerText = '⏯ 자동재생';
             return;
         }
         btn.innerText = '⏸ 정지';
-        vizTimer = setInterval(() => {
-            if (vizIdx >= vizData.steps.length - 1) {
-                clearInterval(vizTimer);
-                vizTimer = null;
+        traceTimer = setInterval(() => {
+            if (traceIdx >= traceSteps.length - 1) {
+                clearInterval(traceTimer);
+                traceTimer = null;
                 btn.innerText = '⏯ 자동재생';
                 return;
             }
-            vizStep(1);
-        }, 1400);
+            traceStep(1);
+        }, 1300);
     }
-
-    function toggleViz() {
-        const stage = document.getElementById('viz-stage');
-        const isOpen = stage.style.display === 'block';
-        stage.style.display = isOpen ? 'none' : 'block';
-        if (!isOpen && !vizStarted) {
-            vizStarted = true;
-            vizIdx = 0;
-            vizRebuildUpTo(0);
-        }
-    }
-    {% endif %}
 </script>
 {% endblock %}

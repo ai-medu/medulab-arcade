@@ -939,6 +939,135 @@ def safe_exec(code, input_str=""):
     return output
 
 
+_TRACE_FILENAME = "<student_code>"
+_TRACE_MAX_STEPS = 400
+
+
+class _TraceLimitExceeded(Exception):
+    pass
+
+
+def _trace_format_value(value):
+    if isinstance(value, str):
+        return value
+    try:
+        return repr(value)
+    except Exception:
+        return "<표시 불가>"
+
+
+def _trace_capture_frames(frame):
+    frames = []
+    f = frame
+    while f is not None and f.f_code.co_filename == _TRACE_FILENAME:
+        label = "전역" if f.f_code.co_name == "<module>" else f.f_code.co_name
+        safe_vars = []
+        for name, value in f.f_locals.items():
+            if name.startswith("__"):
+                continue
+            try:
+                safe_vars.append({
+                    "name": name,
+                    "value": _trace_format_value(value),
+                    "type": type(value).__name__,
+                })
+            except Exception:
+                safe_vars.append({"name": name, "value": "?", "type": "?"})
+        frames.append({"label": label, "vars": safe_vars})
+        f = f.f_back
+    frames.reverse()
+    return frames
+
+
+def trace_exec(code, input_str=""):
+    """학생 코드를 한 줄씩 추적해 (줄 번호, 변수 상태, 누적 출력) 스텝 목록을 만든다."""
+    old_stdout = sys.stdout
+    sys.stdout = captured = io.StringIO()
+
+    class MockInput:
+        def __init__(self, data):
+            self.lines = data.splitlines() if data else []
+            self.idx = 0
+
+        def __call__(self, prompt=""):
+            if self.idx < len(self.lines):
+                res = self.lines[self.idx]
+                self.idx += 1
+                return res
+            return ""
+
+    allowed_builtins = {
+        "print": print, "range": range, "len": len, "int": int, "str": str,
+        "float": float, "list": list, "tuple": tuple, "dict": dict, "set": set,
+        "sum": sum, "abs": abs, "round": round, "map": map, "max": max, "min": min,
+        "sorted": sorted, "enumerate": enumerate, "zip": zip, "input": MockInput(input_str),
+        "type": type, "ord": ord, "chr": chr, "bool": bool, "all": all, "any": any,
+        "reversed": reversed, "pow": pow, "divmod": divmod, "isinstance": isinstance,
+    }
+
+    events = []
+    truncated = {"flag": False}
+    final_frames = {"value": None}
+    final_output = {"value": None}
+
+    def tracer(frame, event_type, arg):
+        if frame.f_code.co_filename != _TRACE_FILENAME:
+            return None
+        if event_type == "line":
+            if len(events) >= _TRACE_MAX_STEPS:
+                truncated["flag"] = True
+                raise _TraceLimitExceeded()
+            events.append({
+                "line": frame.f_lineno,
+                "frames": _trace_capture_frames(frame),
+                "output": captured.getvalue(),
+            })
+            return tracer
+        if event_type == "return" and frame.f_code.co_name == "<module>":
+            final_frames["value"] = _trace_capture_frames(frame)
+            final_output["value"] = captured.getvalue()
+            return tracer
+        return tracer
+
+    error_msg = None
+    try:
+        code_obj = compile(code, _TRACE_FILENAME, "exec")
+        sys.settrace(tracer)
+        try:
+            exec(code_obj, {"__builtins__": allowed_builtins})
+        finally:
+            sys.settrace(None)
+    except _TraceLimitExceeded:
+        pass
+    except SyntaxError as e:
+        korean_hint = get_korean_error_hint(e)
+        error_msg = f"{e}\n\n[💡 도움말]\n{korean_hint}"
+    except Exception as e:
+        sys.settrace(None)
+        korean_hint = get_korean_error_hint(e)
+        error_msg = f"{e}\n\n[💡 도움말]\n{korean_hint}"
+    finally:
+        sys.stdout = old_stdout
+
+    steps = []
+    n = len(events)
+    for i, ev in enumerate(events):
+        is_last = (i == n - 1)
+        if not is_last:
+            nxt = events[i + 1]
+            frames_disp, output_disp, err = nxt["frames"], nxt["output"], None
+        elif final_frames["value"] is not None:
+            frames_disp, output_disp, err = final_frames["value"], final_output["value"], None
+        else:
+            frames_disp, output_disp, err = ev["frames"], ev["output"], error_msg
+        steps.append({"line": ev["line"], "frames": frames_disp, "output": output_disp, "error": err})
+
+    if not events and error_msg:
+        steps.append({"line": None, "frames": [], "output": "", "error": error_msg})
+
+    return {"steps": steps, "truncated": truncated["flag"]}
+
+
 def parse_objective_options(raw_text):
     options = []
     if not raw_text:
@@ -2817,6 +2946,22 @@ def submit_ppt_exam(request, item_id):
     finally:
         if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
+
+# --- (7-1) 코드 실행 과정 추적 API (학생이 작성한 코드를 한 줄씩 추적) ---
+@login_required
+def trace_code(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=400)
+
+    code = request.POST.get("code", "")
+    input_str = request.POST.get("input", "")
+
+    if not code.strip():
+        return JsonResponse({"error": "코드를 먼저 작성해 주세요."}, status=400)
+
+    result = trace_exec(code, input_str)
+    return JsonResponse(result)
+
 
 # --- (7) 코드 채점 API ---
 @login_required
