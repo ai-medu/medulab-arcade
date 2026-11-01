@@ -568,7 +568,6 @@
             </div>
             <div class="trace-controls">
                 <button id="trace-prev" onclick="traceStep(-1)">◀ 이전</button>
-                <button id="trace-auto" onclick="traceAuto()">⏯ 자동재생</button>
                 <button id="trace-next" onclick="traceStep(1)">다음 ▶</button>
                 <div>
                     <span id="trace-count" class="trace-step-count"></span>
@@ -895,7 +894,6 @@
     let traceSteps = [];
     let traceLines = [];
     let traceIdx = -1;
-    let traceTimer = null;
     let traceBoxEls = {}; // name -> box element (현재 보이는 박스들, 변수 영속 표시용)
     let tracePrevOutput = '';
 
@@ -918,6 +916,12 @@
         }
         traceLines = code.split('\n');
         const inputData = getSerializedInput();
+
+        if (/\binput\s*\(/.test(code) && !inputData.trim()) {
+            overlay.classList.remove('open');
+            showToast('input()에 사용할 값을 오른쪽 "입력값" 칸에 먼저 입력한 뒤 실행 과정을 봐주세요!', 'error');
+            return;
+        }
 
         const fd = new FormData();
         fd.append('code', code);
@@ -956,8 +960,6 @@
 
     function closeTraceModal() {
         document.getElementById('trace-overlay').classList.remove('open');
-        if (traceTimer) { clearInterval(traceTimer); traceTimer = null; }
-        document.getElementById('trace-auto').innerText = '⏯ 자동재생';
     }
 
     function traceRenderCode(activeLine) {
@@ -1124,24 +1126,5 @@
         }
     }
 
-    function traceAuto() {
-        const btn = document.getElementById('trace-auto');
-        if (traceTimer) {
-            clearInterval(traceTimer);
-            traceTimer = null;
-            btn.innerText = '⏯ 자동재생';
-            return;
-        }
-        btn.innerText = '⏸ 정지';
-        traceTimer = setInterval(() => {
-            if (traceIdx >= traceSteps.length - 1) {
-                clearInterval(traceTimer);
-                traceTimer = null;
-                btn.innerText = '⏯ 자동재생';
-                return;
-            }
-            traceStep(1);
-        }, 1300);
-    }
 </script>
 {% endblock %}
