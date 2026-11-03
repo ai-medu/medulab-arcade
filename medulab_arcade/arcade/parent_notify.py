@@ -171,7 +171,7 @@ def send_invoice_notice(invoice, kind=NotificationLog.KIND_INVOICE):
         _no_parent(kind, student, invoice=invoice, target_date=today)
         return 0
 
-    pay_url = tuition_pay_url(invoice)
+    pay_token = invoice.ensure_pay_token()
     overdue = invoice.due_date < today
     variables = {
         '#{학생이름}': _student_name(student),
@@ -180,11 +180,12 @@ def send_invoice_notice(invoice, kind=NotificationLog.KIND_INVOICE):
         '#{금액}': f'{invoice.amount:,}원',
         '#{납부기한}': invoice.due_date.strftime('%Y.%m.%d'),
         '#{납부상태}': '납부 기한이 지난 미납 상태입니다.' if overdue else '아직 납부 전입니다.',
+        # 템플릿 버튼 링크를 https://medulab.kr/pay/#{결제코드}/ 로 등록해 두면 이 값으로 결제 주소가 완성된다
+        '#{결제코드}': pay_token,
     }
-    buttons = [{'buttonType': 'WL', 'buttonName': '학원비 결제하기', 'linkMo': pay_url, 'linkPc': pay_url}]
     sent = 0
     for phone in phones:
         if _deliver(kind, student, phone, settings.SOLAPI_TEMPLATE_INVOICE, variables,
-                    buttons=buttons, invoice=invoice, target_date=today):
+                    invoice=invoice, target_date=today):
             sent += 1
     return sent

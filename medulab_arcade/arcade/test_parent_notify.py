@@ -97,8 +97,8 @@ class ParentNotifyTests(TestCase):
             self.assertEqual(parent_notify.send_invoice_notice(inv), 0)
         opts = post.call_args.kwargs['json']['message']['kakaoOptions']
         inv.refresh_from_db()
-        url = f'https://example.test/pay/{inv.pay_token}/'
-        self.assertEqual(opts['buttons'][0]['linkMo'], url)
+        self.assertEqual(opts['variables']['#{결제코드}'], inv.pay_token)
+        self.assertNotIn('buttons', opts)
         self.assertEqual(opts['variables']['#{금액}'], '180,000원')
 
     @override_settings(**SOLAPI)
