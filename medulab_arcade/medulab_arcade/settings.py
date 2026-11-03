@@ -27,6 +27,16 @@ SITE_BASE_URL = os.environ.get('SITE_BASE_URL', 'https://medulab.kr')
 KAKAO_CLIENT_ID = os.environ.get('KAKAO_CLIENT_ID', '')
 KAKAO_CLIENT_SECRET = os.environ.get('KAKAO_CLIENT_SECRET', '')
 
+# 학부모 카카오 알림톡 (솔라피). 키/채널/템플릿이 모두 설정되어야 실제 발송하고,
+# 하나라도 비어 있으면 발송 없이 NotificationLog에 '테스트(미발송)'으로만 기록한다.
+SOLAPI_API_KEY = os.environ.get('SOLAPI_API_KEY', '')
+SOLAPI_API_SECRET = os.environ.get('SOLAPI_API_SECRET', '')
+SOLAPI_PF_ID = os.environ.get('SOLAPI_PF_ID', '')  # 카카오 비즈니스 채널 연동 ID (KA01PF...)
+SOLAPI_SENDER = os.environ.get('SOLAPI_SENDER', '')  # 등록된 발신번호 (알림톡 실패 시 문자 대체발송용)
+SOLAPI_SMS_FALLBACK = os.environ.get('SOLAPI_SMS_FALLBACK', '1') == '1'
+SOLAPI_TEMPLATE_ATTENDANCE = os.environ.get('SOLAPI_TEMPLATE_ATTENDANCE', '')  # 출석 알림 템플릿 ID
+SOLAPI_TEMPLATE_INVOICE = os.environ.get('SOLAPI_TEMPLATE_INVOICE', '')  # 학원비 청구/미납 안내 템플릿 ID
+
 # 학원 출석 체크 - 학생의 GPS 좌표가 학원 좌표 기준 반경 이내면 "학원에서 접속"으로 판정
 ACADEMY_LATITUDE = os.environ.get('ACADEMY_LATITUDE', '')
 ACADEMY_LONGITUDE = os.environ.get('ACADEMY_LONGITUDE', '')

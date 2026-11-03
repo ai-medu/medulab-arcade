@@ -592,6 +592,8 @@ class TuitionInvoice(models.Model):
     refunded_amount = models.PositiveIntegerField('환불 금액(원)', default=0)
     canceled_payment_id = models.CharField('취소된 포트원 결제건 ID', max_length=100, blank=True,
                                            help_text='취소·환불된 결제건. 취소 후에는 새 결제건 ID가 발급됩니다.')
+    pay_token = models.CharField('결제 링크 토큰', max_length=64, unique=True, null=True, blank=True, editable=False,
+                                 help_text='학부모에게 보내는 로그인 없는 결제 링크용 추측 불가 토큰')
     created_at = models.DateTimeField('생성일', auto_now_add=True)
 
     class Meta:
@@ -614,6 +616,54 @@ class TuitionInvoice(models.Model):
         if not self.portone_payment_id:
             self.portone_payment_id = f'tuition-{uuid.uuid4().hex}'
         super().save(*args, **kwargs)
+
+    def ensure_pay_token(self):
+        """결제 링크 토큰이 없으면 만들어 저장하고 돌려준다 (기존 청구서는 발송 시점에 생성)"""
+        if not self.pay_token:
+            self.pay_token = secrets.token_urlsafe(24)
+            self.save(update_fields=['pay_token'])
+        return self.pay_token
+
+
+class NotificationLog(models.Model):
+    """학부모 카카오 알림톡 발송 기록 (중복 발송 방지 + 관리자 확인용)"""
+    KIND_ATTENDANCE = 'attendance'
+    KIND_INVOICE = 'invoice'
+    KIND_REMINDER = 'reminder'
+    KIND_CHOICES = [
+        (KIND_ATTENDANCE, '출석 알림'),
+        (KIND_INVOICE, '학원비 청구 안내'),
+        (KIND_REMINDER, '학원비 미납 안내'),
+    ]
+    STATUS_SENT = 'sent'
+    STATUS_FAILED = 'failed'
+    STATUS_SKIPPED = 'skipped'
+    STATUS_DRYRUN = 'dry_run'
+    STATUS_CHOICES = [
+        (STATUS_SENT, '발송 완료'),
+        (STATUS_FAILED, '발송 실패'),
+        (STATUS_SKIPPED, '건너뜀'),
+        (STATUS_DRYRUN, '테스트(미발송)'),
+    ]
+
+    kind = models.CharField('종류', max_length=12, choices=KIND_CHOICES)
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notification_logs', verbose_name='학생')
+    invoice = models.ForeignKey(TuitionInvoice, on_delete=models.CASCADE, null=True, blank=True,
+                                related_name='notification_logs', verbose_name='청구서')
+    target_date = models.DateField('대상 날짜', null=True, blank=True, help_text='출석 알림이면 출석일')
+    phone = models.CharField('수신 번호', max_length=20, blank=True)
+    status = models.CharField('상태', max_length=10, choices=STATUS_CHOICES)
+    detail = models.CharField('상세', max_length=300, blank=True)
+    created_at = models.DateTimeField('기록일', auto_now_add=True)
+
+    class Meta:
+        verbose_name = '알림톡 발송 기록'
+        verbose_name_plural = '알림톡 발송 기록'
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['kind', 'student', 'target_date'])]
+
+    def __str__(self):
+        return f'{self.get_kind_display()} → {self.student.username} ({self.get_status_display()})'
 
 
 class TuitionBatchPayment(models.Model):

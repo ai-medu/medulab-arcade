@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib import admin
 from django.utils import timezone
-from .models import Badge, Bookmark, Category, Like, Project, ScheduleAttachment, ScheduleEvent, UserBadge, UserProfile, Notice, Award, Certification, CertInfo, CompetitionType, NavItem
+from .models import NotificationLog, Badge, Bookmark, Category, Like, Project, ScheduleAttachment, ScheduleEvent, UserBadge, UserProfile, Notice, Award, Certification, CertInfo, CompetitionType, NavItem
 
 
 BADGE_CRITERIA_HELP = (
@@ -202,3 +202,11 @@ class NavItemAdmin(admin.ModelAdmin):
     list_filter = ('section', 'is_active')
     ordering = ('section', 'order')
 
+
+
+@admin.register(NotificationLog)
+class NotificationLogAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'kind', 'student', 'phone', 'status', 'detail')
+    list_filter = ('kind', 'status')
+    search_fields = ('student__username', 'phone')
+    date_hierarchy = 'created_at'

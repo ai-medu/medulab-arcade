@@ -57,7 +57,9 @@
         </div>
     </div>
 
-    {% if not portone_store_id %}
+    {% if invoice.status == 'paid' %}
+    <div class="pay-status success" style="display:block;">이미 납부가 완료된 청구서입니다. 감사합니다.</div>
+    {% elif not portone_store_id %}
     <div class="pay-status info" style="display:block;">결제 연동 설정이 아직 완료되지 않았습니다. 관리자에게 문의해 주세요.</div>
     {% else %}
     <div class="pay-methods">
@@ -82,13 +84,17 @@
     }
 
     function verifyPayment() {
-        fetch('{% url "tuition_verify_payment" invoice.id %}', {
+        fetch('{% if public_token %}{% url "tuition_pay_public_verify" public_token %}{% else %}{% url "tuition_verify_payment" invoice.id %}{% endif %}', {
             method: 'POST',
             headers: { 'X-CSRFToken': '{{ csrf_token }}' },
         }).then(function (r) { return r.json(); }).then(function (data) {
             if (data.ok) {
                 showStatus('success', '결제가 완료되었습니다.');
+                {% if public_token %}
+                setTimeout(function () { window.location.reload(); }, 1200);
+                {% else %}
                 setTimeout(function () { window.location.href = '{% url "my_report" %}'; }, 1200);
+                {% endif %}
             } else {
                 showStatus('error', data.error || '결제 확인에 실패했습니다.');
                 document.querySelectorAll('.pay-btn').forEach(function (b) { b.disabled = false; });

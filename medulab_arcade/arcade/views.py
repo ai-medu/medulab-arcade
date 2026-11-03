@@ -27,6 +27,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required, user_passes_test
 from .badge_service import get_active_badges_with_user_state, get_recent_user_badges, get_user_badge_count
+from .parent_notify import notify_attendance
 from .models import ClassDiscountType, Badge, Project, Category, Like, Bookmark, Tag, UserProfile, EmailChangeRequest, SignupEmailVerification, ScheduleAttachment, ScheduleEvent, Notice, Award, Certification, CertInfo, CompetitionType, Contest, SchoolClass, ClassEnrollment, ParentChildLink, TuitionInvoice, ClassAttendance, TuitionBatchPayment, InstagramConfig, InstagramPost, InstagramUploadDraft, InstagramUploadDraftItem, FutureCareerSave, ContentFinderSubmission, ContentIdeaThumbnailSubmission, AIPromptCardOrder, ContentFinderDraft, ContentIdeaFinderDraft, ContentPlanDraft, ChannelBrandingDraft
 from .forms import ProjectUploadForm, SignUpForm, AdminUserForm, AdminUserProfileForm, BadgeForm, ScheduleEventForm, TimetableForm, UserProfileUpdateForm, MedulabParentUpgradeForm, SocialOnboardingForm, SchoolClassForm
 from .holiday_utils import ensure_holidays
@@ -3914,7 +3915,10 @@ def class_modal_invoice_save(request, class_id):
     elif status != TuitionInvoice.STATUS_PAID:
         invoice.paid_at = None
     invoice.status = status
+    is_new_invoice = invoice.pk is None
     invoice.save()
+    if is_new_invoice:
+        _notify_invoice_safely(invoice)
     payload = _class_modal_payload(school_class)
     payload['message'] = '청구서를 저장했습니다.'
     return JsonResponse(payload)
@@ -4093,9 +4097,19 @@ def generate_invoices_for_class(school_class, due_date=None):
         if exists:
             continue
         calc = compute_invoice_amounts(school_class, enrollment, due_date)
-        TuitionInvoice.objects.create(student=enrollment.student, school_class=school_class, due_date=due_date, **calc)
+        invoice = TuitionInvoice.objects.create(student=enrollment.student, school_class=school_class, due_date=due_date, **calc)
+        _notify_invoice_safely(invoice)
         created += 1
     return created
+
+
+def _notify_invoice_safely(invoice):
+    """청구서가 새로 생기면 학부모에게 안내 알림톡(결제 링크 포함). 실패해도 청구서 생성은 막지 않는다."""
+    from .parent_notify import send_invoice_notice
+    try:
+        send_invoice_notice(invoice)
+    except Exception:
+        logging.getLogger(__name__).exception('청구 안내 알림톡 처리 중 오류 invoice=%s', invoice.pk)
 
 
 @login_required
@@ -4707,6 +4721,12 @@ def tuition_verify_payment(request, invoice_id):
     """결제창 완료 콜백 후 서버가 포트원 API로 실제 결제 상태를 재검증"""
     import requests
     invoice = _tuition_invoice_access_or_404(request, invoice_id)
+    return _verify_invoice_payment(invoice)
+
+
+def _verify_invoice_payment(invoice):
+    """포트원 API로 청구서 결제 상태를 재검증하고 완납 처리 (로그인 결제/링크 결제 공통)"""
+    import requests
 
     if invoice.status == TuitionInvoice.STATUS_PAID:
         return JsonResponse({'ok': True, 'already_paid': True})
@@ -4739,6 +4759,36 @@ def tuition_verify_payment(request, invoice_id):
     invoice.portone_pay_method = _portone_method_label(data.get('method'))
     invoice.save(update_fields=['status', 'paid_at', 'portone_pay_method'])
     return JsonResponse({'ok': True})
+
+
+def _public_pay_invoice_or_404(token):
+    invoice = TuitionInvoice.objects.select_related('school_class', 'student__profile').filter(pay_token=token).first()
+    if not invoice or invoice.status == TuitionInvoice.STATUS_CANCELED:
+        raise Http404('결제 링크를 찾을 수 없습니다.')
+    return invoice
+
+
+def tuition_pay_public(request, token):
+    """학부모에게 알림톡으로 보낸 로그인 없는 결제 링크. 이 청구서 결제 외에는 아무 것도 할 수 없다."""
+    from .parent_notify import parent_phones
+    invoice = _public_pay_invoice_or_404(token)
+    phones = parent_phones(invoice.student)
+    context = {
+        'invoice': invoice,
+        'public_token': token,
+        'portone_store_id': settings.PORTONE_STORE_ID,
+        'portone_channel_key_card': settings.PORTONE_CHANNEL_KEY_CARD,
+        'portone_channel_key_kakaopay': settings.PORTONE_CHANNEL_KEY_KAKAOPAY,
+        'portone_customer_email': f'{invoice.student.username}@medulab.kr',
+        'portone_customer_phone': phones[0] if phones else '01000000000',
+        'portone_customer_name': invoice.student.profile.real_name or invoice.student.username,
+    }
+    return render(request, 'arcade/tuition_checkout.html', context)
+
+
+@require_POST
+def tuition_pay_public_verify(request, token):
+    return _verify_invoice_payment(_public_pay_invoice_or_404(token))
 
 
 @login_required
@@ -6937,6 +6987,7 @@ def api_submit_attendance(request):
     if not created and attendance.attendance_type == Attendance.TYPE_ACCESS and attendance_type != Attendance.TYPE_ACCESS:
         attendance.attendance_type = attendance_type
         attendance.save(update_fields=['attendance_type'])
+    notify_attendance(attendance)
 
     return JsonResponse({
         'status': 'success',
@@ -6969,6 +7020,7 @@ def api_daily_checkin(request):
         user=request.user, date=today,
         defaults={'attendance_type': attendance_type},
     )
+    notify_attendance(attendance)
     return JsonResponse({
         'status': 'success',
         'attendance_type': attendance.attendance_type,
@@ -7010,6 +7062,7 @@ def api_admin_set_attendance(request, student_id):
         user=student, date=target_date,
         defaults={'attendance_type': attendance_type},
     )
+    notify_attendance(attendance)
     return JsonResponse({
         'status': 'success',
         'attendance_type': attendance.attendance_type,

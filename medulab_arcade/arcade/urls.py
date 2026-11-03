@@ -231,6 +231,8 @@ urlpatterns = [
     # 학원비 결제 (포트원)
     path('tuition/<int:invoice_id>/checkout/', views.tuition_checkout, name='tuition_checkout'),
     path('tuition/<int:invoice_id>/verify/', views.tuition_verify_payment, name='tuition_verify_payment'),
+    path('pay/<str:token>/', views.tuition_pay_public, name='tuition_pay_public'),
+    path('pay/<str:token>/verify/', views.tuition_pay_public_verify, name='tuition_pay_public_verify'),
     path('tuition/batch/checkout/', views.tuition_batch_checkout, name='tuition_batch_checkout'),
     path('tuition/batch/<int:batch_id>/verify/', views.tuition_batch_verify, name='tuition_batch_verify'),
     path('tuition/webhook/', views.tuition_webhook, name='tuition_webhook'),
