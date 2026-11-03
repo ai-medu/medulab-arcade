@@ -153,6 +153,19 @@ def tuition_pay_url(invoice):
     return settings.SITE_BASE_URL.rstrip('/') + reverse('tuition_pay_public', args=[token])
 
 
+def _previous_label(previous, total):
+    """이전 달 미납 요약. 카카오 템플릿 변수 길이 제한(약 40자) 안에 들도록 짧게 만든다."""
+    if not previous:
+        return '없음'
+    months = []
+    for inv in previous:
+        label = f'{inv.due_date.month}월'
+        if label not in months:
+            months.append(label)
+    shown = ','.join(months[:3]) + ('...' if len(months) > 3 else '')
+    return f'{len(previous)}건 {total:,}원 ({shown}분)'
+
+
 def send_invoice_notice(invoice, kind=NotificationLog.KIND_INVOICE):
     """청구서 안내 알림톡 (결제 링크 포함). 보낸 건수를 반환. 이미 발송했거나 완납/취소면 0.
     kind=KIND_REMINDER 이면 미납 독촉 안내(이미 보낸 청구 안내와 별개로 하루 한 번 제한)."""
@@ -172,6 +185,10 @@ def send_invoice_notice(invoice, kind=NotificationLog.KIND_INVOICE):
         return 0
 
     pay_token = invoice.ensure_pay_token()
+    previous = list(TuitionInvoice.objects.filter(
+        student=student, status=TuitionInvoice.STATUS_UNPAID, due_date__lt=invoice.due_date,
+    ).exclude(pk=invoice.pk).order_by('due_date'))
+    previous_total = sum(p.amount for p in previous)
     overdue = invoice.due_date < today
     variables = {
         '#{학생이름}': _student_name(student),
@@ -180,6 +197,8 @@ def send_invoice_notice(invoice, kind=NotificationLog.KIND_INVOICE):
         '#{금액}': f'{invoice.amount:,}원',
         '#{납부기한}': invoice.due_date.strftime('%Y.%m.%d'),
         '#{납부상태}': '납부 기한이 지난 미납 상태입니다.' if overdue else '아직 납부 전입니다.',
+        '#{이전미납}': _previous_label(previous, previous_total),
+        '#{총미납액}': f'{invoice.amount + previous_total:,}원',
         # 템플릿 버튼 링크를 https://medulab.kr/pay/#{결제코드}/ 로 등록해 두면 이 값으로 결제 주소가 완성된다
         '#{결제코드}': pay_token,
     }

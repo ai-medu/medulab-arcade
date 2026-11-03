@@ -150,3 +150,28 @@ class ParentNotifyTests(TestCase):
         # 집 접속으로 바꾸거나 다른 구분은 새 알림을 만들지 않는다
         self.client.post(url, '{"attendance_type": "access"}', content_type='application/json')
         self.assertEqual(NotificationLog.objects.filter(kind='attendance').count(), 1)
+
+    @override_settings(**SOLAPI)
+    def test_notice_includes_previous_unpaid(self):
+        today = timezone.localdate()
+        old = self._invoice(amount=150000, due_date=today - timedelta(days=30))
+        new = self._invoice(amount=180000, due_date=today + timedelta(days=5))
+        with mock.patch('arcade.parent_notify.requests.post') as post:
+            post.return_value.status_code = 200
+            parent_notify.send_invoice_notice(new)
+        v = post.call_args.kwargs['json']['message']['kakaoOptions']['variables']
+        self.assertIn('1건 150,000원', v['#{이전미납}'])
+        self.assertEqual(v['#{총미납액}'], '330,000원')
+        res = self.client.get(reverse('tuition_pay_public', args=[new.pay_token]))
+        self.assertContains(res, '이전 미납')
+        old.refresh_from_db()
+        self.assertContains(res, old.pay_token)
+
+    @override_settings(**SOLAPI)
+    def test_notice_without_previous(self):
+        inv = self._invoice()
+        with mock.patch('arcade.parent_notify.requests.post') as post:
+            post.return_value.status_code = 200
+            parent_notify.send_invoice_notice(inv)
+        v = post.call_args.kwargs['json']['message']['kakaoOptions']['variables']
+        self.assertEqual(v['#{이전미납}'], '없음')

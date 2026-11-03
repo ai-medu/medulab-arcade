@@ -4773,9 +4773,15 @@ def tuition_pay_public(request, token):
     from .parent_notify import parent_phones
     invoice = _public_pay_invoice_or_404(token)
     phones = parent_phones(invoice.student)
+    previous_unpaid = []
+    for prev in TuitionInvoice.objects.filter(
+            student=invoice.student, status=TuitionInvoice.STATUS_UNPAID,
+            due_date__lt=invoice.due_date).exclude(pk=invoice.pk).select_related('school_class').order_by('due_date'):
+        previous_unpaid.append({'invoice': prev, 'token': prev.ensure_pay_token()})
     context = {
         'invoice': invoice,
         'public_token': token,
+        'previous_unpaid': previous_unpaid,
         'portone_store_id': settings.PORTONE_STORE_ID,
         'portone_channel_key_card': settings.PORTONE_CHANNEL_KEY_CARD,
         'portone_channel_key_kakaopay': settings.PORTONE_CHANNEL_KEY_KAKAOPAY,

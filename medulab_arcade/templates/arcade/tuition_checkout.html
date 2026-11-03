@@ -57,6 +57,18 @@
         </div>
     </div>
 
+    {% if previous_unpaid %}
+    <div class="invoice-card">
+        <div style="font-weight:800; margin-bottom:10px; color:#fbbf24;">이전 미납 청구서가 있습니다</div>
+        {% for row in previous_unpaid %}
+        <div class="invoice-row">
+            <span>{{ row.invoice.billing_period_label }} {{ row.invoice.school_class.name }} · {{ row.invoice.amount|intcomma }}원</span>
+            <a href="{% url 'tuition_pay_public' row.token %}" style="color:var(--accent-green); font-weight:700;">결제하기</a>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     {% if invoice.status == 'paid' %}
     <div class="pay-status success" style="display:block;">이미 납부가 완료된 청구서입니다. 감사합니다.</div>
     {% elif not portone_store_id %}
