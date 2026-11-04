@@ -69,6 +69,8 @@
     .approve-modal-cancel:hover { background:rgba(255,255,255,0.1); }
     .approve-modal-confirm { background:var(--accent-green); color:var(--bg-primary); border-color:transparent; }
     .approve-modal-confirm:hover { transform:translateY(-1px); box-shadow:0 4px 14px rgba(0,255,180,0.25); }
+    .reject-type-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:0 0 14px 0; font-size:12.5px; color:var(--text-muted); text-align:left; }
+    .reject-type-row select { padding:8px 10px; border-radius:8px; background:rgba(255,255,255,0.06); border:1px solid var(--border); color:#fff; font-size:13px; color-scheme:dark; }
     .approve-modal-reject { background:rgba(239,68,68,0.12); color:#fca5a5; border-color:rgba(239,68,68,0.3); }
     .approve-modal-reject:hover { background:rgba(239,68,68,0.25); }
 </style>
@@ -136,7 +138,7 @@
                         <span style="font-size: 12px; color: var(--accent-green);">● 승인됨</span>
                         {% elif u.profile.needs_approval %}
                         <button type="button" class="approval-pending"
-                            onclick="openApproveModal({{ u.id }}, '{{ u.profile.real_name|default:u.username|escapejs }}', '{{ u.profile.get_user_type_display|escapejs }}', '{{ u.profile.reject_fallback_label|escapejs }}')">
+                            onclick="openApproveModal({{ u.id }}, '{{ u.profile.real_name|default:u.username|escapejs }}', '{{ u.profile.get_user_type_display|escapejs }}', '{{ u.profile.reject_fallback_type }}')">
                             ⏳ 승인 대기
                         </button>
                         <div id="signupInfo-{{ u.id }}" style="display:none;">
@@ -221,9 +223,15 @@
         <form id="approveModalForm" method="POST">
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <div class="reject-type-row">
+                <label for="approveModalRejectType">거절할 때 전환할 회원 유형</label>
+                <select name="target_type" id="approveModalRejectType">
+                    {% for code, label in reject_type_choices %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
+                </select>
+            </div>
             <div class="approve-modal-actions">
                 <button type="button" class="approve-modal-cancel" onclick="closeApproveModal()">취소</button>
-                <button type="submit" class="approve-modal-reject" id="approveModalReject" onclick="return confirm(this.dataset.confirm);">❌ 거절하기</button>
+                <button type="submit" class="approve-modal-reject" id="approveModalReject" onclick="return confirmReject();">❌ 거절하기</button>
                 <button type="submit" class="approve-modal-confirm">✅ 승인하기</button>
             </div>
         </form>
@@ -234,17 +242,21 @@
 var approveUrlTemplate = "{% url 'member_approve' 999999 %}".replace('999999', '__ID__');
 var rejectUrlTemplate = "{% url 'member_reject' 999999 %}".replace('999999', '__ID__');
 
-function openApproveModal(userId, name, typeLabel, fallbackLabel) {
+function openApproveModal(userId, name, typeLabel, fallbackType) {
     document.getElementById('approveModalName').textContent = name;
     document.getElementById('approveModalType').textContent = typeLabel + ' 회원으로 승인할까요?';
     var info = document.getElementById('signupInfo-' + userId);
     document.getElementById('approveModalInfo').innerHTML = info ? info.innerHTML : '';
     document.getElementById('approveModalForm').action = approveUrlTemplate.replace('__ID__', userId);
-    var rejectBtn = document.getElementById('approveModalReject');
-    rejectBtn.setAttribute('formaction', rejectUrlTemplate.replace('__ID__', userId));
-    rejectBtn.textContent = '❌ 거절 (' + fallbackLabel + '으로 전환)';
-    rejectBtn.dataset.confirm = typeLabel + ' 신청을 거절하고 ' + fallbackLabel + '으로 전환해 가입을 완료할까요? (계정은 삭제되지 않습니다)';
+    document.getElementById('approveModalReject').setAttribute('formaction', rejectUrlTemplate.replace('__ID__', userId));
+    document.getElementById('approveModalReject').dataset.typeLabel = typeLabel;
+    document.getElementById('approveModalRejectType').value = fallbackType;
     document.getElementById('approveModalOverlay').classList.add('show');
+}
+function confirmReject() {
+    var sel = document.getElementById('approveModalRejectType');
+    var btn = document.getElementById('approveModalReject');
+    return confirm(btn.dataset.typeLabel + " 신청을 거절하고 '" + sel.options[sel.selectedIndex].text + "'으로 전환해 가입을 완료할까요? (계정은 삭제되지 않습니다)");
 }
 function closeApproveModal() {
     document.getElementById('approveModalOverlay').classList.remove('show');

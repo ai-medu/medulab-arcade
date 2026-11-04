@@ -2887,6 +2887,8 @@ def member_list(request):
         'pending_count': pending_count,
         'user_types': UserProfile.USER_TYPE_CHOICES,
         'type_filters': type_filters,
+        # 가입 신청을 거절할 때 바꿔 줄 수 있는 유형 (승인 없이 바로 쓸 수 있는 일반 유형)
+        'reject_type_choices': [c for c in UserProfile.USER_TYPE_CHOICES if c[0] in UserProfile.AUTO_APPROVE_TYPES],
     }
     return render(request, 'arcade/admin/member_list.html', context)
 
@@ -3148,20 +3150,24 @@ def member_approve(request, user_id):
 @user_passes_test(staff_check)
 @require_POST
 def member_reject(request, user_id):
-    """승인 대기 중인 메듀랩 회원 신청을 거절한다. 계정은 지우지 않고, 승인 없이 쓸 수 있는 일반 가입 유형
-    (메듀랩 학생→학생회원, 메듀랩 학부모→학부모회원 ...)으로 바꿔 가입이 완료되도록 한다."""
+    """승인 대기 중인 메듀랩 회원 신청을 거절한다. 계정은 지우지 않고, 관리자가 고른 일반 회원 유형
+    (승인 없이 쓸 수 있는 학생/학부모/일반/강사회원)으로 바꿔 가입이 완료되도록 한다.
+    유형을 고르지 않으면 신청 유형에 맞는 기본값(메듀랩 학생→학생회원 등)을 쓴다."""
     target_user = get_object_or_404(User, pk=user_id)
     profile, _ = UserProfile.objects.get_or_create(user=target_user)
     redirect_url = request.POST.get('next') or reverse('member_list')
     if target_user == request.user or target_user.is_staff or not profile.needs_approval:
         messages.error(request, '승인 대기 중인 메듀랩 회원 신청만 거절할 수 있습니다.')
         return redirect(redirect_url)
-    label = profile.reject_fallback_label
-    profile.user_type = profile.reject_fallback_type
+    new_type = request.POST.get('target_type') or profile.reject_fallback_type
+    if new_type not in UserProfile.AUTO_APPROVE_TYPES:
+        messages.error(request, '전환할 회원 유형이 올바르지 않습니다.')
+        return redirect(redirect_url)
+    profile.user_type = new_type
     profile.is_approved = True
     profile.approved_at = timezone.now()
     profile.save(update_fields=['user_type', 'is_approved', 'approved_at'])
-    messages.success(request, f'가입 신청 "{target_user.username}" 을 거절하고 {label}으로 전환해 가입을 완료했습니다.')
+    messages.success(request, f'가입 신청 "{target_user.username}" 을 거절하고 {profile.get_user_type_display()}으로 전환해 가입을 완료했습니다.')
     return redirect(redirect_url)
 
 

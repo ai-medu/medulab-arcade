@@ -114,7 +114,10 @@ class MemberRejectTests(TestCase):
         self._pending()
         res = self.client.get(reverse('member_list'))
         self.assertContains(res, 'id="approveModalReject"')
-        self.assertContains(res, "'학생회원')")  # 전환될 유형이 모달에 전달된다
+        self.assertContains(res, 'id="approveModalRejectType"')
+        for code in ('student', 'parent', 'general', 'teacher'):
+            self.assertContains(res, f'<option value="{code}">')
+        self.assertNotContains(res, '<option value="medulab_staff">')
 
     def test_reject_converts_to_general_type_and_completes_signup(self):
         cases = {'medulab_member': 'student', 'medulab_parent': 'parent',
@@ -128,6 +131,20 @@ class MemberRejectTests(TestCase):
             self.assertTrue(user.profile.is_approved)
             self.assertFalse(user.profile.needs_approval)
             self.assertTrue(User.objects.filter(pk=user.pk).exists())  # 삭제하지 않는다
+
+    def test_reject_with_admin_chosen_type(self):
+        user = self._pending('pick', 'medulab_member')
+        self.client.post(reverse('member_reject', args=[user.id]), {'target_type': 'general'})
+        user.profile.refresh_from_db()
+        self.assertEqual((user.profile.user_type, user.profile.is_approved), ('general', True))
+
+    def test_reject_rejects_invalid_target_type(self):
+        user = self._pending('bad', 'medulab_member')
+        for bad in ('medulab_staff', 'medulab_member', 'nonsense'):
+            self.client.post(reverse('member_reject', args=[user.id]), {'target_type': bad})
+            user.profile.refresh_from_db()
+            self.assertEqual(user.profile.user_type, 'medulab_member')
+            self.assertFalse(user.profile.is_approved)
 
     def test_cannot_reject_approved_staff_or_self(self):
         approved = self._pending('ok')
