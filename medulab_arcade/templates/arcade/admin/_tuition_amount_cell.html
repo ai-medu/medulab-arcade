@@ -1,7 +1,7 @@
 {% load humanize %}{% if inv.status == 'unpaid' %}<button type="button" class="amount-btn" title="눌러서 결제금액 수정"
     data-id="{{ inv.id }}" data-student="{{ inv.student.profile.real_name|default:inv.student.username }}" data-class="{{ inv.school_class.name }}"
     data-period="{{ inv.billing_period_label }}" data-base="{{ inv.base_amount }}" data-absence-count="{{ inv.absence_count }}"
-    data-absence="{{ inv.absence_deduction }}" data-session-fee="{{ inv.school_class.per_session_fee }}"
+    data-absence="{{ inv.absence_deduction }}" data-sessions="{{ inv.school_class.monthly_sessions }}"
     data-prededucted="{% if inv.absence_prededucted %}1{% else %}0{% endif %}"
     data-discount-reason="{{ inv.discount_reason }}" data-discount="{{ inv.discount_amount }}"
     data-extra-reason="{{ inv.extra_discount_reason }}" data-extra="{{ inv.extra_discount_amount }}" data-extra-sessions="{{ inv.extra_absence_count }}"

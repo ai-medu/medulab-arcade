@@ -19,6 +19,8 @@
 .am-abs { padding:10px 12px; border:1px dashed rgba(217,119,6,0.55); border-radius:12px; background:rgba(245,158,11,0.06); margin-bottom:10px; }
 .am-abs-title { font-size:12.5px; font-weight:800; margin-bottom:8px; }
 .am-abs-title small { font-weight:500; font-size:11.5px; color:var(--text-muted); }
+.am-abs-calc { font-size:12px; line-height:1.6; color:var(--text-muted); margin-top:7px; }
+.am-abs-calc button { border:none; background:rgba(16,185,129,0.15); color:#6ee7b7; border-radius:7px; padding:2px 8px; font-size:11.5px; font-weight:800; cursor:pointer; margin-left:4px; }
 .am-in { width:100%; box-sizing:border-box; height:40px; padding:0 12px; border-radius:10px; border:1px solid var(--border); background:rgba(255,255,255,0.06); color:var(--text-primary, #fff); font-size:14px; font-family:inherit; }
 .am-in:disabled { opacity:.6; }
 .am-check { display:flex; align-items:center; gap:8px; margin-top:9px; font-size:13px; font-weight:700; cursor:pointer; }
@@ -47,7 +49,8 @@
 
         <div class="am-abs">
             <div class="am-abs-title">전월 결석 차감 <small id="amAbsInfo"></small></div>
-            <input type="number" id="amAbs" class="am-in" min="0" step="1000" inputmode="numeric" placeholder="전월 차감액(원)">
+            <input type="number" id="amAbs" class="am-in" min="0" step="1" inputmode="numeric" placeholder="전월 차감액(원)">
+            <div class="am-abs-calc" id="amAbsCalc"></div>
             <label class="am-check"><input type="checkbox" id="amPre"> 전월 미리 차감 <small style="font-weight:500; color:var(--text-muted);">(이번 청구서에서는 0원으로 차감)</small></label>
         </div>
 
@@ -92,6 +95,46 @@
     function recalc() {
         editor.setCtx(current.base, absValue());
         editor.refresh();   // 금액 칸을 새로 계산된 값으로 채운다
+        renderAbsCalc();
+    }
+
+    // 결석 1회 차감액 = (수업비 - 기본할인) ÷ 월 출석 횟수   예) (140,000 - 5,000) ÷ 4 = 33,750원
+    function baseDiscount() {
+        return Math.max(0, Math.min(parseInt($('amBaseAmt').value, 10) || 0, current ? current.base : 0));
+    }
+    function perSession() {
+        return current && current.sessions ? Math.floor(Math.max(current.base - baseDiscount(), 0) / current.sessions) : 0;
+    }
+    function autoAbs() {
+        return Math.min(perSession() * current.absCount, Math.max(current.base - baseDiscount(), 0));
+    }
+    function renderAbsCalc() {
+        var box = $('amAbsCalc');
+        if (!current || !current.absCount) { box.textContent = ''; return; }
+        var auto = autoAbs();
+        var text = '1회 ' + won(perSession()) + ' = (수업비 ' + won(current.base) + ' − 기본할인 ' + won(baseDiscount()) + ') ÷ ' + current.sessions + '회 · 결석 ' + current.absCount + '회 = ' + won(auto);
+        box.textContent = text;
+        if (!$('amPre').checked && absValue() !== auto) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = '자동 계산 ' + won(auto) + ' 적용';
+            b.onclick = function () { $('amAbs').value = auto; lastAuto = auto; recalc(); };
+            box.appendChild(b);
+        }
+    }
+    var lastAuto = 0;
+    // 기본할인을 바꾸면, 직접 고치지 않은(자동 계산값 그대로인) 전월 차감액은 새 계산값으로 따라 바꾼다
+    function onDiscountChanged() {
+        if (!current) return;
+        var auto = autoAbs();
+        if (!$('amPre').checked && (parseInt($('amAbs').value, 10) || 0) === lastAuto) {
+            $('amAbs').value = auto;
+            lastAuto = auto;
+            recalc();
+        } else {
+            lastAuto = lastAuto || 0;
+            renderAbsCalc();
+        }
     }
     function updateWarn() {
         var el = $('amWarn'), v = parseInt($('amAmount').value, 10);
@@ -108,19 +151,21 @@
     window.openAmountModal = function (btn) {
         var d = btn.dataset;
         current = {
-            id: d.id, base: +d.base, amount: +d.amount, absCount: +d.absenceCount, sessionFee: +d.sessionFee
+            id: d.id, base: +d.base, amount: +d.amount, absCount: +d.absenceCount, sessions: +d.sessions
         };
         var stored = +d.absence;
         var pre = d.prededucted === '1';
-        restoreAbs = stored > 0 ? stored : current.absCount * current.sessionFee;
         $('amSub').textContent = d.student + ' · ' + d.class + ' · ' + d.period;
         $('amFee').textContent = won(current.base);
-        $('amAbsInfo').textContent = current.absCount ? '· 전월 결석 ' + current.absCount + '회 (1회 ' + won(current.sessionFee) + ')' : '· 전월 결석 없음';
+        $('amAbsInfo').textContent = current.absCount ? '· 전월 결석 ' + current.absCount + '회' : '· 전월 결석 없음';
         $('amPre').checked = pre;
         $('amAbs').value = pre ? 0 : stored;
         $('amAbs').disabled = pre;
         editor.setCtx(current.base, absValue());
         editor.fill(d.discountReason, +d.discount, d.extraReason, +d.extra, +d.extraSessions || 1, true);  // 저장된 금액을 그대로 보여 준다
+        lastAuto = autoAbs();   // 저장된 차감액이 이 계산값과 같으면 '자동' 상태로 보고, 기본할인을 바꿀 때 따라 바꾼다
+        restoreAbs = stored > 0 ? stored : lastAuto;
+        renderAbsCalc();
         $('amAmount').value = current.amount;
         $('amSave').disabled = false;
         say('');
@@ -145,6 +190,9 @@
     });
     $('amAbs').addEventListener('input', recalc);
     $('amAmount').addEventListener('input', updateWarn);
+    // 기본할인 입력(종류 선택/금액)이 바뀌면 1회 차감액과 자동 계산 차감액을 다시 계산한다 (할인 입력기가 먼저 처리한 뒤 실행됨)
+    $('amBaseSel').addEventListener('change', onDiscountChanged);
+    $('amBaseAmt').addEventListener('input', onDiscountChanged);
 
     window.saveAmount = function () {
         if (!current) return;

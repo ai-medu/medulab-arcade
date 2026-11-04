@@ -84,13 +84,14 @@ class RecalcInvoiceTests(_KwonwooOctober, TestCase):
         inv = self._invoice()
         res = self._recalc(inv)
         inv.refresh_from_db()
-        self.assertEqual((inv.absence_count, inv.absence_deduction, inv.amount), (1, 50000, 145000))
+        # 결석 1회 차감 = (수업비 200,000 - 기본할인 5,000) ÷ 4회 = 48,750원
+        self.assertEqual((inv.absence_count, inv.absence_deduction, inv.amount), (1, 48750, 146250))
         self.assertEqual((inv.discount_reason, inv.discount_amount), ('친구소개', 5000))
         self.assertEqual(inv.attended_count, 3)  # 전월 출석 3/4
         self.assertIn('금액 변경 1건', ' '.join(str(m) for m in res.context['messages']))
         self._recalc(inv)  # 한 번 더 해도 그대로
         inv.refresh_from_db()
-        self.assertEqual(inv.amount, 145000)
+        self.assertEqual(inv.amount, 146250)
 
     def test_recalc_skips_manual_paid_and_canceled(self):
         manual = self._invoice(amount=1000)
@@ -108,7 +109,7 @@ class RecalcInvoiceTests(_KwonwooOctober, TestCase):
         inv = self._invoice(amount=185000, extra_discount_reason='직접입력', extra_discount_amount=10000)
         self._recalc(inv)
         inv.refresh_from_db()
-        self.assertEqual((inv.absence_deduction, inv.extra_discount_amount, inv.amount), (50000, 10000, 135000))
+        self.assertEqual((inv.absence_deduction, inv.extra_discount_amount, inv.amount), (48750, 10000, 136250))
 
     def test_non_staff_cannot_recalc(self):
         inv = self._invoice()
@@ -116,3 +117,43 @@ class RecalcInvoiceTests(_KwonwooOctober, TestCase):
         self.client.post(reverse('tuition_invoice_bulk_action'), {'bulk_action': 'recalc', 'invoice_ids': [inv.id]})
         inv.refresh_from_db()
         self.assertEqual(inv.amount, 195000)
+
+
+class DiscountedSessionFeeTests(TestCase):
+    """결석 1회 차감 = (수업비 - 기본할인) ÷ 월 출석 횟수. 수업비 140,000원, 기본할인 5,000원이면 33,750원"""
+
+    def setUp(self):
+        self.kid = User.objects.create_user('kid', password='x')
+        self.klass = SchoolClass.objects.create(name='맞춤성장 토요반', tuition_fee=140000, monthly_sessions=4, days_of_week='6')
+        self.enrollment = ClassEnrollment.objects.create(school_class=self.klass, student=self.kid,
+                                                         discount_reason='친구소개', discount_amount=5000)
+        # 2026년 10월 토요일: 3(개천절 제외) 10 17 24 31 중 10/10 한 번만 결석
+        tz = timezone.get_current_timezone()
+        ScheduleEvent.objects.create(title='개천절', event_type=ScheduleEvent.EVENT_TYPE_HOLIDAY, is_active=True,
+                                     start_date=datetime.datetime(2026, 10, 3, tzinfo=tz),
+                                     end_date=datetime.datetime(2026, 10, 3, tzinfo=tz))
+        for day in (17, 24, 31):
+            Attendance.objects.create(user=self.kid, date=datetime.date(2026, 10, day), attendance_type=Attendance.TYPE_PRESENT)
+
+    def test_one_absence_deducts_discounted_fee_quarter(self):
+        calc = compute_invoice_amounts(self.klass, self.enrollment, datetime.date(2026, 11, 30))
+        self.assertEqual(self.klass.per_session_fee_after(5000), 33750)
+        self.assertEqual((calc['absence_count'], calc['absence_deduction'], calc['discount_amount']), (1, 33750, 5000))
+        self.assertEqual(calc['amount'], 140000 - 5000 - 33750)  # 101,250원
+
+    def test_no_discount_uses_full_fee(self):
+        self.enrollment.discount_amount = 0
+        self.enrollment.save()
+        calc = compute_invoice_amounts(self.klass, self.enrollment, datetime.date(2026, 11, 30))
+        self.assertEqual((calc['absence_deduction'], calc['amount']), (35000, 105000))
+
+    def test_discount_override_changes_per_session_fee(self):
+        calc = compute_invoice_amounts(self.klass, self.enrollment, datetime.date(2026, 11, 30),
+                                       discount_override=('직접입력', 20000))
+        self.assertEqual(calc['absence_deduction'], 30000)  # (140,000 - 20,000) ÷ 4
+        self.assertEqual(calc['amount'], 140000 - 20000 - 30000)
+
+    def test_deduction_never_exceeds_discounted_fee(self):
+        Attendance.objects.filter(user=self.kid).delete()  # 4회 모두 결석
+        calc = compute_invoice_amounts(self.klass, self.enrollment, datetime.date(2026, 11, 30))
+        self.assertEqual((calc['absence_count'], calc['absence_deduction'], calc['amount']), (4, 135000, 0))

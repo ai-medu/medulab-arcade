@@ -4067,15 +4067,16 @@ def compute_invoice_amounts(school_class, enrollment, due_date, discount_overrid
     prev_month_start = prev_month_last_day.replace(day=1)
     scheduled = _billable_session_dates(school_class, prev_month_start.year, prev_month_start.month)
     absence_count = sum(1 for present in _presence_for_dates(enrollment, scheduled).values() if not present)
-    deduction = min(school_class.per_session_fee * absence_count, fee)
-
+    # 기본할인을 먼저 정하고, 결석 1회 차감액은 '할인된 수업비 ÷ 월 출석 횟수'로 계산한다
+    # (수업비 140,000 - 기본할인 5,000 = 135,000 ÷ 4회 = 결석 1회 33,750원)
     if discount_override is not None:
         reason, amount = discount_override
-        discount = max(0, min(int(amount or 0), fee - deduction))
+        discount = max(0, min(int(amount or 0), fee))
         reason = (reason or '').strip()[:50] or '직접입력'
     else:
-        discount = min(enrollment.discount_amount or 0, fee - deduction)
+        discount = min(enrollment.discount_amount or 0, fee)
         reason = enrollment.discount_reason
+    deduction = min(school_class.per_session_fee_after(discount) * absence_count, fee - discount)
 
     extra_reason, extra_amount, extra_sessions = '', 0, 0
     if extra is not None:

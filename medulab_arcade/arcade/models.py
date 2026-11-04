@@ -522,6 +522,13 @@ class SchoolClass(models.Model):
             return 0
         return self.tuition_fee // self.monthly_sessions
 
+    def per_session_fee_after(self, discount=0):
+        """기본할인을 뺀 수업비를 월 출석 횟수로 나눈 1회 단가. 결석 1회당 차감액으로 쓴다.
+        예) 수업비 140,000원 - 기본할인 5,000원 = 135,000원 ÷ 4회 = 33,750원"""
+        if not self.monthly_sessions:
+            return 0
+        return max(self.tuition_fee - max(int(discount or 0), 0), 0) // self.monthly_sessions
+
 
 class ClassEnrollment(models.Model):
     school_class = models.ForeignKey(SchoolClass, on_delete=models.CASCADE, related_name='enrollments', verbose_name='수업')
