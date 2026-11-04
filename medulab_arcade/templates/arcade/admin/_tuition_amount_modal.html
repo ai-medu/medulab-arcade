@@ -47,14 +47,14 @@
 
         <div class="am-fee"><span>수업비</span><strong id="amFee">-</strong></div>
 
+        {% include 'arcade/admin/_invoice_disc_box.html' with p='am' %}
+
         <div class="am-abs">
             <div class="am-abs-title">전월 결석 차감 <small id="amAbsInfo"></small></div>
             <input type="number" id="amAbs" class="am-in" min="0" step="1" inputmode="numeric" placeholder="전월 차감액(원)">
             <div class="am-abs-calc" id="amAbsCalc"></div>
             <label class="am-check"><input type="checkbox" id="amPre"> 전월 미리 차감 <small style="font-weight:500; color:var(--text-muted);">(이번 청구서에서는 0원으로 차감)</small></label>
         </div>
-
-        {% include 'arcade/admin/_invoice_disc_box.html' with p='am' %}
 
         <div class="am-field">
             <label for="amAmount">결제금액(원) <span style="font-weight:500;">· 위 내용으로 자동 계산돼요. 필요하면 직접 고칠 수 있어요</span></label>
