@@ -461,11 +461,8 @@
 
                                     <div class="form-group">
                                         <label class="form-label">회원 유형</label>
-                                        {{ form.user_type }}
-                                        <div class="help-text">메듀랩 학생, 스탭으로 바꾸면 관리자 승인 전까지 승인 대기 상태가 됩니다.</div>
-                                        {% if form.user_type.errors %}
-                                            <div class="help-text" style="color: #ff8585;">{{ form.user_type.errors.0 }}</div>
-                                        {% endif %}
+                                        <div class="form-input" style="display:flex; align-items:center; opacity:.8;">{{ profile.get_user_type_display }}</div>
+                                        <div class="help-text">회원 유형은 관리자만 변경할 수 있어요. 바꾸려면 학원에 문의해 주세요.</div>
                                     </div>
 
                                     {% if profile.user_type == 'parent' %}
@@ -491,7 +488,12 @@
                                     {% if profile.user_type == 'medulab_parent' %}
                                     <div class="form-group">
                                         <label class="form-label">주소</label>
-                                        {{ form.address }}
+                                        <div style="display:flex; gap:8px;">
+                                            <div style="flex:1;">{{ form.address }}</div>
+                                            <button type="button" id="profileAddressBtn" style="flex:0 0 auto; padding:0 18px; border-radius:10px; background:rgba(255,255,255,0.08); border:1px solid var(--border); color:inherit; font-weight:700; font-size:13px; cursor:pointer; white-space:nowrap;">🔍 주소 검색</button>
+                                        </div>
+                                        <input type="text" id="profileAddressDetail" class="form-input" placeholder="상세주소 (동/호수 등)" style="display:none; margin-top:8px;">
+                                        <div class="help-text">주소는 검색해서 바꿀 수 있어요.</div>
                                         {% if form.address.errors %}
                                             <div class="help-text" style="color: #ff8585;">{{ form.address.errors.0 }}</div>
                                         {% endif %}
@@ -550,7 +552,37 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 <script>
+    // ── 주소 검색 (다음 우편번호 서비스): 검색으로만 바꾸고, 상세주소는 뒤에 붙인다 ──
+    (function() {
+        const addr = document.getElementById('id_address');
+        const btn = document.getElementById('profileAddressBtn');
+        const detail = document.getElementById('profileAddressDetail');
+        if (!addr || !btn) return;
+        addr.readOnly = true;
+        addr.style.cursor = 'pointer';
+        let searchedBase = '';
+        function openSearch() {
+            new daum.Postcode({
+                oncomplete: function(data) {
+                    searchedBase = data.roadAddress || data.jibunAddress || data.address;
+                    addr.value = searchedBase;
+                    detail.value = '';
+                    detail.style.display = '';
+                    detail.focus();
+                }
+            }).open();
+        }
+        btn.addEventListener('click', openSearch);
+        addr.addEventListener('click', openSearch);
+        const form = addr.closest('form');
+        if (form) form.addEventListener('submit', function() {
+            const extra = detail.value.trim();
+            if (searchedBase && extra) addr.value = searchedBase + ' ' + extra;
+        });
+    })();
+
     // ── 메듀랩 학부모 자녀정보 에디터 ──
     (function() {
         const childInput = document.getElementById('id_children_info');

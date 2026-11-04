@@ -465,9 +465,7 @@ class EmailOrUsernameAuthenticationForm(AuthenticationForm):
 
 
 class UserProfileUpdateForm(forms.ModelForm):
-    # 메듀랩 학부모는 주소/자녀정보가 필요해 별도의 '전환 신청' 화면에서만 선택 가능
-    USER_TYPE_CHOICES = [c for c in SignUpForm.USER_TYPE_CHOICES if c[0] != 'medulab_parent']
-
+    # 회원 유형은 관리자만 바꿀 수 있어 이 폼에는 없다 (화면에는 읽기 전용으로만 보여 준다)
     username = forms.CharField(
         label='아이디',
         required=False,
@@ -500,11 +498,6 @@ class UserProfileUpdateForm(forms.ModelForm):
         ),
         help_text='하이픈 없이 숫자만 입력해도 자동으로 정리됩니다.',
     )
-    user_type = forms.ChoiceField(
-        label='회원 유형',
-        choices=USER_TYPE_CHOICES,
-        widget=forms.Select(attrs={'class': 'form-input'}),
-    )
     nickname = forms.CharField(
         label='닉네임(표시 이름)',
         required=False,
@@ -527,7 +520,7 @@ class UserProfileUpdateForm(forms.ModelForm):
     class Meta:
         model = UserProfile
         fields = (
-            'real_name', 'birth_date', 'phone_number', 'user_type', 'nickname',
+            'real_name', 'birth_date', 'phone_number', 'nickname',
             'address', 'notify_attendance', 'notify_news',
         )
 
@@ -543,10 +536,16 @@ class UserProfileUpdateForm(forms.ModelForm):
             self.instance.birth_date.strftime('%Y.%m.%d') if self.instance.birth_date else ''
         )
         self.fields['phone_number'].initial = self.instance.phone_number
-        self.fields['user_type'].initial = self.instance.user_type
         self.fields['address'].initial = self.instance.address
+        # 주소·자녀 정보·알림 수신 설정은 메듀랩 학부모 화면에만 있다. 화면에 없는 칸이 저장 때 비워지거나
+        # '해제'로 덮어써지지 않도록 학부모가 아니면 폼에서 뺀다
+        self.has_parent_fields = self.instance.user_type == 'medulab_parent'
+        if not self.has_parent_fields:
+            for name in ('address', 'children_info', 'notify_attendance', 'notify_news'):
+                del self.fields[name]
         import json as _json
-        self.fields['children_info'].initial = _json.dumps(normalize_children_info(self.instance.children_info))
+        if self.has_parent_fields:
+            self.fields['children_info'].initial = _json.dumps(normalize_children_info(self.instance.children_info))
 
     def clean_email(self):
         email = (self.cleaned_data.get('email') or '').strip()
@@ -584,28 +583,19 @@ class UserProfileUpdateForm(forms.ModelForm):
         import json
 
         profile = super().save(commit=False)
-        previous_user_type = self.instance.user_type
-        new_user_type = self.cleaned_data['user_type']
         user = profile.user
 
         user.email = self.cleaned_data['email']
         profile.real_name = self.cleaned_data['real_name']
         profile.birth_date = self.cleaned_data['birth_date']
         profile.phone_number = self.cleaned_data['phone_number']
-        profile.user_type = new_user_type
         profile.nickname = self.cleaned_data['nickname']
-        profile.address = self.cleaned_data.get('address', '')
-
-        try:
-            profile.children_info = normalize_children_info(self.cleaned_data.get('children_info') or '[]') or None
-        except (ValueError, TypeError):
-            profile.children_info = None
-
-        if new_user_type in UserProfile.AUTO_APPROVE_TYPES:
-            profile.is_approved = True
-        elif previous_user_type != new_user_type:
-            profile.is_approved = False
-            profile.approved_at = None
+        if self.has_parent_fields:
+            profile.address = self.cleaned_data.get('address', '')
+            try:
+                profile.children_info = normalize_children_info(self.cleaned_data.get('children_info') or '[]') or None
+            except (ValueError, TypeError):
+                profile.children_info = None
 
         if commit:
             user.save(update_fields=['email'])

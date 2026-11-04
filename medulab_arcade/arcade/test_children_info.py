@@ -40,6 +40,7 @@ class ChildrenInfoTests(TestCase):
     def test_profile_form_does_not_wrap_string_again(self):
         from .forms import UserProfileUpdateForm
         user = self._parent('[]')
+        user.profile.user_type = 'medulab_parent'   # 자녀 정보 칸은 메듀랩 학부모에게만 있다
         form = UserProfileUpdateForm(instance=user.profile)
         # 예전에는 '"[]"' 로 한 번 더 감싸져 저장 시 다시 문자열 '[]' 이 되었다
         self.assertEqual(form.fields['children_info'].initial, '[]')
