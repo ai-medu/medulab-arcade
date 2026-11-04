@@ -32,12 +32,15 @@ def _normalize_phone(raw):
     return digits if re.fullmatch(r'01\d{8,9}', digits) else ''
 
 
-def parent_phones(student):
-    """학생에게 연결된 학부모 회원들의 휴대폰 번호 (중복 제거)"""
+def parent_phones(student, attendance=False):
+    """학생에게 연결된 학부모 회원들의 휴대폰 번호 (중복 제거).
+    attendance=True 이면 '출석 알림 수신'을 끈 학부모는 제외한다."""
     phones = []
     links = ParentChildLink.objects.filter(child=student).select_related('parent__profile')
     for link in links:
         profile = getattr(link.parent, 'profile', None)
+        if attendance and profile and not profile.notify_attendance:
+            continue
         phone = _normalize_phone(profile.phone_number if profile else '')
         if phone and phone not in phones:
             phones.append(phone)
@@ -101,7 +104,7 @@ def _already_sent(**filters):
 
 def _no_parent(kind, student, **extra):
     NotificationLog.objects.create(kind=kind, student=student, status=NotificationLog.STATUS_SKIPPED,
-                                   detail='연결된 학부모 휴대폰 번호가 없음', **extra)
+                                   detail='받을 학부모가 없음 (연결/휴대폰 번호 없음 또는 출석 알림 수신 해제)', **extra)
 
 
 # ---------------------------------------------------------------- 출석 알림
@@ -112,7 +115,7 @@ def _send_attendance_now(student_id, date, attendance_type, time_label):
         student = User.objects.select_related('profile').get(pk=student_id)
         if _already_sent(kind=NotificationLog.KIND_ATTENDANCE, student=student, target_date=date):
             return
-        phones = parent_phones(student)
+        phones = parent_phones(student, attendance=True)
         if not phones:
             _no_parent(NotificationLog.KIND_ATTENDANCE, student, target_date=date)
             return

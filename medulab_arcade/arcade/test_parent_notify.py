@@ -175,3 +175,17 @@ class ParentNotifyTests(TestCase):
             parent_notify.send_invoice_notice(inv)
         v = post.call_args.kwargs['json']['message']['kakaoOptions']['variables']
         self.assertEqual(v['#{이전미납}'], '없음')
+
+    @override_settings(**SOLAPI)
+    def test_parent_who_disabled_attendance_notice_is_skipped(self):
+        self.parent.profile.notify_attendance = False
+        self.parent.profile.save()
+        with mock.patch('arcade.parent_notify.requests.post') as post:
+            parent_notify.notify_attendance(self._attendance())
+        post.assert_not_called()
+        self.assertEqual(NotificationLog.objects.get().status, NotificationLog.STATUS_SKIPPED)
+        # 학원비 안내는 수신 설정과 무관하게 발송
+        inv = self._invoice()
+        with mock.patch('arcade.parent_notify.requests.post') as post:
+            post.return_value.status_code = 200
+            self.assertEqual(parent_notify.send_invoice_notice(inv), 1)

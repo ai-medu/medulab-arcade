@@ -364,14 +364,48 @@ class AdminUserForm(forms.ModelForm):
 
 
 class AdminUserProfileForm(forms.ModelForm):
+    birth_date = forms.DateField(
+        label='생년월일', required=False,
+        input_formats=['%Y.%m.%d', '%Y-%m-%d', '%Y%m%d'],
+        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': '예: 2016.03.15'}),
+        error_messages={'invalid': '날짜 형식이 올바르지 않습니다. (예: 2016.03.15)'},
+    )
+
     class Meta:
         model = UserProfile
-        fields = ('user_type', 'is_approved')
-        labels = {'user_type': '회원 유형', 'is_approved': '승인 여부'}
+        fields = ('user_type', 'is_approved', 'real_name', 'birth_date', 'phone_number', 'nickname',
+                  'address', 'notify_attendance', 'notify_news')
+        labels = {
+            'user_type': '회원 유형', 'is_approved': '승인 여부', 'real_name': '이름',
+            'phone_number': '전화번호', 'nickname': '닉네임(표시 이름)', 'address': '주소',
+            'notify_attendance': '출석 알림 수신', 'notify_news': '소식 알림 수신',
+        }
         widgets = {
             'user_type': forms.Select(attrs={'class': 'form-input'}),
             'is_approved': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'real_name': forms.TextInput(attrs={'class': 'form-input'}),
+            'phone_number': forms.TextInput(attrs={'class': 'form-input', 'inputmode': 'numeric', 'placeholder': '숫자만 입력해도 됩니다'}),
+            'nickname': forms.TextInput(attrs={'class': 'form-input'}),
+            'address': forms.TextInput(attrs={'class': 'form-input'}),
+            'notify_attendance': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'notify_news': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 주소와 알림 수신 설정은 학부모 회원에게만 의미가 있어, 학부모가 아니면 칸을 없앤다
+        # (없애지 않으면 화면에 없는 체크박스가 저장 때 '해제'로 덮어써진다)
+        if self.instance.pk and self.instance.user_type not in ('parent', 'medulab_parent'):
+            for name in ('address', 'notify_attendance', 'notify_news'):
+                del self.fields[name]
+
+    def clean_phone_number(self):
+        digits = ''.join(ch for ch in (self.cleaned_data.get('phone_number') or '') if ch.isdigit())
+        if not digits:
+            return ''
+        if len(digits) < 9 or len(digits) > 11:
+            raise forms.ValidationError('전화번호는 숫자 기준 9자리에서 11자리로 입력해 주세요.')
+        return digits
 
 
 class BadgeForm(forms.ModelForm):

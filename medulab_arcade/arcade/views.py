@@ -2904,6 +2904,10 @@ def member_create(request):
             # 프로필 정보 업데이트
             profile.user_type = profile_form.cleaned_data['user_type']
             profile.is_approved = profile_form.cleaned_data['is_approved']
+            for name in ('real_name', 'birth_date', 'phone_number', 'nickname', 'address',
+                         'notify_attendance', 'notify_news'):
+                if name in profile_form.cleaned_data:
+                    setattr(profile, name, profile_form.cleaned_data[name])
             profile.save()
             
             messages.success(request, f'회원 "{user.username}" 계정이 생성되었습니다.')

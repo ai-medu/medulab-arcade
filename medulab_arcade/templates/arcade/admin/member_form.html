@@ -104,6 +104,57 @@
                 {% if user_form.password.errors %}<div class="form-errors">{{ user_form.password.errors.0 }}</div>{% endif %}
             </div>
 
+            {% if profile_form.real_name %}
+            <div class="form-section-title">회원 정보</div>
+
+            <div class="form-group">
+                <label>이름</label>
+                {{ profile_form.real_name }}
+                {% if profile_form.real_name.errors %}<div class="form-errors">{{ profile_form.real_name.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label>생년월일</label>
+                {{ profile_form.birth_date }}
+                {% if profile_form.birth_date.errors %}<div class="form-errors">{{ profile_form.birth_date.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label>전화번호</label>
+                {{ profile_form.phone_number }}
+                <div class="form-help">하이픈 없이 숫자만 입력해도 됩니다.{% if is_parent_type %} 출석·학원비 알림톡이 이 번호로 발송됩니다.{% endif %}</div>
+                {% if profile_form.phone_number.errors %}<div class="form-errors">{{ profile_form.phone_number.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label>닉네임(표시 이름)</label>
+                {{ profile_form.nickname }}
+                {% if profile_form.nickname.errors %}<div class="form-errors">{{ profile_form.nickname.errors.0 }}</div>{% endif %}
+            </div>
+
+            {% if profile_form.address %}
+            <div class="form-group">
+                <label>주소</label>
+                {{ profile_form.address }}
+                {% if profile_form.address.errors %}<div class="form-errors">{{ profile_form.address.errors.0 }}</div>{% endif %}
+            </div>
+            {% endif %}
+
+            {% if profile_form.notify_attendance %}
+            <div class="form-group">
+                <label>알림 수신</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <label class="checkbox-group">{{ profile_form.notify_attendance }}<span>출석 알림 수신</span></label>
+                    <label class="checkbox-group">{{ profile_form.notify_news }}<span>소식 알림 수신</span></label>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if target_user %}
+            <div class="form-help" style="margin-bottom:8px;">가입일 {{ target_user.date_joined|date:"Y.m.d" }} · 마지막 접속 {% if target_user.last_login %}{{ target_user.last_login|date:"Y.m.d H:i" }}{% else %}기록 없음{% endif %}</div>
+            {% endif %}
+            {% endif %}
+
             <div class="form-section-title">회원 권한 및 상태</div>
 
             <div class="form-group">
