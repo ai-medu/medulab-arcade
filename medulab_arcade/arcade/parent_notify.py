@@ -169,23 +169,40 @@ def _previous_label(previous, total):
     return f'{len(previous)}건 {total:,}원 ({shown}분)'
 
 
-def send_invoice_notice(invoice, kind=NotificationLog.KIND_INVOICE):
+# 관리자가 '다시 보내기'를 눌러도 같은 청구서에 이 시간(분) 안에 보낸 기록이 있으면 중복 클릭으로 보고 막는다
+RESEND_GUARD_MINUTES = 5
+
+
+def send_invoice_notice(invoice, kind=NotificationLog.KIND_INVOICE, force=False):
     """청구서 안내 알림톡 (결제 링크 포함). 보낸 건수를 반환. 이미 발송했거나 완납/취소면 0.
     kind=KIND_REMINDER 이면 미납 독촉 안내(이미 보낸 청구 안내와 별개로 하루 한 번 제한)."""
+    return send_invoice_notice_result(invoice, kind, force)[0]
+
+
+def send_invoice_notice_result(invoice, kind=NotificationLog.KIND_INVOICE, force=False):
+    """send_invoice_notice 와 같지만 (보낸 건수, 사유)를 돌려준다.
+    사유: sent / not_unpaid / already_sent / recent / no_parent / failed
+    force=True 이면 이미 보낸 청구서도 다시 보낸다(관리자 수동 발송용)."""
     if invoice.status != TuitionInvoice.STATUS_UNPAID:
-        return 0
+        return 0, 'not_unpaid'
     today = timezone.localdate()
-    if kind == NotificationLog.KIND_INVOICE:
+    if force:
+        since = timezone.now() - timezone.timedelta(minutes=RESEND_GUARD_MINUTES)
+        if NotificationLog.objects.filter(invoice=invoice, status=NotificationLog.STATUS_SENT,
+                                          kind__in=[NotificationLog.KIND_INVOICE, NotificationLog.KIND_REMINDER],
+                                          created_at__gte=since).exists():
+            return 0, 'recent'
+    elif kind == NotificationLog.KIND_INVOICE:
         if _already_sent(kind=kind, invoice=invoice):
-            return 0
+            return 0, 'already_sent'
     elif _already_sent(kind=kind, invoice=invoice, target_date=today):
-        return 0
+        return 0, 'already_sent'
 
     student = invoice.student
     phones = parent_phones(student)
     if not phones:
         _no_parent(kind, student, invoice=invoice, target_date=today)
-        return 0
+        return 0, 'no_parent'
 
     pay_token = invoice.ensure_pay_token()
     previous = list(TuitionInvoice.objects.filter(
@@ -210,4 +227,4 @@ def send_invoice_notice(invoice, kind=NotificationLog.KIND_INVOICE):
         if _deliver(kind, student, phone, settings.SOLAPI_TEMPLATE_INVOICE, variables,
                     invoice=invoice, target_date=today):
             sent += 1
-    return sent
+    return sent, ('sent' if sent else 'failed')

@@ -189,3 +189,93 @@ class ParentNotifyTests(TestCase):
         with mock.patch('arcade.parent_notify.requests.post') as post:
             post.return_value.status_code = 200
             self.assertEqual(parent_notify.send_invoice_notice(inv), 1)
+
+
+@override_settings(**SOLAPI)
+class BulkInvoiceNoticeTests(TestCase):
+    def setUp(self):
+        self.staff = User.objects.create_user('boss', password='x', is_staff=True)
+        self.klass = SchoolClass.objects.create(name='AICE반', tuition_fee=200000)
+        self.with_parent = self._student('kid1', '010-1234-5678')
+        self.no_parent = self._student('kid2', None)
+        self.client.force_login(self.staff)
+
+    def _student(self, name, parent_phone):
+        student = User.objects.create_user(name, password='x')
+        if parent_phone:
+            parent = User.objects.create_user(name + '_mom', password='x')
+            parent.profile.phone_number = parent_phone
+            parent.profile.save()
+            ParentChildLink.objects.create(parent=parent, child=student)
+        return student
+
+    def _invoice(self, student, **kw):
+        defaults = dict(student=student, school_class=self.klass, amount=180000, base_amount=200000,
+                        due_date=timezone.localdate() + timedelta(days=5))
+        defaults.update(kw)
+        return TuitionInvoice.objects.create(**defaults)
+
+    def _bulk(self, *invoices):
+        return self.client.post(reverse('tuition_invoice_bulk_action'), {
+            'bulk_action': 'notify', 'invoice_ids': [i.id for i in invoices],
+        }, follow=True)
+
+    def test_bulk_notify_sends_and_summarizes(self):
+        ok = self._invoice(self.with_parent)
+        paid = self._invoice(self.with_parent, status=TuitionInvoice.STATUS_PAID)
+        nobody = self._invoice(self.no_parent)
+        with mock.patch('arcade.parent_notify.requests.post') as post:
+            post.return_value.status_code = 200
+            res = self._bulk(ok, paid, nobody)
+        self.assertEqual(post.call_count, 1)
+        text = ' '.join(str(m) for m in res.context['messages'])
+        self.assertIn('1건을 발송', text)
+        self.assertIn('미납이 아닌 건 1건', text)
+        self.assertIn('학부모 번호 없음 1건', text)
+
+    def test_resend_allowed_after_guard_window_but_not_double_click(self):
+        inv = self._invoice(self.with_parent)
+        with mock.patch('arcade.parent_notify.requests.post') as post:
+            post.return_value.status_code = 200
+            self._bulk(inv)
+            self._bulk(inv)  # 바로 다시 누르면 중복 클릭으로 막는다
+            self.assertEqual(post.call_count, 1)
+            NotificationLog.objects.filter(invoice=inv).update(created_at=timezone.now() - timedelta(minutes=10))
+            self._bulk(inv)  # 시간이 지난 뒤에는 다시 보낼 수 있다
+            self.assertEqual(post.call_count, 2)
+
+    def test_overdue_invoice_logged_as_reminder(self):
+        inv = self._invoice(self.with_parent, due_date=timezone.localdate() - timedelta(days=3))
+        with mock.patch('arcade.parent_notify.requests.post') as post:
+            post.return_value.status_code = 200
+            self._bulk(inv)
+        self.assertEqual(NotificationLog.objects.get(invoice=inv).kind, 'reminder')
+
+    def test_failure_is_reported(self):
+        inv = self._invoice(self.with_parent)
+        with mock.patch('arcade.parent_notify.requests.post') as post:
+            post.return_value.status_code = 400
+            post.return_value.text = 'bad'
+            res = self._bulk(inv)
+        self.assertIn('실패 1건', ' '.join(str(m) for m in res.context['messages']))
+
+    def test_dashboard_has_notify_button_and_last_notice(self):
+        inv = self._invoice(self.with_parent)
+        today = timezone.localdate()
+        url = reverse('tuition_admin_dashboard') + f'?year={inv.due_date.year}&month={inv.due_date.month}'
+        res = self.client.get(url)
+        self.assertContains(res, '학부모에게 청구 안내 발송')
+        self.assertNotContains(res, '안내</div>')
+        with mock.patch('arcade.parent_notify.requests.post') as post:
+            post.return_value.status_code = 200
+            self._bulk(inv)
+        self.assertContains(self.client.get(url), '안내</div>')
+
+    def test_non_staff_blocked(self):
+        inv = self._invoice(self.with_parent)
+        self.client.force_login(self.with_parent)
+        with mock.patch('arcade.parent_notify.requests.post') as post:
+            self.client.post(reverse('tuition_invoice_bulk_action'), {'bulk_action': 'notify', 'invoice_ids': [inv.id]})
+            dash = self.client.get(reverse('tuition_admin_dashboard'))
+        post.assert_not_called()
+        self.assertNotEqual(dash.status_code, 200)

@@ -4296,6 +4296,15 @@ def class_admin_attendance(request, class_id):
     return render(request, 'arcade/admin/class_attendance.html', context)
 
 
+def _with_last_notice(qs):
+    """청구서마다 학부모에게 청구/미납 안내 알림톡이 마지막으로 발송된 시각(last_notice)을 붙인다"""
+    from django.db.models import Max
+    return qs.annotate(last_notice=Max(
+        'notification_logs__created_at',
+        filter=Q(notification_logs__status='sent', notification_logs__kind__in=['invoice', 'reminder']),
+    ))
+
+
 @login_required
 @user_passes_test(staff_check)
 def tuition_admin_dashboard(request):
@@ -4305,7 +4314,7 @@ def tuition_admin_dashboard(request):
 
     if student_id:
         student = get_object_or_404(User, pk=student_id)
-        invoices = TuitionInvoice.objects.filter(student=student).select_related('school_class').order_by('-due_date')
+        invoices = _with_last_notice(TuitionInvoice.objects.filter(student=student)).select_related('school_class').order_by('-due_date')
         context = {
             'mode': 'student',
             'student': student,
@@ -4324,7 +4333,7 @@ def tuition_admin_dashboard(request):
         all_qs = TuitionInvoice.objects.filter(
             status=TuitionInvoice.STATUS_UNPAID if is_unpaid else TuitionInvoice.STATUS_PAID
         )
-        invoices = all_qs.select_related('student__profile', 'school_class')
+        invoices = _with_last_notice(all_qs).select_related('student__profile', 'school_class')
         if is_unpaid:
             invoices = invoices.order_by('due_date', 'school_class__name', 'student__profile__real_name')
         else:
@@ -4357,9 +4366,9 @@ def tuition_admin_dashboard(request):
 
     status_filter = request.GET.get('status', '')
 
-    invoices = TuitionInvoice.objects.filter(
+    invoices = _with_last_notice(TuitionInvoice.objects.filter(
         due_date__year=year, due_date__month=month,
-    ).select_related('student__profile', 'school_class').order_by('school_class__name', 'student__profile__real_name')
+    )).select_related('student__profile', 'school_class').order_by('school_class__name', 'student__profile__real_name')
     if status_filter:
         invoices = invoices.filter(status=status_filter)
     if search:
@@ -4648,10 +4657,45 @@ def tuition_invoice_bulk_action(request):
             count += 1
         status_label = dict(TuitionInvoice.STATUS_CHOICES).get(status, status)
         messages.success(request, f'청구서 {count}건을 "{status_label}"(으)로 변경했습니다.')
+    elif bulk_action == 'notify':
+        _bulk_notify_invoices(request, invoices)
     else:
         messages.error(request, '알 수 없는 작업입니다.')
 
     return redirect(next_url)
+
+
+def _bulk_notify_invoices(request, invoices):
+    """선택한 청구서의 학부모에게 학원비 청구 안내 알림톡을 보낸다 (이미 보낸 건도 다시 보냄).
+    완납/취소 건과 학부모 번호가 없는 건은 건너뛰고, 결과를 사유별로 요약해 알려 준다."""
+    from .parent_notify import send_invoice_notice_result
+    from .models import NotificationLog
+
+    today = timezone.localdate()
+    counts = {'sent': 0, 'not_unpaid': 0, 'no_parent': 0, 'recent': 0, 'failed': 0}
+    for invoice in invoices.select_related('student__profile', 'school_class').order_by('id'):
+        kind = NotificationLog.KIND_REMINDER if invoice.due_date < today else NotificationLog.KIND_INVOICE
+        try:
+            _count, reason = send_invoice_notice_result(invoice, kind, force=True)
+        except Exception:
+            logging.getLogger(__name__).exception('청구 안내 수동 발송 오류 invoice=%s', invoice.pk)
+            reason = 'failed'
+        counts[reason if reason in counts else 'failed'] += 1
+
+    skipped = []
+    if counts['not_unpaid']:
+        skipped.append(f"미납이 아닌 건 {counts['not_unpaid']}건")
+    if counts['no_parent']:
+        skipped.append(f"학부모 번호 없음 {counts['no_parent']}건")
+    if counts['recent']:
+        skipped.append(f"방금 이미 발송 {counts['recent']}건")
+    detail = f" (건너뜀: {', '.join(skipped)})" if skipped else ''
+    if counts['failed']:
+        messages.error(request, f"학부모 청구 안내 {counts['sent']}건 발송, 실패 {counts['failed']}건{detail}. 실패 사유는 관리자 사이트의 '알림톡 발송 기록'에서 확인하세요.")
+    elif counts['sent']:
+        messages.success(request, f"학부모 청구 안내 알림톡 {counts['sent']}건을 발송했습니다.{detail}")
+    else:
+        messages.warning(request, f"발송한 안내가 없습니다.{detail}")
 
 
 @login_required

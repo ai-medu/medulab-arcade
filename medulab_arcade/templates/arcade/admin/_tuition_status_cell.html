@@ -2,4 +2,5 @@
 {% elif inv.status == 'canceled' %}<span class="status-badge status-canceled">취소</span>
 {% if inv.refunded_amount %}<div class="date-line refund">환불 {{ inv.refunded_amount|intcomma }}원</div>{% endif %}
 {% else %}<span class="status-badge status-unpaid">미납</span>
-{% if inv.due_date < today %}<div class="overdue-tag">⏰ 기한 지남</div>{% endif %}{% endif %}
+{% if inv.due_date < today %}<div class="overdue-tag">⏰ 기한 지남</div>{% endif %}
+{% if inv.last_notice %}<div class="date-line" title="학부모에게 알림톡을 마지막으로 보낸 시각">📨 {{ inv.last_notice|date:"m.d H:i" }} 안내</div>{% endif %}{% endif %}

@@ -76,6 +76,8 @@ tr:hover td { background:rgba(255,255,255,0.02); }
 .bulk-btn { padding:9px 16px; border-radius:9px; font-weight:700; font-size:13px; cursor:pointer; border:none; }
 .bulk-btn.status { background:rgba(59,130,246,0.15); color:#93c5fd; }
 .bulk-btn.status:hover { background:rgba(59,130,246,0.25); }
+.bulk-btn.notify { background:rgba(250,204,21,0.15); color:#fde047; }
+.bulk-btn.notify:hover { background:rgba(250,204,21,0.28); }
 .bulk-btn.delete { background:rgba(239,68,68,0.15); color:#fca5a5; }
 .bulk-btn.delete:hover { background:rgba(239,68,68,0.25); }
 
@@ -374,6 +376,10 @@ document.addEventListener('keydown', function (e) {
         var actionType = document.getElementById('bulkActionType').value;
         if (actionType === 'delete') {
             if (!confirm(checked.length + '건의 청구서를 삭제할까요? 되돌릴 수 없습니다.')) {
+                e.preventDefault();
+            }
+        } else if (actionType === 'notify') {
+            if (!confirm(checked.length + '건 중 미납 청구서의 학부모에게 카카오 알림톡(결제 링크 포함)을 발송할까요?' + '\n\n· 이미 보낸 건도 다시 발송됩니다.' + '\n· 완납/취소 건과 학부모 번호가 없는 건은 건너뜁니다.' + '\n· 발송 건당 요금이 발생합니다.')) {
                 e.preventDefault();
             }
         } else if (actionType === 'status') {
