@@ -521,7 +521,7 @@ class UserProfileUpdateForm(forms.ModelForm):
         model = UserProfile
         fields = (
             'real_name', 'birth_date', 'phone_number', 'nickname',
-            'address', 'notify_attendance', 'notify_news',
+            'address', 'notify_attendance',
         )
 
     def __init__(self, *args, **kwargs):
@@ -541,7 +541,7 @@ class UserProfileUpdateForm(forms.ModelForm):
         # '해제'로 덮어써지지 않도록 학부모가 아니면 폼에서 뺀다
         self.has_parent_fields = self.instance.user_type == 'medulab_parent'
         if not self.has_parent_fields:
-            for name in ('address', 'children_info', 'notify_attendance', 'notify_news'):
+            for name in ('address', 'children_info', 'notify_attendance'):
                 del self.fields[name]
         import json as _json
         if self.has_parent_fields:

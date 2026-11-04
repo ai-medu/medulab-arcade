@@ -73,7 +73,7 @@ class ProfileEditRulesTests(TestCase):
         user.profile.refresh_from_db()
         self.assertEqual(user.profile.address, '서울 강남구 테헤란로 1 101호')
         self.assertTrue(user.profile.notify_attendance)
-        self.assertFalse(user.profile.notify_news)
+        self.assertTrue(user.profile.notify_news)   # 프로필 화면에서 숨겼으므로 저장해도 바뀌지 않는다
         self.assertEqual(user.profile.user_type, 'medulab_parent')
 
     def test_profile_shows_type_read_only_and_address_search(self):
