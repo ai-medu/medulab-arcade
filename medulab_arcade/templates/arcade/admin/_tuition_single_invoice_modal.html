@@ -56,7 +56,7 @@
             </div>
             {% include 'arcade/admin/_invoice_disc_box.html' with p='si' %}
             <div class="si-field"><label>금액(원) <span style="font-weight:500;">· 자동 계산된 값이에요. 필요하면 직접 고칠 수 있어요</span></label><input type="number" id="siAmount" class="si-input" min="0"></div>
-            <div class="si-note">📨 청구서를 만들면 연결된 학부모에게 학원비 청구 안내 알림톡이 자동으로 발송됩니다. (미납 상태일 때)</div>
+            <div class="si-note">청구서만 만들어지고 학부모 알림톡은 자동으로 발송되지 않아요. 보내려면 목록에서 청구서를 선택해 "학부모에게 청구 안내 발송"을 눌러 주세요.</div>
         </div>
 
         <div class="si-msg" id="siMsg"></div>

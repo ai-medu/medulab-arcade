@@ -469,3 +469,46 @@ class VerifyRetrySignalTests(TestCase):
             self.assertTrue(self.client.post(self.url).json()['ok'])
         self.inv.refresh_from_db()
         self.assertEqual(self.inv.status, TuitionInvoice.STATUS_PAID)
+
+
+@override_settings(**SOLAPI)
+class NoAutoInvoiceNoticeTests(TestCase):
+    """청구서를 만들어도 학부모 알림톡은 자동 발송되지 않는다 (관리자가 '청구 안내 발송'을 눌렀을 때만 발송)"""
+
+    def setUp(self):
+        self.staff = User.objects.create_user('boss', password='x', is_staff=True)
+        self.klass = SchoolClass.objects.create(name='AICE반', tuition_fee=200000)
+        self.kid = User.objects.create_user('kid', password='x')
+        parent = User.objects.create_user('mom', password='x')
+        parent.profile.phone_number = '010-1234-5678'
+        parent.profile.save()
+        ParentChildLink.objects.create(parent=parent, child=self.kid)
+        from .models import ClassEnrollment
+        ClassEnrollment.objects.create(school_class=self.klass, student=self.kid)
+        self.client.force_login(self.staff)
+
+    def test_bulk_generation_does_not_send(self):
+        from .views import generate_invoices_for_class
+        with mock.patch('arcade.parent_notify.requests.post') as post:
+            self.assertEqual(generate_invoices_for_class(self.klass, due_date=timezone.localdate()), 1)
+        post.assert_not_called()
+        self.assertEqual(NotificationLog.objects.count(), 0)
+
+    def test_single_creation_does_not_send(self):
+        url = reverse('class_modal_invoice_save', args=[self.klass.id])
+        with mock.patch('arcade.parent_notify.requests.post') as post:
+            res = self.client.post(url, {'student_id': self.kid.id, 'amount': 200000,
+                                         'due_date': timezone.localdate().isoformat(), 'status': 'unpaid'},
+                                   content_type='application/json')
+        self.assertEqual(res.status_code, 200)
+        post.assert_not_called()
+        self.assertEqual(NotificationLog.objects.count(), 0)
+        self.assertEqual(TuitionInvoice.objects.count(), 1)
+
+    def test_manual_bulk_send_still_works(self):
+        inv = TuitionInvoice.objects.create(student=self.kid, school_class=self.klass, amount=200000, base_amount=200000,
+                                            due_date=timezone.localdate() + timedelta(days=5))
+        with mock.patch('arcade.parent_notify.requests.post') as post:
+            post.return_value.status_code = 200
+            self.client.post(reverse('tuition_invoice_bulk_action'), {'bulk_action': 'notify', 'invoice_ids': [inv.id]})
+        self.assertEqual(post.call_count, 1)

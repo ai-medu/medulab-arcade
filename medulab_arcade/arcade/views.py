@@ -3950,10 +3950,7 @@ def class_modal_invoice_save(request, class_id):
     elif status != TuitionInvoice.STATUS_PAID:
         invoice.paid_at = None
     invoice.status = status
-    is_new_invoice = invoice.pk is None
     invoice.save()
-    if is_new_invoice:
-        _notify_invoice_safely(invoice)
     payload = _class_modal_payload(school_class)
     payload['message'] = '청구서를 저장했습니다.'
     return JsonResponse(payload)
@@ -4199,19 +4196,10 @@ def generate_invoices_for_class(school_class, due_date=None):
         if exists:
             continue
         calc = compute_invoice_amounts(school_class, enrollment, due_date)
-        invoice = TuitionInvoice.objects.create(student=enrollment.student, school_class=school_class, due_date=due_date, **calc)
-        _notify_invoice_safely(invoice)
+        TuitionInvoice.objects.create(student=enrollment.student, school_class=school_class, due_date=due_date, **calc)
         created += 1
     return created
 
-
-def _notify_invoice_safely(invoice):
-    """청구서가 새로 생기면 학부모에게 안내 알림톡(결제 링크 포함). 실패해도 청구서 생성은 막지 않는다."""
-    from .parent_notify import send_invoice_notice
-    try:
-        send_invoice_notice(invoice)
-    except Exception:
-        logging.getLogger(__name__).exception('청구 안내 알림톡 처리 중 오류 invoice=%s', invoice.pk)
 
 
 @login_required
