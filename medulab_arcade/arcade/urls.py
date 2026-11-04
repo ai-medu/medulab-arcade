@@ -227,6 +227,7 @@ urlpatterns = [
     path('admin-services/tuition/<int:invoice_id>/cancel-info/', views.tuition_invoice_cancel_info, name='tuition_invoice_cancel_info'),
     path('admin-services/tuition/<int:invoice_id>/cancel/', views.tuition_invoice_cancel, name='tuition_invoice_cancel'),
     path('admin-services/tuition/bulk/', views.tuition_invoice_bulk_action, name='tuition_invoice_bulk_action'),
+    path('admin-services/tuition/<int:invoice_id>/amount/', views.tuition_invoice_set_amount, name='tuition_invoice_set_amount'),
     path('admin-services/tuition/generate-all/', views.tuition_generate_invoices_all, name='tuition_generate_invoices_all'),
 
     # 학원비 결제 (포트원)

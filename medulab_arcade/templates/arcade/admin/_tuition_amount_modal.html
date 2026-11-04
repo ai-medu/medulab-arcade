@@ -1,0 +1,116 @@
+{% comment %}납부 관리 - '결제금액'을 눌러 여는 결제금액 수정 모달 (미납 청구서만){% endcomment %}
+<style>
+.amount-btn { background:none; border:none; padding:0; cursor:pointer; font:inherit; display:inline-flex; align-items:center; gap:5px; text-align:left; }
+.amount-btn:hover .amount-final { text-decoration:underline; }
+.amount-edit-icon { font-size:11px; color:var(--text-muted); }
+.am-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; align-items:center; justify-content:center; padding:20px; }
+.am-overlay.show { display:flex; }
+.am-box { background:var(--bg-card); border:1px solid var(--border); border-radius:18px; padding:26px; max-width:420px; width:100%; box-sizing:border-box; position:relative; max-height:92vh; overflow-y:auto; }
+.am-close { position:absolute; top:14px; right:16px; background:none; border:none; color:var(--text-muted); font-size:20px; cursor:pointer; line-height:1; }
+.am-close:hover { color:#fff; }
+.am-box h3 { font-size:15px; font-weight:800; color:#fff; margin:0 0 4px; }
+.am-sub { font-size:12.5px; color:var(--text-muted); margin-bottom:14px; }
+.am-calc { border:1px dashed var(--border); border-radius:12px; padding:10px 12px; margin:0 0 14px; font-size:13px; line-height:1.9; }
+.am-calc .r { display:flex; justify-content:space-between; gap:10px; }
+.am-calc .r.abs { color:#d97706; } .am-calc .r.disc { color:#ec4899; }
+.am-calc .r.total { border-top:1px solid var(--border); margin-top:4px; padding-top:6px; font-weight:900; }
+.am-field label { display:block; font-size:11.5px; font-weight:700; color:var(--text-muted); margin-bottom:5px; }
+.am-input { width:100%; box-sizing:border-box; height:44px; padding:0 12px; border-radius:10px; border:1px solid var(--border); background:rgba(255,255,255,0.06); color:var(--text-primary, #fff); font-size:16px; font-weight:800; font-family:inherit; }
+.am-hint { font-size:12px; line-height:1.6; color:var(--text-muted); margin-top:8px; }
+.am-hint.warn { color:#d97706; }
+.am-btns { display:flex; gap:10px; margin-top:16px; }
+.am-btn { flex:1; height:42px; border:none; border-radius:10px; font-weight:800; font-size:14px; cursor:pointer; font-family:inherit; }
+.am-btn.go { background:var(--accent-green); color:#03140e; }
+.am-btn.go:disabled { opacity:.5; cursor:not-allowed; }
+.am-btn.cancel { background:rgba(120,120,160,0.14); color:var(--text-secondary); }
+.am-msg { margin-top:10px; font-size:13px; font-weight:700; min-height:18px; }
+.am-msg.err { color:#ef4444; } .am-msg.ok { color:var(--accent-green); }
+</style>
+
+<div class="am-overlay" id="amOverlay" onclick="if(event.target===this) closeAmountModal();">
+    <div class="am-box">
+        <button type="button" class="am-close" onclick="closeAmountModal()">✕</button>
+        <h3>💳 결제금액 수정</h3>
+        {% csrf_token %}
+        <div class="am-sub" id="amSub"></div>
+        <div class="am-calc" id="amCalc"></div>
+        <div class="am-field">
+            <label for="amAmount">결제금액(원)</label>
+            <input type="number" id="amAmount" class="am-input" min="0" step="1" inputmode="numeric" onkeydown="if(event.key==='Enter') saveAmount();">
+        </div>
+        <div class="am-hint warn" id="amWarn" style="display:none;"></div>
+        <div class="am-hint">금액을 직접 고치면 결석 차감·할인으로 계산된 금액과 달라질 수 있어요. 이미 학부모에게 안내한 금액이 있다면 다시 안내해 주세요.</div>
+        <div class="am-msg" id="amMsg"></div>
+        <div class="am-btns">
+            <button type="button" class="am-btn cancel" onclick="closeAmountModal()">닫기</button>
+            <button type="button" class="am-btn go" id="amSave" onclick="saveAmount()">금액 저장</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var current = null;
+    var $ = function (id) { return document.getElementById(id); };
+    var won = function (n) { return Number(n || 0).toLocaleString('ko-KR') + '원'; };
+    function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : t; return d.innerHTML; }
+    function say(text, kind) { var m = $('amMsg'); m.textContent = text || ''; m.className = 'am-msg' + (kind ? ' ' + kind : ''); }
+    function csrf() { var el = document.querySelector('#amOverlay input[name=csrfmiddlewaretoken]'); return el ? el.value : ''; }
+
+    function autoAmount(d) {
+        return Math.max(d.base - d.absence - d.discount - d.extra, 0);
+    }
+    function updateWarn() {
+        var el = $('amWarn'), v = parseInt($('amAmount').value, 10);
+        if (!current || isNaN(v)) { el.style.display = 'none'; return; }
+        var auto = autoAmount(current);
+        if (v !== auto) {
+            el.textContent = '계산된 금액은 ' + won(auto) + '이에요. 직접 입력한 금액 ' + won(v) + '으로 저장됩니다.';
+            el.style.display = '';
+        } else {
+            el.style.display = 'none';
+        }
+    }
+
+    window.openAmountModal = function (btn) {
+        var d = btn.dataset;
+        current = {
+            id: d.id, base: +d.base, absence: +d.absence, discount: +d.discount, extra: +d.extra, amount: +d.amount
+        };
+        $('amSub').textContent = d.student + ' · ' + d.class + ' · ' + d.period;
+        var rows = '<div class="r"><span>수업비</span><span>' + won(d.base) + '</span></div>';
+        if (current.absence) rows += '<div class="r abs"><span>전월 결석 ' + esc(d.absenceCount) + '회 차감</span><span>−' + won(d.absence) + '</span></div>';
+        if (current.discount) rows += '<div class="r disc"><span>기본할인 ' + esc(d.discountReason) + '</span><span>−' + won(d.discount) + '</span></div>';
+        if (current.extra) rows += '<div class="r disc"><span>추가할인 ' + esc(d.extraReason) + '</span><span>−' + won(d.extra) + '</span></div>';
+        rows += '<div class="r total"><span>현재 결제금액</span><span>' + won(d.amount) + '</span></div>';
+        $('amCalc').innerHTML = rows;
+        $('amAmount').value = d.amount;
+        $('amSave').disabled = false;
+        say('');
+        updateWarn();
+        $('amOverlay').classList.add('show');
+        $('amAmount').focus();
+        $('amAmount').select();
+    };
+    window.closeAmountModal = function () { $('amOverlay').classList.remove('show'); current = null; };
+
+    window.saveAmount = function () {
+        if (!current) return;
+        var v = parseInt($('amAmount').value, 10);
+        if (isNaN(v) || v < 0) { say('금액을 0원 이상의 숫자로 입력해 주세요.', 'err'); return; }
+        if (v === current.amount) { say('금액이 바뀌지 않았어요.', 'err'); return; }
+        var btn = $('amSave');
+        btn.disabled = true; say('저장 중...');
+        fetch('/admin-services/tuition/' + current.id + '/amount/', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+            body: JSON.stringify({ amount: v })
+        }).then(function (r) { return r.json().then(function (j) { if (!r.ok || j.ok === false) throw new Error(j.error || '저장하지 못했어요.'); return j; }); })
+          .then(function (j) { say('✅ ' + won(j.old_amount) + ' → ' + won(j.amount) + ' 으로 수정했어요!', 'ok'); setTimeout(function () { location.reload(); }, 700); })
+          .catch(function (e) { say(e.message, 'err'); btn.disabled = false; });
+    };
+
+    document.addEventListener('input', function (e) { if (e.target && e.target.id === 'amAmount') updateWarn(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') window.closeAmountModal(); });
+})();
+</script>

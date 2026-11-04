@@ -512,3 +512,57 @@ class NoAutoInvoiceNoticeTests(TestCase):
             post.return_value.status_code = 200
             self.client.post(reverse('tuition_invoice_bulk_action'), {'bulk_action': 'notify', 'invoice_ids': [inv.id]})
         self.assertEqual(post.call_count, 1)
+
+
+class InvoiceAmountEditTests(TestCase):
+    def setUp(self):
+        self.staff = User.objects.create_user('boss', password='x', is_staff=True)
+        self.kid = User.objects.create_user('kid', password='x')
+        self.klass = SchoolClass.objects.create(name='AICE반', tuition_fee=200000)
+        due = timezone.localdate() + timedelta(days=5)
+        self.unpaid = TuitionInvoice.objects.create(student=self.kid, school_class=self.klass, amount=195000,
+                                                    base_amount=200000, discount_amount=5000, due_date=due)
+        self.paid = TuitionInvoice.objects.create(student=self.kid, school_class=self.klass, amount=100000, base_amount=100000,
+                                                  due_date=due + timedelta(days=1), status=TuitionInvoice.STATUS_PAID)
+        self.client.force_login(self.staff)
+
+    def _set(self, invoice, amount):
+        return self.client.post(reverse('tuition_invoice_set_amount', args=[invoice.id]), {'amount': amount},
+                                content_type='application/json')
+
+    def test_updates_unpaid_amount_only(self):
+        res = self._set(self.unpaid, '150,000')
+        self.assertEqual((res.status_code, res.json()['old_amount'], res.json()['amount']), (200, 195000, 150000))
+        self.unpaid.refresh_from_db()
+        self.assertEqual((self.unpaid.amount, self.unpaid.base_amount, self.unpaid.discount_amount), (150000, 200000, 5000))
+
+    def test_paid_and_canceled_cannot_be_edited(self):
+        self.assertEqual(self._set(self.paid, 1).status_code, 400)
+        TuitionInvoice.objects.filter(pk=self.unpaid.pk).update(status=TuitionInvoice.STATUS_CANCELED)
+        self.assertEqual(self._set(self.unpaid, 1).status_code, 400)
+        self.paid.refresh_from_db()
+        self.assertEqual(self.paid.amount, 100000)
+
+    def test_invalid_amounts_rejected(self):
+        for bad in ('abc', '', -5, 10_000_001, None):
+            self.assertEqual(self._set(self.unpaid, bad).status_code, 400, bad)
+        self.unpaid.refresh_from_db()
+        self.assertEqual(self.unpaid.amount, 195000)
+        self.assertEqual(self._set(self.unpaid, 0).status_code, 200)  # 0원(면제)은 허용
+
+    def test_non_staff_and_get_blocked(self):
+        url = reverse('tuition_invoice_set_amount', args=[self.unpaid.id])
+        self.assertEqual(self.client.get(url).status_code, 405)
+        self.client.force_login(self.kid)
+        self.client.post(url, {'amount': 1}, content_type='application/json')
+        self.unpaid.refresh_from_db()
+        self.assertEqual(self.unpaid.amount, 195000)
+
+    def test_list_amount_is_clickable_only_for_unpaid(self):
+        url = reverse('tuition_admin_dashboard') + f'?year={self.unpaid.due_date.year}&month={self.unpaid.due_date.month}'
+        res = self.client.get(url)
+        self.assertContains(res, 'id="amOverlay"')
+        self.assertContains(res, f'data-id="{self.unpaid.id}"')
+        self.assertNotContains(res, f'data-id="{self.paid.id}"')
+        for q in ('?view=unpaid', f'?student_id={self.kid.id}'):
+            self.assertContains(self.client.get(reverse('tuition_admin_dashboard') + q), 'id="amOverlay"')

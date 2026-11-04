@@ -154,15 +154,7 @@ tr:hover td { background:rgba(255,255,255,0.02); }
                         <div class="class-period">{{ inv.billing_period_label }}</div>
                     </td>
                     <td><button type="button" class="att-link" onclick="openAttendanceModal({{ inv.id }})">{{ inv.attended_count }}/{{ inv.school_class.monthly_sessions }}</button></td>
-                    <td>
-                        <div class="amount-final">{{ inv.amount|intcomma }}원</div>
-                        {% if inv.absence_deduction or inv.discount_amount or inv.extra_discount_amount %}
-                        <div class="amount-base">{{ inv.base_amount|intcomma }}원</div>
-                        {% if inv.absence_deduction %}<div class="amount-deduction">결석 {{ inv.absence_count }}회 -{{ inv.absence_deduction|intcomma }}원</div>{% endif %}
-                        {% if inv.discount_amount %}<div class="amount-discount">기본할인 {{ inv.discount_reason }} -{{ inv.discount_amount|intcomma }}원</div>{% endif %}
-                        {% if inv.extra_discount_amount %}<div class="amount-discount extra">추가할인 {{ inv.extra_discount_reason }}{% if inv.extra_absence_count %} {{ inv.extra_absence_count }}회{% endif %} -{{ inv.extra_discount_amount|intcomma }}원</div>{% endif %}
-                        {% endif %}
-                    </td>
+                    <td>{% include 'arcade/admin/_tuition_amount_cell.html' with inv=inv %}</td>
                     <td>{% include 'arcade/admin/_tuition_status_cell.html' with inv=inv today=today %}</td>
                     <td>
                         <div class="date-line due"><span class="dl-label">기한</span>{{ inv.due_date|date:"Y.m.d" }}</div>
@@ -280,15 +272,7 @@ tr:hover td { background:rgba(255,255,255,0.02); }
                         <div class="class-period">{{ inv.billing_period_label }}</div>
                     </td>
                     <td><button type="button" class="att-link" onclick="openAttendanceModal({{ inv.id }})">{{ inv.attended_count }}/{{ inv.school_class.monthly_sessions }}</button></td>
-                    <td>
-                        <div class="amount-final">{{ inv.amount|intcomma }}원</div>
-                        {% if inv.absence_deduction or inv.discount_amount or inv.extra_discount_amount %}
-                        <div class="amount-base">{{ inv.base_amount|intcomma }}원</div>
-                        {% if inv.absence_deduction %}<div class="amount-deduction">결석 {{ inv.absence_count }}회 -{{ inv.absence_deduction|intcomma }}원</div>{% endif %}
-                        {% if inv.discount_amount %}<div class="amount-discount">기본할인 {{ inv.discount_reason }} -{{ inv.discount_amount|intcomma }}원</div>{% endif %}
-                        {% if inv.extra_discount_amount %}<div class="amount-discount extra">추가할인 {{ inv.extra_discount_reason }}{% if inv.extra_absence_count %} {{ inv.extra_absence_count }}회{% endif %} -{{ inv.extra_discount_amount|intcomma }}원</div>{% endif %}
-                        {% endif %}
-                    </td>
+                    <td>{% include 'arcade/admin/_tuition_amount_cell.html' with inv=inv %}</td>
                     <td>{% include 'arcade/admin/_tuition_status_cell.html' with inv=inv today=today %}</td>
                     <td>
                         <div class="date-line due"><span class="dl-label">기한</span>{{ inv.due_date|date:"Y.m.d" }}</div>
@@ -505,4 +489,5 @@ document.addEventListener('keydown', function (e) {
 })();
 </script>
 {% if si_enabled %}{% include 'arcade/admin/_tuition_single_invoice_modal.html' %}{% endif %}
+{% include 'arcade/admin/_tuition_amount_modal.html' %}
 {% endblock %}

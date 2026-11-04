@@ -4808,6 +4808,31 @@ def _bulk_notify_invoices(request, invoices):
         messages.warning(request, f"발송한 안내가 없습니다.{detail}")
 
 
+TUITION_AMOUNT_MAX = 10_000_000
+
+
+@login_required
+@user_passes_test(staff_check)
+@require_POST
+def tuition_invoice_set_amount(request, invoice_id):
+    """납부 관리 목록의 '결제금액'을 눌러 여는 모달에서 미납 청구서의 청구 금액만 고친다.
+    완납/취소된 청구서는 이미 처리된 돈이라 여기서 바꿀 수 없다."""
+    invoice = get_object_or_404(TuitionInvoice, pk=invoice_id)
+    if invoice.status != TuitionInvoice.STATUS_UNPAID:
+        return JsonResponse({'ok': False, 'error': '미납 청구서만 금액을 수정할 수 있어요.'}, status=400)
+    data = _json_body(request)
+    try:
+        amount = int(str(data.get('amount', '')).replace(',', '').strip())
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': '금액을 숫자로 입력해 주세요.'}, status=400)
+    if amount < 0 or amount > TUITION_AMOUNT_MAX:
+        return JsonResponse({'ok': False, 'error': f'금액은 0원 이상 {TUITION_AMOUNT_MAX:,}원 이하로 입력해 주세요.'}, status=400)
+    old_amount = invoice.amount
+    invoice.amount = amount
+    invoice.save(update_fields=['amount'])
+    return JsonResponse({'ok': True, 'old_amount': old_amount, 'amount': amount})
+
+
 @login_required
 @user_passes_test(staff_check)
 def tuition_invoice_attendance_detail(request, invoice_id):
