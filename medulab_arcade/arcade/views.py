@@ -4110,6 +4110,8 @@ def recalc_invoice_attendance(invoice):
     'skipped_manual'(관리자가 금액을 직접 고친 청구서) / 'skipped_no_enrollment'"""
     if invoice.status != TuitionInvoice.STATUS_UNPAID:
         return 'skipped_status'
+    if invoice.absence_prededucted:
+        return 'skipped_manual'  # 전월 차감을 미리 반영한 청구서는 다시 차감하지 않는다
     enrollment = ClassEnrollment.objects.filter(school_class=invoice.school_class, student=invoice.student).first()
     if not enrollment:
         return 'skipped_no_enrollment'
@@ -4415,6 +4417,7 @@ def tuition_admin_dashboard(request):
             'invoices': invoices,
             'today': today,
             'title': '납부 관리',
+            'am_discount_types': _discount_types_payload(),
         }
         return render(request, 'arcade/admin/tuition_dashboard.html', context)
 
@@ -4449,6 +4452,7 @@ def tuition_admin_dashboard(request):
             'all_students': all_qs.values('student_id').distinct().count(),
             'all_overdue_count': all_qs.filter(due_date__lt=today).count() if is_unpaid else 0,
             'title': '납부 관리 - 전체 미납' if is_unpaid else '납부 관리 - 전체 완납',
+            'am_discount_types': _discount_types_payload(),
         }
         return render(request, 'arcade/admin/tuition_dashboard.html', context)
 
@@ -4493,6 +4497,7 @@ def tuition_admin_dashboard(request):
         'paid_count': paid_count,
         'unpaid_count': unpaid_count,
         'title': '납부 관리',
+        'am_discount_types': _discount_types_payload(),
         **_single_invoice_modal_context(year, month),
     }
     return render(request, 'arcade/admin/tuition_dashboard.html', context)
@@ -4815,21 +4820,86 @@ TUITION_AMOUNT_MAX = 10_000_000
 @user_passes_test(staff_check)
 @require_POST
 def tuition_invoice_set_amount(request, invoice_id):
-    """납부 관리 목록의 '결제금액'을 눌러 여는 모달에서 미납 청구서의 청구 금액만 고친다.
+    """납부 관리 목록의 '결제금액'을 눌러 여는 모달에서 미납 청구서를 고친다.
+    amount 만 보내면 청구 금액만 바꾸고, 전월 차감/기본할인/추가할인 중 하나라도 함께 보내면 그 내역도 저장한다.
     완납/취소된 청구서는 이미 처리된 돈이라 여기서 바꿀 수 없다."""
-    invoice = get_object_or_404(TuitionInvoice, pk=invoice_id)
+    invoice = get_object_or_404(TuitionInvoice.objects.select_related('school_class', 'student'), pk=invoice_id)
     if invoice.status != TuitionInvoice.STATUS_UNPAID:
         return JsonResponse({'ok': False, 'error': '미납 청구서만 금액을 수정할 수 있어요.'}, status=400)
     data = _json_body(request)
+
+    def _int(value, label):
+        try:
+            return int(str(value).replace(',', '').strip())
+        except (TypeError, ValueError):
+            raise ValueError(f'{label}을(를) 숫자로 입력해 주세요.')
+
+    breakdown_keys = ('absence_deduction', 'absence_prededucted', 'discount_amount', 'extra_reason', 'extra_amount')
+    has_breakdown = any(k in data for k in breakdown_keys)
+    old_amount = invoice.amount
     try:
-        amount = int(str(data.get('amount', '')).replace(',', '').strip())
-    except (TypeError, ValueError):
-        return JsonResponse({'ok': False, 'error': '금액을 숫자로 입력해 주세요.'}, status=400)
+        if has_breakdown:
+            fee_base = invoice.base_amount or invoice.school_class.tuition_fee
+            # ① 전월 결석 차감: '전월 미리 차감'이면 이번 청구서에서는 0원
+            if data.get('absence_prededucted'):
+                deduction, prededucted = 0, True
+            else:
+                deduction = max(0, min(_int(data.get('absence_deduction', invoice.absence_deduction), '전월 차감액'), fee_base))
+                prededucted = False
+            # ② 기본할인(이 청구서 + 학생의 수업 배정 정보) / ③ 추가할인(이 청구서만)
+            override = (_parse_discount_override(data.get('discount_reason'), data.get('discount_amount'))
+                        if 'discount_amount' in data else (invoice.discount_reason, invoice.discount_amount))
+            extra_req = (_parse_extra_discount(data.get('extra_reason'), data.get('extra_amount'), data.get('extra_sessions'))
+                         if ('extra_reason' in data or 'extra_amount' in data) else
+                         ((invoice.extra_discount_reason, invoice.extra_discount_amount, invoice.extra_absence_count)
+                          if invoice.extra_discount_amount else None))
+    except ValueError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+
+    if has_breakdown:
+        reason, value = override if override is not None else ('', 0)
+        discount = max(0, min(int(value or 0), fee_base - deduction))
+        if 'discount_amount' in data:
+            _persist_base_discount(
+                ClassEnrollment.objects.filter(school_class=invoice.school_class, student=invoice.student)
+                .select_related('school_class').first(), override)
+        extra_amount, extra_reason, extra_sessions = 0, '', 0
+        if extra_req is not None:
+            e_reason, e_amount, e_sessions = extra_req
+            e_reason = (e_reason or '').strip()[:50]
+            if e_reason in _absence_type_names():
+                extra_sessions = e_sessions
+                e_amount = extra_sessions * (max(fee_base - discount, 0) // 4)
+            extra_amount = max(0, min(int(e_amount or 0), fee_base - deduction - discount))
+            if extra_amount:
+                extra_reason = e_reason or '직접입력'
+            else:
+                extra_sessions = 0
+        auto_amount = fee_base - deduction - discount - extra_amount
+        invoice.absence_deduction = deduction
+        invoice.absence_prededucted = prededucted
+        invoice.discount_amount = discount
+        invoice.discount_reason = ((reason or '').strip()[:50] or '직접입력') if discount else ''
+        invoice.extra_discount_amount = extra_amount
+        invoice.extra_discount_reason = extra_reason
+        invoice.extra_absence_count = extra_sessions
+    else:
+        auto_amount = None
+
+    # 최종 결제금액: 보낸 값(직접 고친 금액 포함)을 쓰고, 없으면 계산된 금액
+    if data.get('amount') in (None, ''):
+        if auto_amount is None:
+            return JsonResponse({'ok': False, 'error': '금액을 숫자로 입력해 주세요.'}, status=400)
+        amount = auto_amount
+    else:
+        try:
+            amount = _int(data.get('amount'), '금액')
+        except ValueError as exc:
+            return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
     if amount < 0 or amount > TUITION_AMOUNT_MAX:
         return JsonResponse({'ok': False, 'error': f'금액은 0원 이상 {TUITION_AMOUNT_MAX:,}원 이하로 입력해 주세요.'}, status=400)
-    old_amount = invoice.amount
     invoice.amount = amount
-    invoice.save(update_fields=['amount'])
+    invoice.save()
     return JsonResponse({'ok': True, 'old_amount': old_amount, 'amount': amount})
 
 

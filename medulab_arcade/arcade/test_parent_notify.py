@@ -566,3 +566,84 @@ class InvoiceAmountEditTests(TestCase):
         self.assertNotContains(res, f'data-id="{self.paid.id}"')
         for q in ('?view=unpaid', f'?student_id={self.kid.id}'):
             self.assertContains(self.client.get(reverse('tuition_admin_dashboard') + q), 'id="amOverlay"')
+
+
+class InvoiceBreakdownEditTests(TestCase):
+    def setUp(self):
+        from .models import ClassDiscountType, ClassEnrollment
+        self.staff = User.objects.create_user('boss', password='x', is_staff=True)
+        self.kid = User.objects.create_user('kid', password='x')
+        self.klass = SchoolClass.objects.create(name='AICE반', tuition_fee=200000, monthly_sessions=4)
+        self.enrollment = ClassEnrollment.objects.create(school_class=self.klass, student=self.kid)
+        ClassDiscountType.objects.update_or_create(name='결석차감', defaults={'is_absence': True})
+        self.inv = TuitionInvoice.objects.create(
+            student=self.kid, school_class=self.klass, amount=145000, base_amount=200000, absence_count=1,
+            absence_deduction=50000, discount_reason='친구소개', discount_amount=5000,
+            due_date=timezone.localdate() + timedelta(days=5))
+        self.client.force_login(self.staff)
+        self.url = reverse('tuition_invoice_set_amount', args=[self.inv.id])
+
+    def _post(self, **data):
+        return self.client.post(self.url, data, content_type='application/json')
+
+    def test_prededucted_sets_deduction_to_zero(self):
+        res = self._post(absence_prededucted=True, absence_deduction=50000, discount_reason='친구소개', discount_amount=5000,
+                         extra_reason='', extra_amount='0', extra_sessions='1')
+        self.assertEqual((res.status_code, res.json()['amount']), (200, 195000))  # 200,000 - 0 - 5,000
+        self.inv.refresh_from_db()
+        self.assertEqual((self.inv.absence_deduction, self.inv.absence_prededucted, self.inv.absence_count), (0, True, 1))
+
+    def test_unchecking_prededucted_applies_typed_deduction(self):
+        TuitionInvoice.objects.filter(pk=self.inv.pk).update(absence_prededucted=True, absence_deduction=0, amount=195000)
+        res = self._post(absence_prededucted=False, absence_deduction=50000, discount_reason='친구소개', discount_amount=5000,
+                         extra_reason='', extra_amount='0', extra_sessions='1')
+        self.assertEqual(res.json()['amount'], 145000)
+        self.inv.refresh_from_db()
+        self.assertEqual((self.inv.absence_deduction, self.inv.absence_prededucted), (50000, False))
+
+    def test_edit_deduction_and_discounts(self):
+        res = self._post(absence_deduction=30000, discount_reason='형제할인', discount_amount=10000,
+                         extra_reason='직접입력', extra_amount='7000', extra_sessions='1')
+        self.assertEqual(res.json()['amount'], 200000 - 30000 - 10000 - 7000)
+        self.inv.refresh_from_db()
+        self.assertEqual((self.inv.absence_deduction, self.inv.discount_reason, self.inv.discount_amount,
+                          self.inv.extra_discount_reason, self.inv.extra_discount_amount), (30000, '형제할인', 10000, '직접입력', 7000))
+        self.enrollment.refresh_from_db()  # 기본할인은 앞으로의 청구서에도 적용되도록 배정 정보에 저장
+        self.assertEqual((self.enrollment.discount_reason, self.enrollment.discount_amount), ('형제할인', 10000))
+
+    def test_absence_type_extra_discount_uses_sessions(self):
+        res = self._post(absence_deduction=0, discount_reason='', discount_amount='0',
+                         extra_reason='결석차감', extra_amount='0', extra_sessions='2')
+        self.assertEqual(res.json()['amount'], 200000 - 2 * 50000)  # (수업비 ÷ 4) × 2회
+        self.inv.refresh_from_db()
+        self.assertEqual((self.inv.extra_discount_amount, self.inv.extra_absence_count), (100000, 2))
+
+    def test_manual_final_amount_wins_over_auto(self):
+        res = self._post(absence_deduction=50000, discount_reason='친구소개', discount_amount=5000,
+                         extra_reason='', extra_amount='0', extra_sessions='1', amount=120000)
+        self.assertEqual(res.json()['amount'], 120000)
+
+    def test_deduction_is_capped_and_invalid_rejected(self):
+        res = self._post(absence_deduction=9_999_999, discount_reason='', discount_amount='0',
+                         extra_reason='', extra_amount='0', extra_sessions='1')
+        self.assertEqual(res.json()['amount'], 0)  # 수업비를 넘는 차감은 수업비까지만
+        self.assertEqual(self._post(absence_deduction='abc', discount_amount='0').status_code, 400)
+        self.assertEqual(self._post(absence_deduction=1000, discount_reason='x', discount_amount='abc').status_code, 400)
+
+    def test_recalc_skips_prededucted_invoice(self):
+        from .views import recalc_invoice_attendance
+        self._post(absence_prededucted=True, absence_deduction=0, discount_reason='친구소개', discount_amount=5000,
+                   extra_reason='', extra_amount='0', extra_sessions='1')
+        self.inv.refresh_from_db()
+        self.assertEqual(recalc_invoice_attendance(self.inv), 'skipped_manual')
+        self.assertEqual(self.inv.absence_deduction, 0)
+
+    def test_list_shows_prededucted_label_and_modal_fields(self):
+        self._post(absence_prededucted=True, absence_deduction=0, discount_reason='친구소개', discount_amount=5000,
+                   extra_reason='', extra_amount='0', extra_sessions='1')
+        url = reverse('tuition_admin_dashboard') + f'?year={self.inv.due_date.year}&month={self.inv.due_date.month}'
+        res = self.client.get(url)
+        self.assertContains(res, '전월 결석 미리 차감')
+        self.assertContains(res, 'data-prededucted="1"')
+        self.assertContains(res, 'id="amPre"')
+        self.assertContains(res, 'id="amDisc"')

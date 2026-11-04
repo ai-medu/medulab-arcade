@@ -593,6 +593,8 @@ class TuitionInvoice(models.Model):
     base_amount = models.PositiveIntegerField('정상 수업비(원)', default=0, help_text='결석 차감 전 기본 수업비')
     absence_count = models.PositiveIntegerField('전월 결석 횟수', default=0)
     absence_deduction = models.PositiveIntegerField('결석 차감액(원)', default=0)
+    absence_prededucted = models.BooleanField('전월 미리 차감', default=False,
+                                              help_text='결석 차감을 이미 앞서 반영했다고 보고 이번 청구서에서는 차감하지 않음(차감 0원)')
     due_date = models.DateField('납부 기한')
     status = models.CharField('상태', max_length=10, choices=STATUS_CHOICES, default=STATUS_UNPAID)
     paid_at = models.DateTimeField('결제 완료 일시', null=True, blank=True)

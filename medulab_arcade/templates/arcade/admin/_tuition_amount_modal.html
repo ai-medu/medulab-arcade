@@ -1,30 +1,39 @@
-{% comment %}납부 관리 - '결제금액'을 눌러 여는 결제금액 수정 모달 (미납 청구서만){% endcomment %}
+{% comment %}
+납부 관리 - '결제금액'을 눌러 여는 결제금액 수정 모달 (미납 청구서만).
+수업비 / 전월 결석 차감(+전월 미리 차감) / 기본할인 / 추가할인 / 최종 결제금액을 고칠 수 있다.
+필요한 context: am_discount_types
+{% endcomment %}
+{% include 'arcade/admin/_invoice_disc_js.html' %}
 <style>
 .amount-btn { background:none; border:none; padding:0; cursor:pointer; font:inherit; display:inline-flex; align-items:center; gap:5px; text-align:left; }
 .amount-btn:hover .amount-final { text-decoration:underline; }
 .amount-edit-icon { font-size:11px; color:var(--text-muted); }
 .am-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; align-items:center; justify-content:center; padding:20px; }
 .am-overlay.show { display:flex; }
-.am-box { background:var(--bg-card); border:1px solid var(--border); border-radius:18px; padding:26px; max-width:420px; width:100%; box-sizing:border-box; position:relative; max-height:92vh; overflow-y:auto; }
+.am-box { background:var(--bg-card); border:1px solid var(--border); border-radius:18px; padding:26px 26px 0; max-width:440px; width:100%; box-sizing:border-box; position:relative; max-height:92vh; overflow-y:auto; overscroll-behavior:contain; }
 .am-close { position:absolute; top:14px; right:16px; background:none; border:none; color:var(--text-muted); font-size:20px; cursor:pointer; line-height:1; }
 .am-close:hover { color:#fff; }
 .am-box h3 { font-size:15px; font-weight:800; color:#fff; margin:0 0 4px; }
 .am-sub { font-size:12.5px; color:var(--text-muted); margin-bottom:14px; }
-.am-calc { border:1px dashed var(--border); border-radius:12px; padding:10px 12px; margin:0 0 14px; font-size:13px; line-height:1.9; }
-.am-calc .r { display:flex; justify-content:space-between; gap:10px; }
-.am-calc .r.abs { color:#d97706; } .am-calc .r.disc { color:#ec4899; }
-.am-calc .r.total { border-top:1px solid var(--border); margin-top:4px; padding-top:6px; font-weight:900; }
+.am-fee { display:flex; justify-content:space-between; font-size:13px; padding:8px 12px; border:1px dashed var(--border); border-radius:12px; margin-bottom:10px; }
+.am-abs { padding:10px 12px; border:1px dashed rgba(217,119,6,0.55); border-radius:12px; background:rgba(245,158,11,0.06); margin-bottom:10px; }
+.am-abs-title { font-size:12.5px; font-weight:800; margin-bottom:8px; }
+.am-abs-title small { font-weight:500; font-size:11.5px; color:var(--text-muted); }
+.am-in { width:100%; box-sizing:border-box; height:40px; padding:0 12px; border-radius:10px; border:1px solid var(--border); background:rgba(255,255,255,0.06); color:var(--text-primary, #fff); font-size:14px; font-family:inherit; }
+.am-in:disabled { opacity:.6; }
+.am-check { display:flex; align-items:center; gap:8px; margin-top:9px; font-size:13px; font-weight:700; cursor:pointer; }
+.am-check input { width:17px; height:17px; }
 .am-field label { display:block; font-size:11.5px; font-weight:700; color:var(--text-muted); margin-bottom:5px; }
-.am-input { width:100%; box-sizing:border-box; height:44px; padding:0 12px; border-radius:10px; border:1px solid var(--border); background:rgba(255,255,255,0.06); color:var(--text-primary, #fff); font-size:16px; font-weight:800; font-family:inherit; }
+.am-total { height:46px; font-size:17px; font-weight:900; }
 .am-hint { font-size:12px; line-height:1.6; color:var(--text-muted); margin-top:8px; }
 .am-hint.warn { color:#d97706; }
-.am-btns { display:flex; gap:10px; margin-top:16px; }
+.am-msg { margin-top:10px; font-size:13px; font-weight:700; min-height:18px; }
+.am-msg.err { color:#ef4444; } .am-msg.ok { color:var(--accent-green); }
+.am-btns { display:flex; gap:10px; position:sticky; bottom:0; margin:14px -26px 0; padding:12px 26px 18px; background:var(--bg-card); border-top:1px solid var(--border); z-index:2; }
 .am-btn { flex:1; height:42px; border:none; border-radius:10px; font-weight:800; font-size:14px; cursor:pointer; font-family:inherit; }
 .am-btn.go { background:var(--accent-green); color:#03140e; }
 .am-btn.go:disabled { opacity:.5; cursor:not-allowed; }
 .am-btn.cancel { background:rgba(120,120,160,0.14); color:var(--text-secondary); }
-.am-msg { margin-top:10px; font-size:13px; font-weight:700; min-height:18px; }
-.am-msg.err { color:#ef4444; } .am-msg.ok { color:var(--accent-green); }
 </style>
 
 <div class="am-overlay" id="amOverlay" onclick="if(event.target===this) closeAmountModal();">
@@ -33,39 +42,63 @@
         <h3>💳 결제금액 수정</h3>
         {% csrf_token %}
         <div class="am-sub" id="amSub"></div>
-        <div class="am-calc" id="amCalc"></div>
+
+        <div class="am-fee"><span>수업비</span><strong id="amFee">-</strong></div>
+
+        <div class="am-abs">
+            <div class="am-abs-title">전월 결석 차감 <small id="amAbsInfo"></small></div>
+            <input type="number" id="amAbs" class="am-in" min="0" step="1000" inputmode="numeric" placeholder="전월 차감액(원)">
+            <label class="am-check"><input type="checkbox" id="amPre"> 전월 미리 차감 <small style="font-weight:500; color:var(--text-muted);">(이번 청구서에서는 0원으로 차감)</small></label>
+        </div>
+
+        {% include 'arcade/admin/_invoice_disc_box.html' with p='am' %}
+
         <div class="am-field">
-            <label for="amAmount">결제금액(원)</label>
-            <input type="number" id="amAmount" class="am-input" min="0" step="1" inputmode="numeric" onkeydown="if(event.key==='Enter') saveAmount();">
+            <label for="amAmount">결제금액(원) <span style="font-weight:500;">· 위 내용으로 자동 계산돼요. 필요하면 직접 고칠 수 있어요</span></label>
+            <input type="number" id="amAmount" class="am-in am-total" min="0" step="1" inputmode="numeric" onkeydown="if(event.key==='Enter') saveAmount();">
         </div>
         <div class="am-hint warn" id="amWarn" style="display:none;"></div>
-        <div class="am-hint">금액을 직접 고치면 결석 차감·할인으로 계산된 금액과 달라질 수 있어요. 이미 학부모에게 안내한 금액이 있다면 다시 안내해 주세요.</div>
+        <div class="am-hint">이미 학부모에게 안내한 금액이 있다면 다시 안내해 주세요.</div>
         <div class="am-msg" id="amMsg"></div>
         <div class="am-btns">
             <button type="button" class="am-btn cancel" onclick="closeAmountModal()">닫기</button>
-            <button type="button" class="am-btn go" id="amSave" onclick="saveAmount()">금액 저장</button>
+            <button type="button" class="am-btn go" id="amSave" onclick="saveAmount()">수정 저장</button>
         </div>
     </div>
 </div>
 
+{{ am_discount_types|json_script:"amTypesData" }}
 <script>
 (function () {
+    var TYPES = JSON.parse(document.getElementById('amTypesData').textContent);
     var current = null;
+    var restoreAbs = 0;
     var $ = function (id) { return document.getElementById(id); };
     var won = function (n) { return Number(n || 0).toLocaleString('ko-KR') + '원'; };
-    function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : t; return d.innerHTML; }
     function say(text, kind) { var m = $('amMsg'); m.textContent = text || ''; m.className = 'am-msg' + (kind ? ' ' + kind : ''); }
     function csrf() { var el = document.querySelector('#amOverlay input[name=csrfmiddlewaretoken]'); return el ? el.value : ''; }
 
-    function autoAmount(d) {
-        return Math.max(d.base - d.absence - d.discount - d.extra, 0);
+    // 전월 결석 차감액: '전월 미리 차감'이면 0원
+    function absValue() {
+        if ($('amPre').checked) return 0;
+        return Math.max(0, Math.min(parseInt($('amAbs').value, 10) || 0, current ? current.base : 0));
+    }
+
+    var editor = DiscEditor('am', function () { return TYPES; }, function (r) {
+        $('amAmount').value = r.total;
+        updateWarn();
+    });
+
+    function recalc() {
+        editor.setCtx(current.base, absValue());
+        editor.refresh();   // 금액 칸을 새로 계산된 값으로 채운다
     }
     function updateWarn() {
         var el = $('amWarn'), v = parseInt($('amAmount').value, 10);
         if (!current || isNaN(v)) { el.style.display = 'none'; return; }
-        var auto = autoAmount(current);
+        var auto = editor.summary().total;
         if (v !== auto) {
-            el.textContent = '계산된 금액은 ' + won(auto) + '이에요. 직접 입력한 금액 ' + won(v) + '으로 저장됩니다.';
+            el.textContent = '위 내용으로 계산된 금액은 ' + won(auto) + '이에요. 직접 입력한 금액 ' + won(v) + '으로 저장됩니다.';
             el.style.display = '';
         } else {
             el.style.display = 'none';
@@ -75,16 +108,20 @@
     window.openAmountModal = function (btn) {
         var d = btn.dataset;
         current = {
-            id: d.id, base: +d.base, absence: +d.absence, discount: +d.discount, extra: +d.extra, amount: +d.amount
+            id: d.id, base: +d.base, amount: +d.amount, absCount: +d.absenceCount, sessionFee: +d.sessionFee
         };
+        var stored = +d.absence;
+        var pre = d.prededucted === '1';
+        restoreAbs = stored > 0 ? stored : current.absCount * current.sessionFee;
         $('amSub').textContent = d.student + ' · ' + d.class + ' · ' + d.period;
-        var rows = '<div class="r"><span>수업비</span><span>' + won(d.base) + '</span></div>';
-        if (current.absence) rows += '<div class="r abs"><span>전월 결석 ' + esc(d.absenceCount) + '회 차감</span><span>−' + won(d.absence) + '</span></div>';
-        if (current.discount) rows += '<div class="r disc"><span>기본할인 ' + esc(d.discountReason) + '</span><span>−' + won(d.discount) + '</span></div>';
-        if (current.extra) rows += '<div class="r disc"><span>추가할인 ' + esc(d.extraReason) + '</span><span>−' + won(d.extra) + '</span></div>';
-        rows += '<div class="r total"><span>현재 결제금액</span><span>' + won(d.amount) + '</span></div>';
-        $('amCalc').innerHTML = rows;
-        $('amAmount').value = d.amount;
+        $('amFee').textContent = won(current.base);
+        $('amAbsInfo').textContent = current.absCount ? '· 전월 결석 ' + current.absCount + '회 (1회 ' + won(current.sessionFee) + ')' : '· 전월 결석 없음';
+        $('amPre').checked = pre;
+        $('amAbs').value = pre ? 0 : stored;
+        $('amAbs').disabled = pre;
+        editor.setCtx(current.base, absValue());
+        editor.fill(d.discountReason, +d.discount, d.extraReason, +d.extra, +d.extraSessions || 1, true);  // 저장된 금액을 그대로 보여 준다
+        $('amAmount').value = current.amount;
         $('amSave').disabled = false;
         say('');
         updateWarn();
@@ -94,23 +131,41 @@
     };
     window.closeAmountModal = function () { $('amOverlay').classList.remove('show'); current = null; };
 
+    $('amPre').addEventListener('change', function () {
+        if (this.checked) {
+            var typed = parseInt($('amAbs').value, 10) || 0;
+            if (typed > 0) restoreAbs = typed;
+            $('amAbs').value = 0;
+            $('amAbs').disabled = true;
+        } else {
+            $('amAbs').value = restoreAbs;
+            $('amAbs').disabled = false;
+        }
+        recalc();
+    });
+    $('amAbs').addEventListener('input', recalc);
+    $('amAmount').addEventListener('input', updateWarn);
+
     window.saveAmount = function () {
         if (!current) return;
         var v = parseInt($('amAmount').value, 10);
         if (isNaN(v) || v < 0) { say('금액을 0원 이상의 숫자로 입력해 주세요.', 'err'); return; }
-        if (v === current.amount) { say('금액이 바뀌지 않았어요.', 'err'); return; }
         var btn = $('amSave');
         btn.disabled = true; say('저장 중...');
+        var payload = Object.assign({
+            amount: v,
+            absence_deduction: absValue(),
+            absence_prededucted: $('amPre').checked
+        }, editor.values());
         fetch('/admin-services/tuition/' + current.id + '/amount/', {
             method: 'POST', credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
-            body: JSON.stringify({ amount: v })
+            body: JSON.stringify(payload)
         }).then(function (r) { return r.json().then(function (j) { if (!r.ok || j.ok === false) throw new Error(j.error || '저장하지 못했어요.'); return j; }); })
           .then(function (j) { say('✅ ' + won(j.old_amount) + ' → ' + won(j.amount) + ' 으로 수정했어요!', 'ok'); setTimeout(function () { location.reload(); }, 700); })
           .catch(function (e) { say(e.message, 'err'); btn.disabled = false; });
     };
 
-    document.addEventListener('input', function (e) { if (e.target && e.target.id === 'amAmount') updateWarn(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') window.closeAmountModal(); });
 })();
 </script>

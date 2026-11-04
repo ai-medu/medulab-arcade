@@ -1,12 +1,15 @@
 {% load humanize %}{% if inv.status == 'unpaid' %}<button type="button" class="amount-btn" title="눌러서 결제금액 수정"
     data-id="{{ inv.id }}" data-student="{{ inv.student.profile.real_name|default:inv.student.username }}" data-class="{{ inv.school_class.name }}"
     data-period="{{ inv.billing_period_label }}" data-base="{{ inv.base_amount }}" data-absence-count="{{ inv.absence_count }}"
-    data-absence="{{ inv.absence_deduction }}" data-discount-reason="{{ inv.discount_reason }}" data-discount="{{ inv.discount_amount }}"
-    data-extra-reason="{{ inv.extra_discount_reason }}" data-extra="{{ inv.extra_discount_amount }}" data-amount="{{ inv.amount }}"
+    data-absence="{{ inv.absence_deduction }}" data-session-fee="{{ inv.school_class.per_session_fee }}"
+    data-prededucted="{% if inv.absence_prededucted %}1{% else %}0{% endif %}"
+    data-discount-reason="{{ inv.discount_reason }}" data-discount="{{ inv.discount_amount }}"
+    data-extra-reason="{{ inv.extra_discount_reason }}" data-extra="{{ inv.extra_discount_amount }}" data-extra-sessions="{{ inv.extra_absence_count }}"
+    data-amount="{{ inv.amount }}"
     onclick="openAmountModal(this)"><span class="amount-final">{{ inv.amount|intcomma }}원</span><span class="amount-edit-icon">✎</span></button>{% else %}<div class="amount-final">{{ inv.amount|intcomma }}원</div>{% endif %}
-{% if inv.absence_deduction or inv.discount_amount or inv.extra_discount_amount %}
+{% if inv.absence_deduction or inv.discount_amount or inv.extra_discount_amount or inv.absence_prededucted %}
 <div class="amount-base">{{ inv.base_amount|intcomma }}원</div>
-{% if inv.absence_deduction %}<div class="amount-deduction">결석 {{ inv.absence_count }}회 -{{ inv.absence_deduction|intcomma }}원</div>{% endif %}
+{% if inv.absence_deduction %}<div class="amount-deduction">결석 {{ inv.absence_count }}회 -{{ inv.absence_deduction|intcomma }}원</div>{% elif inv.absence_prededucted %}<div class="amount-deduction">전월 결석 미리 차감{% if inv.absence_count %} ({{ inv.absence_count }}회){% endif %}</div>{% endif %}
 {% if inv.discount_amount %}<div class="amount-discount">기본할인 {{ inv.discount_reason }} -{{ inv.discount_amount|intcomma }}원</div>{% endif %}
 {% if inv.extra_discount_amount %}<div class="amount-discount extra">추가할인 {{ inv.extra_discount_reason }}{% if inv.extra_absence_count %} {{ inv.extra_absence_count }}회{% endif %} -{{ inv.extra_discount_amount|intcomma }}원</div>{% endif %}
 {% endif %}
