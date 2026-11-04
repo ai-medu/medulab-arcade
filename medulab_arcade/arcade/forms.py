@@ -26,6 +26,23 @@ def _check_children_required_fields(form, children):
             form.add_error(None, f'자녀 {idx}의 {", ".join(missing)}을(를) 입력해 주세요.')
 
 
+
+def normalize_children_info(value):
+    """UserProfile.children_info 를 항상 [{...}, ...] 형태로 돌려준다.
+    과거에 '[]' 같은 문자열(JSON을 한 번 더 감싼 값)로 저장된 데이터도 풀어서 읽는다."""
+    import json
+    for _ in range(3):
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except ValueError:
+                return []
+        else:
+            break
+    if not isinstance(value, list):
+        return []
+    return [c for c in value if isinstance(c, dict)]
+
 class ProjectUploadForm(forms.ModelForm):
     tags_str = forms.CharField(
         label='태그(쉼표로 구분)',
@@ -495,7 +512,7 @@ class UserProfileUpdateForm(forms.ModelForm):
         self.fields['user_type'].initial = self.instance.user_type
         self.fields['address'].initial = self.instance.address
         import json as _json
-        self.fields['children_info'].initial = _json.dumps(self.instance.children_info or [])
+        self.fields['children_info'].initial = _json.dumps(normalize_children_info(self.instance.children_info))
 
     def clean_email(self):
         email = (self.cleaned_data.get('email') or '').strip()
@@ -546,7 +563,7 @@ class UserProfileUpdateForm(forms.ModelForm):
         profile.address = self.cleaned_data.get('address', '')
 
         try:
-            profile.children_info = json.loads(self.cleaned_data.get('children_info') or '[]') or None
+            profile.children_info = normalize_children_info(self.cleaned_data.get('children_info') or '[]') or None
         except (ValueError, TypeError):
             profile.children_info = None
 
