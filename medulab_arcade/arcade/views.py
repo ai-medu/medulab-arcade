@@ -5883,15 +5883,6 @@ def profile_view(request):
     else:
         form = UserProfileUpdateForm(instance=profile, user=user)
 
-    my_projects = Project.objects.filter(author=user).prefetch_related('categories')
-    liked_projects = Project.objects.filter(likes__user=user).prefetch_related('author', 'categories')
-    bookmarked_projects = Project.objects.filter(bookmarks__user=user).prefetch_related('author', 'categories')
-
-    total_likes_received = Like.objects.filter(project__author=user).count()
-    total_bookmarks_received = Bookmark.objects.filter(project__author=user).count()
-    recent_badges = get_recent_user_badges(user, limit=8)
-    badge_catalog = get_active_badges_with_user_state(user)
-
     from allauth.socialaccount.models import SocialAccount
     kakao_linked = SocialAccount.objects.filter(user=user, provider='kakao').exists()
 
@@ -5900,14 +5891,6 @@ def profile_view(request):
     context = {
         'profile': profile,
         'form': form,
-        'my_projects': my_projects,
-        'liked_projects': liked_projects,
-        'bookmarked_projects': bookmarked_projects,
-        'total_likes': total_likes_received,
-        'total_bookmarks': total_bookmarks_received,
-        'badge_count': get_user_badge_count(user),
-        'recent_badges': recent_badges,
-        'badge_catalog': badge_catalog,
         'kakao_linked': kakao_linked,
         'child_links': child_links,
     }

@@ -398,94 +398,8 @@
             </aside>
 
             <main>
-                <div class="dashboard-stats">
-                    <div class="stat-box">
-                        <span class="stat-num">{{ my_projects.count }}</span>
-                        <span class="stat-label">내 작품</span>
-                    </div>
-                    <div class="stat-box">
-                        <span class="stat-num">{{ total_likes }}</span>
-                        <span class="stat-label">받은 좋아요</span>
-                    </div>
-                    <div class="stat-box">
-                        <span class="stat-num">{{ total_bookmarks }}</span>
-                        <span class="stat-label">받은 즐겨찾기</span>
-                    </div>
-                    <div class="stat-box">
-                        <span class="stat-num">{{ badge_count }}</span>
-                        <span class="stat-label">획득 배지</span>
-                    </div>
-                </div>
-
-                <section class="badge-panel">
-                    <div class="badge-panel-head">
-                        <h3>배지 컬렉션</h3>
-                        <span>모든 배지를 모아 마스터가 되어보세요!</span>
-                    </div>
-                    <div class="badge-grid">
-                        {% for item in badge_catalog %}
-                        <article class="badge-card {% if item.is_earned %}earned{% else %}locked{% endif %}">
-                            <div class="badge-status-label">
-                                {% if item.is_earned %}획득{% else %}미획득{% endif %}
-                            </div>
-                            <div class="badge-icon" style="{% if item.is_earned %}box-shadow: 0 0 15px {{ item.color }}40; border: 1px solid {{ item.color }}80;{% endif %} color: {{ item.color }};">
-                                {{ item.icon }}
-                            </div>
-                            <div class="badge-name" style="{% if item.is_earned %}color: {{ item.color }}; text-shadow: 0 0 10px {{ item.color }}40;{% endif %}">{{ item.name }}</div>
-                            <div class="badge-desc">{{ item.description }}</div>
-                            <div class="badge-date">
-                                {% if item.is_earned %}
-                                    {{ item.awarded_at|date:"Y.m.d" }} 획득
-                                {% else %}
-                                    🔒 잠김
-                                {% endif %}
-                            </div>
-                        </article>
-                        {% empty %}
-                        <div class="empty" style="width: 100%; grid-column: 1/-1;">등록된 배지가 없습니다.</div>
-                        {% endfor %}
-                    </div>
-                </section>
-
                 <div class="tabs-wrapper">
-                    <div class="tabs-header">
-                        <button class="tab-btn active" onclick="openTab(event, 'my-projects')">내 작품</button>
-                        <button class="tab-btn" onclick="openTab(event, 'liked')">좋아요</button>
-                        <button class="tab-btn" onclick="openTab(event, 'bookmarks')">즐겨찾기</button>
-                        <button class="tab-btn" onclick="openTab(event, 'edit-profile')">정보 수정</button>
-                    </div>
-
-                    <div id="my-projects" class="tab-content active">
-                        <div class="grid">
-                            {% for project in my_projects %}
-                                {% include 'arcade/components/project_card.html' with project=project %}
-                            {% empty %}
-                                <div class="empty" style="width: 100%; grid-column: 1/-1;">등록한 작품이 없습니다.</div>
-                            {% endfor %}
-                        </div>
-                    </div>
-
-                    <div id="liked" class="tab-content">
-                        <div class="grid">
-                            {% for project in liked_projects %}
-                                {% include 'arcade/components/project_card.html' with project=project %}
-                            {% empty %}
-                                <div class="empty" style="width: 100%; grid-column: 1/-1;">좋아요한 작품이 없습니다.</div>
-                            {% endfor %}
-                        </div>
-                    </div>
-
-                    <div id="bookmarks" class="tab-content">
-                        <div class="grid">
-                            {% for project in bookmarked_projects %}
-                                {% include 'arcade/components/project_card.html' with project=project %}
-                            {% empty %}
-                                <div class="empty" style="width: 100%; grid-column: 1/-1;">즐겨찾기한 작품이 없습니다.</div>
-                            {% endfor %}
-                        </div>
-                    </div>
-
-                    <div id="edit-profile" class="tab-content">
+                    <div id="edit-profile" class="tab-content active">
                         <div class="edit-profile-section">
                             <h3 style="margin-bottom: 24px; font-size: 18px;">회원 정보 수정</h3>
                             <form method="POST">
@@ -688,31 +602,7 @@
         loadJSON();
     })();
 
-    function openTab(evt, tabName) {
-        const tabcontent = document.getElementsByClassName('tab-content');
-        const tablinks = document.getElementsByClassName('tab-btn');
-
-        for (let i = 0; i < tabcontent.length; i += 1) {
-            tabcontent[i].style.display = 'none';
-            tabcontent[i].classList.remove('active');
-        }
-
-        for (let i = 0; i < tablinks.length; i += 1) {
-            tablinks[i].classList.remove('active');
-        }
-
-        document.getElementById(tabName).style.display = 'block';
-        document.getElementById(tabName).classList.add('active');
-        evt.currentTarget.classList.add('active');
-    }
-
     window.addEventListener('DOMContentLoaded', () => {
-        const hash = window.location.hash.replace('#', '');
-        if (hash) {
-            const btn = document.querySelector(`.tab-btn[onclick*='${hash}']`);
-            if (btn) btn.click();
-        }
-
         const phoneInput = document.querySelector('input[name="phone_number"]');
         if (phoneInput) {
             phoneInput.addEventListener('input', function() {
