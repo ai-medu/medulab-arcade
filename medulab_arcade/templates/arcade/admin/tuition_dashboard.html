@@ -76,6 +76,8 @@ tr:hover td { background:rgba(255,255,255,0.02); }
 .bulk-btn { padding:9px 16px; border-radius:9px; font-weight:700; font-size:13px; cursor:pointer; border:none; }
 .bulk-btn.status { background:rgba(59,130,246,0.15); color:#93c5fd; }
 .bulk-btn.status:hover { background:rgba(59,130,246,0.25); }
+.bulk-btn.recalc { background:rgba(16,185,129,0.15); color:#6ee7b7; }
+.bulk-btn.recalc:hover { background:rgba(16,185,129,0.28); }
 .bulk-btn.notify { background:rgba(250,204,21,0.15); color:#fde047; }
 .bulk-btn.notify:hover { background:rgba(250,204,21,0.28); }
 .bulk-btn.delete { background:rgba(239,68,68,0.15); color:#fca5a5; }
@@ -377,6 +379,10 @@ document.addEventListener('keydown', function (e) {
         var actionType = document.getElementById('bulkActionType').value;
         if (actionType === 'delete') {
             if (!confirm(checked.length + '건의 청구서를 삭제할까요? 되돌릴 수 없습니다.')) {
+                e.preventDefault();
+            }
+        } else if (actionType === 'recalc') {
+            if (!confirm(checked.length + '건 중 미납 청구서의 전월 출석·결석 차감·금액을 출석부 기준으로 다시 계산할까요?' + '\n\n· 금액이 바뀔 수 있습니다.' + '\n· 직접 수정한 금액과 완납/취소 건은 건너뜁니다.' + '\n· 할인은 그대로 유지됩니다.')) {
                 e.preventDefault();
             }
         } else if (actionType === 'notify') {

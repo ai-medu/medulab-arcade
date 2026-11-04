@@ -4107,6 +4107,37 @@ def compute_invoice_amounts(school_class, enrollment, due_date, discount_overrid
     }
 
 
+def recalc_invoice_attendance(invoice):
+    """미납 청구서의 전월 출석(결석 차감)과 금액을 출석부 기준으로 다시 계산한다.
+    기본할인/추가할인은 청구서에 저장된 값을 그대로 유지한다. 결과: 'changed' / 'same' / 'skipped_status' /
+    'skipped_manual'(관리자가 금액을 직접 고친 청구서) / 'skipped_no_enrollment'"""
+    if invoice.status != TuitionInvoice.STATUS_UNPAID:
+        return 'skipped_status'
+    enrollment = ClassEnrollment.objects.filter(school_class=invoice.school_class, student=invoice.student).first()
+    if not enrollment:
+        return 'skipped_no_enrollment'
+    stored_auto = (invoice.base_amount - invoice.absence_deduction - invoice.discount_amount - invoice.extra_discount_amount)
+    if invoice.amount != max(stored_auto, 0):
+        return 'skipped_manual'
+    extra = None
+    if invoice.extra_discount_amount:
+        extra = (invoice.extra_discount_reason, invoice.extra_discount_amount, invoice.extra_absence_count)
+    calc = compute_invoice_amounts(
+        invoice.school_class, enrollment, invoice.due_date,
+        discount_override=(invoice.discount_reason, invoice.discount_amount) if invoice.discount_amount else ('', 0),
+        extra=extra,
+    )
+    if calc['base_amount'] != invoice.base_amount:  # 수업비가 바뀐 뒤라면 금액 기준이 달라서 건드리지 않는다
+        return 'skipped_manual'
+    if (calc['absence_count'], calc['amount']) == (invoice.absence_count, invoice.amount):
+        return 'same'
+    invoice.absence_count = calc['absence_count']
+    invoice.absence_deduction = calc['absence_deduction']
+    invoice.amount = calc['amount']
+    invoice.save(update_fields=['absence_count', 'absence_deduction', 'amount'])
+    return 'changed'
+
+
 def _parse_extra_discount(reason, amount, sessions):
     """추가할인 요청값 → (사유, 금액, 결석횟수) 또는 None(없음). 잘못된 값이면 ValueError"""
     reason = (reason or '').strip()
@@ -4735,6 +4766,21 @@ def tuition_invoice_bulk_action(request):
         messages.success(request, f'청구서 {count}건을 "{status_label}"(으)로 변경했습니다.')
     elif bulk_action == 'notify':
         _bulk_notify_invoices(request, invoices)
+    elif bulk_action == 'recalc':
+        counts = {}
+        for invoice in invoices.select_related('school_class', 'student'):
+            result = recalc_invoice_attendance(invoice)
+            counts[result] = counts.get(result, 0) + 1
+        parts = [f"금액 변경 {counts.get('changed', 0)}건", f"변동 없음 {counts.get('same', 0)}건"]
+        skipped = counts.get('skipped_status', 0)
+        if skipped:
+            parts.append(f'미납이 아니라 건너뜀 {skipped}건')
+        manual = counts.get('skipped_manual', 0)
+        if manual:
+            parts.append(f'금액을 직접 수정했거나 수업비가 바뀌어 건너뜀 {manual}건')
+        if counts.get('skipped_no_enrollment'):
+            parts.append(f"수업 배정 없음 {counts['skipped_no_enrollment']}건")
+        messages.success(request, '전월 출석을 출석부 기준으로 다시 계산했습니다. (' + ', '.join(parts) + ')')
     else:
         messages.error(request, '알 수 없는 작업입니다.')
 

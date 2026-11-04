@@ -9,7 +9,7 @@ from .models import Attendance, ClassAttendance, ClassEnrollment, ScheduleEvent,
 from .views import compute_invoice_amounts, _presence_for_dates
 
 
-class InvoiceAttendanceTests(TestCase):
+class _KwonwooOctober:
     """김권우의 10월: 토요일 수업, 10/3 개천절, 10/10 결석(기록 없음), 10/17 보강, 10/24·10/31 출석"""
 
     def setUp(self):
@@ -25,6 +25,9 @@ class InvoiceAttendanceTests(TestCase):
 
     def _calc(self):
         return compute_invoice_amounts(self.klass, self.enrollment, datetime.date(2026, 11, 30))
+
+
+class InvoiceAttendanceTests(_KwonwooOctober, TestCase):
 
     def test_no_record_falls_back_to_real_checkins(self):
         calc = self._calc()
@@ -59,3 +62,57 @@ class InvoiceAttendanceTests(TestCase):
         cells = {c['date']: c['is_present'] for c in res.context['cells']}
         self.assertEqual(cells, {datetime.date(2026, 10, 10): False, datetime.date(2026, 10, 17): True,
                                  datetime.date(2026, 10, 24): True, datetime.date(2026, 10, 31): True})
+
+
+class RecalcInvoiceTests(_KwonwooOctober, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.staff = User.objects.create_user('boss', password='x', is_staff=True)
+        self.client.force_login(self.staff)
+
+    def _invoice(self, **kw):
+        defaults = dict(student=self.kid, school_class=self.klass, amount=195000, base_amount=200000,
+                        discount_reason='친구소개', discount_amount=5000, due_date=datetime.date(2026, 11, 30))
+        defaults.update(kw)
+        return TuitionInvoice.objects.create(**defaults)
+
+    def _recalc(self, *invoices):
+        return self.client.post(reverse('tuition_invoice_bulk_action'),
+                                {'bulk_action': 'recalc', 'invoice_ids': [i.id for i in invoices]}, follow=True)
+
+    def test_recalc_updates_absence_and_keeps_discount(self):
+        inv = self._invoice()
+        res = self._recalc(inv)
+        inv.refresh_from_db()
+        self.assertEqual((inv.absence_count, inv.absence_deduction, inv.amount), (1, 50000, 145000))
+        self.assertEqual((inv.discount_reason, inv.discount_amount), ('친구소개', 5000))
+        self.assertEqual(inv.attended_count, 3)  # 전월 출석 3/4
+        self.assertIn('금액 변경 1건', ' '.join(str(m) for m in res.context['messages']))
+        self._recalc(inv)  # 한 번 더 해도 그대로
+        inv.refresh_from_db()
+        self.assertEqual(inv.amount, 145000)
+
+    def test_recalc_skips_manual_paid_and_canceled(self):
+        manual = self._invoice(amount=1000)
+        paid = self._invoice(status=TuitionInvoice.STATUS_PAID, due_date=datetime.date(2026, 11, 29))
+        canceled = self._invoice(status=TuitionInvoice.STATUS_CANCELED, due_date=datetime.date(2026, 11, 28))
+        res = self._recalc(manual, paid, canceled)
+        for inv, amount in ((manual, 1000), (paid, 195000), (canceled, 195000)):
+            inv.refresh_from_db()
+            self.assertEqual((inv.amount, inv.absence_count), (amount, 0))
+        text = ' '.join(str(m) for m in res.context['messages'])
+        self.assertIn('금액 변경 0건', text)
+        self.assertIn('직접 수정', text)
+
+    def test_recalc_keeps_extra_discount(self):
+        inv = self._invoice(amount=185000, extra_discount_reason='직접입력', extra_discount_amount=10000)
+        self._recalc(inv)
+        inv.refresh_from_db()
+        self.assertEqual((inv.absence_deduction, inv.extra_discount_amount, inv.amount), (50000, 10000, 135000))
+
+    def test_non_staff_cannot_recalc(self):
+        inv = self._invoice()
+        self.client.force_login(self.kid)
+        self.client.post(reverse('tuition_invoice_bulk_action'), {'bulk_action': 'recalc', 'invoice_ids': [inv.id]})
+        inv.refresh_from_db()
+        self.assertEqual(inv.amount, 195000)
