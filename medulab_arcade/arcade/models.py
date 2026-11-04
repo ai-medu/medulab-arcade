@@ -684,7 +684,8 @@ class NotificationLog(models.Model):
 
 class TuitionBatchPayment(models.Model):
     """학부모가 연결된 여러 자녀의 미납 청구서를 한 번에 결제할 때 쓰는 묶음 결제 단위"""
-    payer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tuition_batch_payments', verbose_name='결제자(학부모)')
+    payer = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='tuition_batch_payments',
+                              verbose_name='결제자(학부모)', help_text='알림톡 결제 링크로 로그인 없이 결제한 경우 비어 있음')
     invoices = models.ManyToManyField(TuitionInvoice, related_name='batch_payments', verbose_name='포함된 청구서')
     amount = models.PositiveIntegerField('결제 금액(원)')
     status = models.CharField('상태', max_length=10, choices=TuitionInvoice.STATUS_CHOICES, default=TuitionInvoice.STATUS_UNPAID)
@@ -699,7 +700,7 @@ class TuitionBatchPayment(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f'{self.payer.username} 일괄결제 {self.amount}원'
+        return f'{self.payer.username if self.payer else "링크 결제"} 일괄결제 {self.amount}원'
 
     def save(self, *args, **kwargs):
         if not self.portone_payment_id:

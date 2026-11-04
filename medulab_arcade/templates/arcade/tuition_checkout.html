@@ -21,6 +21,8 @@
 .pay-btn { padding:16px; border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,0.05); color:#fff; font-weight:700; font-size:14px; cursor:pointer; transition:all .2s; text-align:left; display:flex; align-items:center; gap:10px; }
 .pay-btn:hover { background:rgba(0,255,180,0.1); border-color:var(--accent-green); }
 .pay-btn:disabled { opacity:0.5; cursor:not-allowed; }
+.pay-all-btn { display:block; margin-top:14px; padding:15px; border-radius:12px; text-align:center; font-weight:800; font-size:14.5px; text-decoration:none; color:#03140e; background:linear-gradient(90deg, var(--accent-green), var(--accent-blue)); }
+.pay-all-btn:hover { filter:brightness(1.08); }
 .pay-status { margin-top:16px; padding:14px 16px; border-radius:10px; font-size:13px; display:none; }
 .pay-status.error { display:block; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.3); color:#fca5a5; }
 .pay-status.success { display:block; background:rgba(0,255,180,0.1); border:1px solid rgba(0,255,180,0.3); color:var(--accent-green); }
@@ -63,9 +65,13 @@
         {% for row in previous_unpaid %}
         <div class="invoice-row">
             <span>{{ row.invoice.billing_period_label }} {{ row.invoice.school_class.name }} · {{ row.invoice.amount|intcomma }}원</span>
-            <a href="{% url 'tuition_pay_public' row.token %}" style="color:var(--accent-green); font-weight:700;">결제하기</a>
+            <a href="{% url 'tuition_pay_public' row.token %}" style="color:var(--accent-green); font-weight:700;">이 건만 결제</a>
         </div>
         {% endfor %}
+        {% if can_pay_all %}
+        <div class="invoice-row total"><span>이전 미납 {{ previous_total|intcomma }}원 + 이번 {{ invoice.amount|intcomma }}원</span><span>{{ combined_total|intcomma }}원</span></div>
+        <a href="{% url 'tuition_pay_public_all' public_token %}" class="pay-all-btn">💳 이전 미납 포함 한 번에 결제하기 ({{ combined_total|intcomma }}원)</a>
+        {% endif %}
     </div>
     {% endif %}
 
