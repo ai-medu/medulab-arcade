@@ -82,6 +82,17 @@
     .class-list-item .now-tag { margin-left:8px; font-size:10.5px; font-weight:800; color:var(--accent-green); border:1px solid var(--accent-green); border-radius:6px; padding:1px 6px; }
     .attend-yes { background: rgba(0,255,180,0.15); color: var(--accent-green); }
     .attend-no { background: rgba(255,255,255,0.08); color: var(--text-muted); }
+    .attend-edit-btn { border:none; background:none; padding:0; cursor:pointer; display:inline-flex; align-items:center; gap:5px; }
+    .attend-edit-btn:hover .attend-badge { filter:brightness(1.25); }
+    .attend-edit-icon { font-size:11px; color:var(--text-muted); }
+    .attend-choice-list { display:flex; flex-direction:column; gap:8px; }
+    .attend-choice { border:1px solid var(--border); background:rgba(255,255,255,0.05); color:#fff; padding:12px 14px; border-radius:10px; font-size:13.5px; font-weight:700; cursor:pointer; text-align:left; display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .attend-choice small { font-weight:500; color:var(--text-muted); font-size:11.5px; }
+    .attend-choice:hover { background:rgba(0,255,180,0.1); border-color:var(--accent-green); }
+    .attend-choice.current { border-color:var(--accent-green); background:rgba(0,255,180,0.12); }
+    .attend-choice:disabled { opacity:.5; cursor:wait; }
+    .attend-note { font-size:11.5px; color:var(--text-muted); line-height:1.5; margin-top:12px; }
+    .attend-msg { font-size:12px; color:#fca5a5; margin-top:10px; min-height:0; }
 
     .stat-card.clickable-stat { cursor:pointer; transition: all .15s; }
     .stat-card.clickable-stat:hover { background: rgba(255,255,255,0.05); }
@@ -255,11 +266,13 @@
                         {% else %}-{% endif %}
                     </td>
                     <td><div class="stu-name">{{ s.profile.real_name|default:s.username }}</div><div class="stu-id">@{{ s.username }}</div></td>
-                    <td>
+                    <td onclick="event.stopPropagation();">
+                        <button type="button" class="attend-edit-btn" title="눌러서 오늘 출석 변경" onclick="openAttendModal({{ s.id }}, '{{ s.profile.real_name|default:s.username|escapejs }}', '{{ s.today_attendance_type|default:'none' }}')">
                         {% if s.today_attendance_type == 'present' %}<span class="attend-badge attend-yes">✅ 출석</span>
                         {% elif s.today_attendance_type == 'makeup' %}<span class="attend-badge attend-yes">💙 보강</span>
                         {% elif s.today_attendance_type == 'access' %}<span class="attend-badge" style="background:rgba(148,163,184,0.12); color:#94a3b8; border:1px solid rgba(148,163,184,0.3);">📶 접속만</span>
-                        {% else %}<span class="attend-badge attend-no">미출석</span>{% endif %}
+                        {% else %}<span class="attend-badge attend-no">미출석</span>{% endif %}<span class="attend-edit-icon">✎</span>
+                        </button>
                     </td>
                     <td class="num"><span class="cnt-badge cnt-attend">{{ s.month_attendance_count }}회</span></td>
                     <td class="num"><span class="cnt-badge cnt-access">{{ s.month_access_count }}회</span></td>
@@ -333,7 +346,23 @@
     </div>
 </div>
 
-<div class="qp-modal-overlay" id="parentLinkOverlay" onclick="if(event.target===this) closeParentLinkModal();">
+<div class="qp-modal-overlay" id="attendOverlay" onclick="if(event.target===this) closeAttendModal();">
+    <div class="qp-modal-box">
+        <button type="button" class="qp-modal-close" onclick="closeAttendModal()">✕</button>
+        <h3 id="attendTitle">오늘 출석 변경</h3>
+        {% csrf_token %}
+        <div class="attend-choice-list" id="attendChoices">
+            <button type="button" class="attend-choice" data-type="present" onclick="setAttend('present')"><span>✅ 출석</span><small>정규 수업일에 등원</small></button>
+            <button type="button" class="attend-choice" data-type="makeup" onclick="setAttend('makeup')"><span>💙 보강</span><small>수업일이 아닌 날 등원</small></button>
+            <button type="button" class="attend-choice" data-type="access" onclick="setAttend('access')"><span>📶 접속만</span><small>학원 밖에서 접속</small></button>
+            <button type="button" class="attend-choice" data-type="none" onclick="setAttend('none')"><span>미출석 (기록 삭제)</span><small>오늘 기록을 지웁니다</small></button>
+        </div>
+        <div class="attend-note">출석·보강으로 바꾸면 연결된 학부모에게 출석 알림톡이 발송됩니다. (학생당 하루 한 번만 발송)</div>
+        <div class="attend-msg" id="attendMsg"></div>
+    </div>
+</div>
+
+<div class="qp-modal-overlay" id="parentLinkOverlay"onclick="if(event.target===this) closeParentLinkModal();">
     <div class="qp-modal-box">
         <button type="button" class="qp-modal-close" onclick="closeParentLinkModal()">✕</button>
         <h3 id="parentLinkTitle">학부모 연동</h3>
@@ -399,6 +428,46 @@
 </form>
 {% include 'arcade/admin/_invoice_disc_js.html' %}
 <script>
+const ATTEND_SET_URL = "{% url 'api_admin_set_attendance' 0 %}";
+const ATTEND_TODAY = "{% now 'Y-m-d' %}";
+let attendStudentId = null;
+
+function openAttendModal(studentId, studentName, currentType) {
+    attendStudentId = studentId;
+    document.getElementById('attendTitle').textContent = studentName + ' · 오늘 출석 변경';
+    document.getElementById('attendMsg').textContent = '';
+    document.querySelectorAll('#attendChoices .attend-choice').forEach(function (btn) {
+        btn.disabled = false;
+        btn.classList.toggle('current', btn.dataset.type === currentType);
+    });
+    document.getElementById('attendOverlay').classList.add('show');
+}
+function closeAttendModal() {
+    document.getElementById('attendOverlay').classList.remove('show');
+}
+function setAttend(type) {
+    const csrf = document.querySelector('#attendOverlay input[name=csrfmiddlewaretoken]').value;
+    const buttons = document.querySelectorAll('#attendChoices .attend-choice');
+    const msg = document.getElementById('attendMsg');
+    buttons.forEach(function (b) { b.disabled = true; });
+    msg.textContent = '';
+    fetch(ATTEND_SET_URL.replace('/0/', '/' + attendStudentId + '/'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+        body: JSON.stringify({ date: ATTEND_TODAY, attendance_type: type }),
+    }).then(function (r) { return r.json(); }).then(function (data) {
+        if (data.status === 'success') {
+            window.location.reload();
+        } else {
+            msg.textContent = data.message || '변경하지 못했습니다.';
+            buttons.forEach(function (b) { b.disabled = false; });
+        }
+    }).catch(function () {
+        msg.textContent = '네트워크 오류가 발생했습니다.';
+        buttons.forEach(function (b) { b.disabled = false; });
+    });
+}
+
 const allPanelIds = ['certPanel', 'awardPanel', 'examPanel'];
 const allStatIds = ['todayAttendStat', 'certStat', 'awardStat', 'examStat'];
 
