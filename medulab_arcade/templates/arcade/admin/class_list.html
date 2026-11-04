@@ -147,6 +147,16 @@
     .cm-input[readonly] { opacity: 0.75; }
     .disc-chip { display: inline-block; padding: 3px 10px; border-radius: 999px; background: rgba(244,114,182,0.15); color: #f472b6; font-weight: 700; font-size: 12px; white-space: nowrap; }
     .disc-none { color: var(--text-muted); }
+    .cm-abs-box { margin: 0 0 14px; padding: 10px 12px; border-radius: 12px; border: 1px dashed rgba(245,158,11,0.55); background: rgba(245,158,11,0.06); }
+    .cm-abs-title { font-size: 12.5px; font-weight: 800; margin-bottom: 8px; }
+    .cm-abs-title small { font-weight: 500; font-size: 11.5px; color: var(--text-muted); }
+    .cm-abs-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .cm-abs-row .cm-input { max-width: 200px; }
+    .cm-abs-pre { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .cm-abs-pre input { width: 16px; height: 16px; accent-color: #f59e0b; }
+    .cm-abs-calc { font-size: 12px; margin-top: 6px; color: var(--text-muted); }
+    .cm-abs-calc:empty { display: none; }
+    .cm-abs-calc button { margin-left: 8px; padding: 3px 10px; border-radius: 999px; border: 1px solid rgba(245,158,11,0.6); background: transparent; color: #d97706; font-size: 12px; font-weight: 700; cursor: pointer; }
     .abs-chip { display: inline-block; padding: 3px 10px; border-radius: 999px; background: rgba(245,158,11,0.16); color: #d97706; font-weight: 700; font-size: 12px; white-space: nowrap; }
     .cm-disc-edit { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
     .cm-disc-edit { align-items: center; }
@@ -352,23 +362,31 @@
             <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
                 <button type="button" class="cm-btn primary" onclick="cmInvoiceGenerate()">📄 이번 달 청구서 일괄 생성</button>
             </div>
-            <div class="cm-form-grid">
+            <div class="cm-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
                 <div><label>학생</label><select id="cmInvStudent" class="cm-select" onchange="cmInvSync()"></select></div>
-                <div><label>금액(원)</label><input type="number" id="cmInvAmount" class="cm-input" min="0"></div>
-                <div><label>전월 결석 차감</label><div class="cm-inv-disc-cell" id="cmInvAbsCell"><span class="disc-none">-</span></div></div>
-                <div><label>할인 합계</label><div class="cm-inv-disc-cell" id="cmInvDiscCell"><span class="disc-none">-</span></div></div>
                 <div><label>납부 기한</label><input type="date" id="cmInvDue" class="cm-input" onchange="cmInvSync()"></div>
                 <div><label>상태</label>
                     <select id="cmInvStatus" class="cm-select">
                         <option value="unpaid">미납</option><option value="paid">완납</option><option value="canceled">취소</option>
                     </select>
                 </div>
+            </div>
+            <div id="cmDiscBoxWrap" style="margin-top:10px;">{% include 'arcade/admin/_invoice_disc_box.html' with p='cm' %}</div>
+            <div class="cm-abs-box">
+                <div class="cm-abs-title">전월 결석 차감 <small id="cmAbsInfo"></small></div>
+                <div class="cm-abs-row">
+                    <input type="number" id="cmAbsInput" class="cm-input" min="0" step="1000" placeholder="전월 결석 차감(원)">
+                    <label class="cm-abs-pre"><input type="checkbox" id="cmPre"> 전월 미리 차감 (이번 청구서 차감 0원)</label>
+                </div>
+                <div class="cm-abs-calc" id="cmAbsCalc"></div>
+            </div>
+            <div class="cm-form-grid" style="grid-template-columns: minmax(0, 1fr) auto; margin-bottom: 14px;">
+                <div><label>청구 금액(원)</label><input type="number" id="cmInvAmount" class="cm-input" min="0"></div>
                 <div style="display:flex; gap:6px;">
                     <button type="button" class="cm-btn primary" id="cmInvSaveBtn" onclick="cmInvoiceSave()">생성</button>
                     <button type="button" class="cm-btn" id="cmInvCancelBtn" onclick="cmInvoiceReset()" style="display:none;">취소</button>
                 </div>
             </div>
-            <div id="cmDiscBoxWrap">{% include 'arcade/admin/_invoice_disc_box.html' with p='cm' %}</div>
             <div class="cm-tbl-scroll">
             <table class="cm-table">
                 <thead><tr><th>학생</th><th>청구월</th><th>금액</th><th>결석 차감</th><th>할인</th><th>기한</th><th>상태</th><th></th></tr></thead>
@@ -510,7 +528,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
         $('cmInvStudent').innerHTML = data.enrollments.map(function (e) { return '<option value="' + e.student_id + '">' + esc(e.name) + '</option>'; }).join('');
         $('cmInvBody').innerHTML = data.invoices.map(function (v) {
-            var va = v.absence_deduction ? '<span class="abs-chip">결석 ' + v.absence_count + '회 · −' + won(v.absence_deduction) + '</span>' : '<span class="disc-none">-</span>';
+            var va = v.absence_deduction ? '<span class="abs-chip">결석 ' + v.absence_count + '회 · −' + won(v.absence_deduction) + '</span>'
+                : (v.absence_prededucted ? '<span class="abs-chip">미리 차감' + (v.absence_count ? ' (' + v.absence_count + '회)' : '') + '</span>' : '<span class="disc-none">-</span>');
             var vd = (v.discount_amount ? '<span class="disc-chip">기본 ' + esc(v.discount_reason) + ' · −' + won(v.discount_amount) + '</span> ' : '') +
                 (v.extra_discount_amount ? '<span class="abs-chip">추가 ' + esc(v.extra_discount_reason) + (v.extra_absence_count ? ' ' + v.extra_absence_count + '회' : '') + ' · −' + won(v.extra_discount_amount) + '</span>' : '');
             if (!vd) vd = '<span class="disc-none">-</span>';
@@ -597,48 +616,97 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 학생/납부 기한을 고르면 서버가 전월 결석 차감 + 학생 할인을 계산해 금액을 채운다 (납부관리의 일괄 생성과 같은 계산)
     var previewSeq = 0;
-    function setInvCells(abs) {
-        $('cmInvAbsCell').innerHTML = abs && abs.deduction ? '<span class="abs-chip">결석 ' + abs.count + '회 · −' + won(abs.deduction) + '</span>' : '<span class="disc-none">-</span>';
-    }
-    // 할인 합계 칸: 기본할인(매달) + 추가할인(이번 달만)
-    function setDiscSummary(baseReason, baseAmt, extraReason, extraAmt, extraSessions) {
-        var out = '';
-        if (baseAmt) out += '<span class="disc-chip">기본 ' + esc(baseReason || '할인') + ' · −' + won(baseAmt) + '</span>';
-        if (extraAmt) out += '<span class="abs-chip">추가 ' + esc(extraReason || '할인') + (extraSessions ? ' ' + extraSessions + '회' : '') + ' · −' + won(extraAmt) + '</span>';
-        $('cmInvDiscCell').innerHTML = out || '<span class="disc-none">-</span>';
-    }
+    var cmBase = 0, cmAbsCount = 0, cmSessions = 0, cmLastAuto = 0, cmRestoreAbs = 0;
     var cmEd = DiscEditor('cm', function () { return data ? data.discount_types : []; }, function (r) {
         $('cmInvAmount').value = r.total;
-        var v = cmEd.values();
-        setDiscSummary(v.discount_reason || '직접입력', r.base, v.extra_reason || '직접입력', r.extra, cmEdIsAbs() ? v.extra_sessions : 0);
     });
-    function cmEdIsAbs() {
-        var sel = $('cmExtraSel'); if (!sel || !data) return false;
-        var t = (data.discount_types || []).filter(function (x) { return x.name === sel.value; })[0];
-        return !!(t && t.is_absence);
+
+    // ── 전월 결석 차감: 직접 고칠 수 있고, '전월 미리 차감'을 체크하면 0원 ──
+    // 결석 1회 차감액 = (수업비 - 기본할인) ÷ 월 출석 횟수   예) (140,000 - 5,000) ÷ 4 = 33,750원
+    function cmAbsValue() {
+        if ($('cmPre').checked) return 0;
+        return Math.max(0, Math.min(parseInt($('cmAbsInput').value, 10) || 0, cmBase));
     }
+    function cmSetAbs(value, pre) {
+        $('cmPre').checked = !!pre;
+        $('cmAbsInput').value = pre ? 0 : (value || 0);
+        $('cmAbsInput').disabled = !!pre;
+    }
+    function cmBaseDiscount() { return Math.max(0, Math.min(parseInt($('cmBaseAmt').value, 10) || 0, cmBase)); }
+    function cmPerSession() { return cmSessions ? Math.floor(Math.max(cmBase - cmBaseDiscount(), 0) / cmSessions) : 0; }
+    function cmAutoAbs() { return Math.min(cmPerSession() * cmAbsCount, Math.max(cmBase - cmBaseDiscount(), 0)); }
+    function cmRenderAbsCalc() {
+        var box = $('cmAbsCalc');
+        $('cmAbsInfo').textContent = cmAbsCount ? '· 전월 결석 ' + cmAbsCount + '회' : '· 전월 결석 없음';
+        if (!cmAbsCount) { box.textContent = ''; return; }
+        var auto = cmAutoAbs();
+        box.textContent = '1회 ' + won(cmPerSession()) + ' = (수업비 ' + won(cmBase) + ' − 기본할인 ' + won(cmBaseDiscount()) + ') ÷ ' + cmSessions + '회 · 결석 ' + cmAbsCount + '회 = ' + won(auto);
+        if (!$('cmPre').checked && cmAbsValue() !== auto) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = '자동 계산 ' + won(auto) + ' 적용';
+            b.onclick = function () { $('cmAbsInput').value = auto; cmLastAuto = auto; cmRecalc(); };
+            box.appendChild(b);
+        }
+    }
+    function cmRecalc() {
+        cmEd.setCtx(cmBase, cmAbsValue());
+        cmEd.refresh();       // 청구 금액 칸을 새로 계산된 값으로 채운다
+        cmRenderAbsCalc();
+    }
+    // 기본할인을 바꾸면, 직접 고치지 않은(자동 계산값 그대로인) 전월 차감액은 새 계산값으로 따라 바꾼다
+    function cmOnDiscountChanged() {
+        var input = $('cmAbsInput');
+        if (!$('cmPre').checked && (parseInt(input.value, 10) || 0) === cmLastAuto) {
+            cmLastAuto = cmAutoAbs();
+            input.value = cmLastAuto;
+            cmRecalc();
+        } else {
+            cmRenderAbsCalc();
+        }
+    }
+    $('cmAbsInput').addEventListener('input', cmRecalc);
+    $('cmPre').addEventListener('change', function () {
+        var input = $('cmAbsInput');
+        if (this.checked) {
+            var typed = parseInt(input.value, 10) || 0;
+            if (typed > 0) cmRestoreAbs = typed;
+            input.value = 0; input.disabled = true;
+        } else {
+            input.value = cmRestoreAbs; input.disabled = false;
+        }
+        cmRecalc();
+    });
+    $('cmBaseSel').addEventListener('change', cmOnDiscountChanged);   // 할인 입력기가 먼저 처리한 뒤 실행된다
+    $('cmBaseAmt').addEventListener('input', cmOnDiscountChanged);
+
     window.cmInvSync = function () {
         if (editingId) return;   // 기존 청구서를 수정할 때는 금액을 그대로 둔다
         var sid = $('cmInvStudent').value, due = $('cmInvDue').value;
-        if (!sid || !due) { setInvCells(null); setDiscSummary('', 0, '', 0, 0); return; }
+        if (!sid || !due) { cmAbsCount = 0; cmSetAbs(0, false); cmRenderAbsCalc(); return; }
         var seq = ++previewSeq;
         api(base('modal-invoice/preview/') + '?student_id=' + encodeURIComponent(sid) + '&due_date=' + encodeURIComponent(due)).then(function (p) {
             if (seq !== previewSeq || editingId) return;
-            setInvCells({ count: p.absence_count, deduction: p.absence_deduction });
-            cmEd.setCtx(p.base_amount, p.absence_deduction);
+            cmBase = p.base_amount; cmAbsCount = p.absence_count || 0; cmSessions = p.monthly_sessions || 0;
+            cmSetAbs(p.absence_deduction, false);
+            cmEd.setCtx(p.base_amount, cmAbsValue());
             cmEd.fill(p.discount_reason, p.discount_amount, '', 0, 1);   // 학생의 기본할인을 채우고 추가할인은 비운다
+            cmLastAuto = p.absence_deduction; cmRestoreAbs = p.absence_deduction;
+            cmRenderAbsCalc();
         }).catch(function (e) { if (seq === previewSeq) say(e.message, true); });
     };
     window.cmInvoiceReset = function () {
         editingId = null;
-        $('cmDiscBoxWrap').style.display = '';
         $('cmInvAmount').value = data ? data.class.tuition_fee : '';
         $('cmInvDue').value = data ? data.default_due_date : '';
         $('cmInvStatus').value = 'unpaid';
         $('cmInvStudent').disabled = false;
         $('cmInvSaveBtn').textContent = '생성';
         $('cmInvCancelBtn').style.display = 'none';
-        setInvCells(null); setDiscSummary('', 0, '', 0, 0);
+        cmBase = data ? data.class.tuition_fee : 0; cmAbsCount = 0; cmSessions = data ? data.class.monthly_sessions : 0;
+        cmLastAuto = 0; cmRestoreAbs = 0;
+        cmSetAbs(0, false); cmRenderAbsCalc();
+        cmEd.setCtx(cmBase, 0);
         cmInvSync();
     };
     window.cmInvoiceEdit = function (id) {
@@ -646,9 +714,13 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!v) return;
         editingId = id;
         $('cmInvStudent').value = v.student_id; $('cmInvStudent').disabled = true;
-        $('cmDiscBoxWrap').style.display = 'none';
-        setInvCells({ count: v.absence_count, deduction: v.absence_deduction });
-        setDiscSummary(v.discount_reason, v.discount_amount, v.extra_discount_reason, v.extra_discount_amount, v.extra_absence_count);
+        cmBase = v.base_amount; cmAbsCount = v.absence_count || 0; cmSessions = data.class.monthly_sessions || 0;
+        cmSetAbs(v.absence_prededucted ? 0 : v.absence_deduction, !!v.absence_prededucted);
+        cmEd.setCtx(cmBase, cmAbsValue());
+        cmEd.fill(v.discount_reason, v.discount_amount, v.extra_discount_reason, v.extra_discount_amount, v.extra_absence_count || 1, true);
+        cmLastAuto = cmAutoAbs();     // 저장된 차감액이 이 계산값과 같으면 '자동' 상태로 보고, 기본할인을 바꿀 때 따라 바꾼다
+        cmRestoreAbs = v.absence_deduction > 0 ? v.absence_deduction : cmLastAuto;
+        cmRenderAbsCalc();
         $('cmInvAmount').value = v.amount; $('cmInvDue').value = v.due_date; $('cmInvStatus').value = v.status;
         $('cmInvSaveBtn').textContent = '수정 저장';
         $('cmInvCancelBtn').style.display = '';
@@ -658,8 +730,9 @@ document.addEventListener('DOMContentLoaded', function () {
         var body = {
             id: editingId, student_id: $('cmInvStudent').value, amount: $('cmInvAmount').value,
             due_date: $('cmInvDue').value, status: $('cmInvStatus').value,
+            absence_deduction: cmAbsValue(), absence_prededucted: $('cmPre').checked,
         };
-        if (!editingId) { var v = cmEd.values(); for (var k in v) body[k] = v[k]; }
+        var v = cmEd.values(); for (var k in v) body[k] = v[k];
         api(base('modal-invoice/save/'), body).then(done).catch(fail);
     };
     window.cmInvoiceDelete = function (id) {

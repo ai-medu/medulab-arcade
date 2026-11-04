@@ -3654,6 +3654,8 @@ def _class_modal_payload(school_class):
             'period': inv.billing_period_label,
             'discount_reason': inv.discount_reason, 'discount_amount': inv.discount_amount,
             'absence_count': inv.absence_count, 'absence_deduction': inv.absence_deduction,
+            'absence_prededucted': inv.absence_prededucted,
+            'base_amount': inv.base_amount or school_class.tuition_fee,
             'extra_discount_reason': inv.extra_discount_reason, 'extra_discount_amount': inv.extra_discount_amount,
             'extra_absence_count': inv.extra_absence_count,
         }
@@ -3662,7 +3664,8 @@ def _class_modal_payload(school_class):
     return {
         'ok': True,
         'discount_types': _discount_types_payload(),
-        'class': {'id': school_class.id, 'name': school_class.name, 'tuition_fee': school_class.tuition_fee},
+        'class': {'id': school_class.id, 'name': school_class.name, 'tuition_fee': school_class.tuition_fee,
+                  'monthly_sessions': school_class.monthly_sessions},
         'enrollments': enrollments,
         'invoices': invoices,
         'default_due_date': _month_due_date().strftime('%Y-%m-%d'),

@@ -695,6 +695,15 @@ class ModalInvoiceSaveBreakdownTests(TestCase):
         inv.refresh_from_db()
         self.assertEqual((inv.absence_prededucted, inv.absence_deduction, inv.amount), (True, 0, 135000))
 
+    def test_modal_payload_has_fields_for_class_window(self):
+        """수업 관리 창이 쓰는 데이터: 청구 기준액, 미리 차감 여부, 월 출석 횟수"""
+        TuitionInvoice.objects.create(student=self.kid, school_class=self.klass, amount=135000, base_amount=140000,
+                                      absence_count=2, absence_prededucted=True, due_date=self.due)
+        data = self.client.get(reverse('class_modal_data', args=[self.klass.id])).json()
+        self.assertEqual(data['class']['monthly_sessions'], 4)
+        row = data['invoices'][0]
+        self.assertEqual((row['base_amount'], row['absence_prededucted'], row['absence_count']), (140000, True, 2))
+
     def test_invalid_deduction_rejected(self):
         res = self._post(amount=1000, absence_deduction='abc', absence_prededucted=False)
         self.assertEqual(res.status_code, 400)
