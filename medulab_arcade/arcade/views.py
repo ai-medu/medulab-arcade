@@ -3921,6 +3921,11 @@ def class_modal_invoice_save(request, class_id):
             school_class=school_class, student_id=data.get('student_id')).select_related('student').first()
         if not enrollment:
             return JsonResponse({'ok': False, 'error': '이 수업에 배정된 학생을 선택해 주세요.'}, status=400)
+        if data.get('once_per_month') and TuitionInvoice.objects.filter(
+                student=enrollment.student, school_class=school_class,
+                due_date__year=due_date.year, due_date__month=due_date.month,
+        ).exclude(status=TuitionInvoice.STATUS_CANCELED).exists():
+            return JsonResponse({'ok': False, 'error': f'이미 {due_date.year}년 {due_date.month}월 청구서가 있어요. (수정은 청구서 목록에서 해주세요)'}, status=400)
         invoice = TuitionInvoice(student=enrollment.student, school_class=school_class,
                                  base_amount=school_class.tuition_fee)
         # 자동 계산(전월 결석 차감 + 학생 할인) 금액 그대로 생성하면 그 내역(결석/할인)도 함께 기록한다.
@@ -4296,6 +4301,40 @@ def class_admin_attendance(request, class_id):
     return render(request, 'arcade/admin/class_attendance.html', context)
 
 
+def _single_invoice_modal_context(year, month):
+    """납부 관리의 '청구서 개별 생성' 모달에 필요한 데이터:
+    수업에 배정된 학생(+배정 수업) 목록, 그 달에 이미 청구서가 있는 학생/수업 조합, 기본 납부 기한, 할인 사유"""
+    import datetime
+
+    students = {}
+    enrollments = (
+        ClassEnrollment.objects.filter(is_active=True, school_class__is_active=True)
+        .select_related('student__profile', 'school_class')
+        .order_by('student__profile__real_name', 'student__username', 'school_class__name')
+    )
+    for e in enrollments:
+        entry = students.setdefault(e.student_id, {
+            'id': e.student_id,
+            'name': e.student.profile.real_name or e.student.username,
+            'username': e.student.username,
+            'classes': [],
+        })
+        entry['classes'].append({'id': e.school_class_id, 'name': e.school_class.name})
+
+    existing = [
+        f'{sid}:{cid}'
+        for sid, cid in TuitionInvoice.objects.filter(due_date__year=year, due_date__month=month)
+        .exclude(status=TuitionInvoice.STATUS_CANCELED).values_list('student_id', 'school_class_id')
+    ]
+    return {
+        'si_enabled': True,
+        'si_students': list(students.values()),
+        'si_existing': existing,
+        'si_due_default': _month_due_date(datetime.date(year, month, 1)).strftime('%Y-%m-%d'),
+        'si_discount_types': _discount_types_payload(),
+    }
+
+
 def _with_last_notice(qs):
     """청구서마다 학부모에게 청구/미납 안내 알림톡이 마지막으로 발송된 시각(last_notice)을 붙인다"""
     from django.db.models import Max
@@ -4399,6 +4438,7 @@ def tuition_admin_dashboard(request):
         'paid_count': paid_count,
         'unpaid_count': unpaid_count,
         'title': '납부 관리',
+        **_single_invoice_modal_context(year, month),
     }
     return render(request, 'arcade/admin/tuition_dashboard.html', context)
 

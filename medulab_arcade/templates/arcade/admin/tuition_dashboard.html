@@ -227,6 +227,7 @@ tr:hover td { background:rgba(255,255,255,0.02); }
         <a href="?year={{ next_year }}&month={{ next_month }}" class="nav-arrow">다음 달 →</a>
         <a href="?view=unpaid" class="nav-arrow view-unpaid">📋 전체 미납 보기</a>
         <a href="?view=paid" class="nav-arrow view-paid">✅ 전체 완납 보기</a>
+        {% if si_enabled %}<button type="button" class="nav-arrow view-generate" onclick="openSingleInvoiceModal()">➕ {{ month }}월 청구서 개별 생성</button>{% endif %}
         <form method="post" action="{% url 'tuition_generate_invoices_all' %}" onsubmit="return confirm('{{ year }}년 {{ month }}월 청구서를 모든 수업에 대해 일괄 생성할까요? (이미 생성된 청구서는 건너뜁니다)')">
             {% csrf_token %}
             <input type="hidden" name="year" value="{{ year }}">
@@ -497,4 +498,5 @@ document.addEventListener('keydown', function (e) {
     }
 })();
 </script>
+{% if si_enabled %}{% include 'arcade/admin/_tuition_single_invoice_modal.html' %}{% endif %}
 {% endblock %}

@@ -279,3 +279,63 @@ class BulkInvoiceNoticeTests(TestCase):
             dash = self.client.get(reverse('tuition_admin_dashboard'))
         post.assert_not_called()
         self.assertNotEqual(dash.status_code, 200)
+
+
+class SingleInvoiceModalTests(TestCase):
+    def setUp(self):
+        self.staff = User.objects.create_user('boss', password='x', is_staff=True)
+        self.klass = SchoolClass.objects.create(name='AICE반', tuition_fee=200000, days_of_week='1,3')
+        self.kid = User.objects.create_user('kid', password='x')
+        self.kid.profile.real_name = '김학생'
+        self.kid.profile.save()
+        from .models import ClassEnrollment
+        ClassEnrollment.objects.create(school_class=self.klass, student=self.kid)
+        self.client.force_login(self.staff)
+        self.url = reverse('tuition_admin_dashboard') + '?year=2026&month=10'
+        self.save_url = reverse('class_modal_invoice_save', args=[self.klass.id])
+
+    def _save(self, **extra):
+        data = {'student_id': self.kid.id, 'amount': 200000, 'due_date': '2026-10-31', 'status': 'unpaid',
+                'once_per_month': True}
+        data.update(extra)
+        return self.client.post(self.save_url, data, content_type='application/json')
+
+    def test_month_page_has_button_and_modal_data(self):
+        res = self.client.get(self.url)
+        self.assertContains(res, '10월 청구서 개별 생성')
+        self.assertContains(res, 'id="siOverlay"')
+        self.assertEqual(res.context['si_students'][0]['name'], '김학생')
+        self.assertEqual(res.context['si_due_default'], '2026-10-31')
+        self.assertEqual(res.context['si_students'][0]['classes'][0]['id'], self.klass.id)
+
+    def test_all_view_has_no_single_invoice_modal(self):
+        res = self.client.get(reverse('tuition_admin_dashboard') + '?view=unpaid')
+        self.assertNotContains(res, 'id="siOverlay"')
+
+    def test_creates_only_that_student_invoice(self):
+        other = User.objects.create_user('other', password='x')
+        from .models import ClassEnrollment
+        ClassEnrollment.objects.create(school_class=self.klass, student=other)
+        res = self._save()
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.json()['ok'])
+        invoices = TuitionInvoice.objects.all()
+        self.assertEqual([(i.student_id, str(i.due_date)) for i in invoices], [(self.kid.id, '2026-10-31')])
+
+    def test_duplicate_month_blocked_but_allowed_after_cancel(self):
+        self.assertEqual(self._save().status_code, 200)
+        dup = self._save()
+        self.assertEqual(dup.status_code, 400)
+        self.assertIn('이미 2026년 10월 청구서', dup.json()['error'])
+        # 이미 있는 청구서는 모달에서 '이미 있음'으로 막히도록 목록에 실린다
+        res = self.client.get(self.url)
+        self.assertIn(f'{self.kid.id}:{self.klass.id}', res.context['si_existing'])
+        TuitionInvoice.objects.update(status=TuitionInvoice.STATUS_CANCELED)
+        self.assertEqual(self._save().status_code, 200)
+        self.assertEqual(TuitionInvoice.objects.count(), 2)
+
+    def test_non_staff_cannot_use_save_api(self):
+        self.client.force_login(self.kid)
+        res = self._save()
+        self.assertNotEqual(res.status_code, 200)
+        self.assertEqual(TuitionInvoice.objects.count(), 0)

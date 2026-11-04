@@ -1,0 +1,182 @@
+{% comment %}
+납부 관리 - 청구서 개별 생성 모달. 학생 한 명을 골라 그 학생의 청구서만 만든다.
+계산(전월 결석 차감 + 학생 할인)과 저장은 수업 관리의 청구서 모달과 같은 API를 쓴다.
+필요한 context: si_students, si_existing, si_due_default, si_discount_types
+{% endcomment %}
+{% include 'arcade/admin/_invoice_disc_js.html' %}
+<style>
+.si-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; align-items:center; justify-content:center; padding:20px; }
+.si-overlay.show { display:flex; }
+.si-box { background:var(--bg-card); border:1px solid var(--border); border-radius:18px; padding:26px; max-width:460px; width:100%; box-sizing:border-box; position:relative; max-height:92vh; overflow-y:auto; overscroll-behavior:contain; }
+.si-close { position:absolute; top:14px; right:16px; background:none; border:none; color:var(--text-muted); font-size:20px; cursor:pointer; line-height:1; }
+.si-close:hover { color:#fff; }
+.si-box h3 { font-size:15px; font-weight:800; color:#fff; margin:0 0 14px; }
+.si-field { margin-bottom:12px; }
+.si-field label { display:block; font-size:11.5px; font-weight:700; color:var(--text-muted); margin-bottom:5px; }
+.si-input { width:100%; box-sizing:border-box; height:40px; padding:0 12px; border-radius:10px; border:1px solid var(--border); background:rgba(255,255,255,0.06); color:var(--text-primary, #fff); font-size:13.5px; font-family:inherit; color-scheme:dark; }
+.si-list { width:100%; box-sizing:border-box; border-radius:10px; border:1px solid var(--border); background:rgba(255,255,255,0.06); color:#fff; font-size:13.5px; font-family:inherit; color-scheme:dark; padding:4px; margin-top:6px; }
+.si-list option { padding:7px 8px; border-radius:6px; }
+.si-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.si-calc { border:1px dashed var(--border); border-radius:12px; padding:10px 12px; margin:4px 0 14px; font-size:13px; line-height:1.9; }
+.si-calc .r { display:flex; justify-content:space-between; gap:10px; }
+.si-calc .r.total { border-top:1px solid var(--border); margin-top:4px; padding-top:6px; font-weight:900; font-size:14.5px; }
+.si-abs { color:#d97706; font-weight:800; }
+.si-btns { display:flex; gap:10px; margin-top:6px; }
+.si-btn { flex:1; height:42px; border:none; border-radius:10px; font-weight:800; font-size:14px; cursor:pointer; font-family:inherit; }
+.si-btn.go { background:var(--accent-green); color:#03140e; }
+.si-btn.go:disabled { opacity:.5; cursor:not-allowed; }
+.si-btn.cancel { background:rgba(120,120,160,0.14); color:var(--text-secondary); }
+.si-msg { margin-top:12px; font-size:13px; font-weight:700; line-height:1.5; }
+.si-msg.err { color:#ef4444; } .si-msg.ok { color:var(--accent-green); }
+.si-note { font-size:12px; line-height:1.6; color:var(--text-muted); margin-top:10px; }
+</style>
+
+<div class="si-overlay" id="siOverlay" onclick="if(event.target===this) closeSingleInvoiceModal();">
+    <div class="si-box">
+        <button type="button" class="si-close" onclick="closeSingleInvoiceModal()">✕</button>
+        <h3>🧾 {{ month }}월 청구서 개별 생성</h3>
+        {% csrf_token %}
+
+        <div class="si-field">
+            <label>학생</label>
+            <input type="text" id="siSearch" class="si-input" placeholder="이름/아이디로 검색..." oninput="siFilterStudents()" autocomplete="off">
+            <select id="siStudent" class="si-list" size="6" onchange="siStudentChange()"></select>
+        </div>
+
+        <div id="siForm" style="display:none;">
+            <div class="si-field"><label>수업</label><select id="siClass" class="si-input" onchange="siPreview()"></select></div>
+            <div class="si-row">
+                <div class="si-field"><label>납부 기한</label><input type="date" id="siDue" class="si-input" onchange="siPreview()"></div>
+                <div class="si-field"><label>상태</label><select id="siStatus" class="si-input"><option value="unpaid">미납</option><option value="paid">완납</option></select></div>
+            </div>
+            <div class="si-calc">
+                <div class="r"><span>수업비</span><span id="siBase">-</span></div>
+                <div class="r"><span>전월 결석 차감</span><span id="siAbs" class="si-abs">-</span></div>
+                <div class="r total"><span>청구 금액</span><span id="siTotal">-</span></div>
+            </div>
+            {% include 'arcade/admin/_invoice_disc_box.html' with p='si' %}
+            <div class="si-field"><label>금액(원) <span style="font-weight:500;">· 자동 계산된 값이에요. 필요하면 직접 고칠 수 있어요</span></label><input type="number" id="siAmount" class="si-input" min="0"></div>
+            <div class="si-note">📨 청구서를 만들면 연결된 학부모에게 학원비 청구 안내 알림톡이 자동으로 발송됩니다. (미납 상태일 때)</div>
+        </div>
+
+        <div class="si-msg" id="siMsg"></div>
+        <div class="si-btns">
+            <button type="button" class="si-btn cancel" onclick="closeSingleInvoiceModal()">닫기</button>
+            <button type="button" class="si-btn go" id="siSave" onclick="siSave()" disabled>청구서 생성</button>
+        </div>
+    </div>
+</div>
+
+{{ si_students|json_script:"siStudentsData" }}
+{{ si_existing|json_script:"siExistingData" }}
+{{ si_discount_types|json_script:"siTypesData" }}
+<script>
+(function () {
+    var STUDENTS = JSON.parse(document.getElementById('siStudentsData').textContent);
+    var EXISTING = JSON.parse(document.getElementById('siExistingData').textContent);
+    var TYPES = JSON.parse(document.getElementById('siTypesData').textContent);
+    var DUE_DEFAULT = '{{ si_due_default }}';
+    var PAGE_MONTH = '{{ year }}-{{ month|stringformat:"02d" }}';
+    var seq = 0, blocked = false;
+
+    var $ = function (id) { return document.getElementById(id); };
+    var won = function (n) { return Number(n).toLocaleString('ko-KR') + '원'; };
+    function say(text, kind) { var m = $('siMsg'); m.textContent = text || ''; m.className = 'si-msg' + (kind ? ' ' + kind : ''); }
+    function csrf() { var el = document.querySelector('#siOverlay input[name=csrfmiddlewaretoken]'); return el ? el.value : ''; }
+    function selectedStudent() {
+        var id = parseInt($('siStudent').value, 10);
+        return STUDENTS.find(function (s) { return s.id === id; });
+    }
+
+    var editor = DiscEditor('si', function () { return TYPES; }, function (r) {
+        $('siTotal').textContent = won(r.total);
+        $('siAmount').value = r.total;
+    });
+
+    function renderStudents(query) {
+        var q = (query || '').trim().toLowerCase();
+        var sel = $('siStudent');
+        var keep = sel.value;
+        sel.innerHTML = '';
+        STUDENTS.forEach(function (s) {
+            if (q && (s.name + ' ' + s.username).toLowerCase().indexOf(q) === -1) return;
+            var o = document.createElement('option');
+            o.value = s.id;
+            o.textContent = s.name + '  (@' + s.username + ')';
+            sel.appendChild(o);
+        });
+        if (keep) sel.value = keep;
+    }
+
+    window.openSingleInvoiceModal = function () {
+        $('siSearch').value = '';
+        renderStudents('');
+        $('siStudent').selectedIndex = -1;
+        $('siForm').style.display = 'none';
+        $('siSave').disabled = true;
+        say(STUDENTS.length ? '' : '수업에 배정된 학생이 없어요. 먼저 수업을 배정해 주세요.', STUDENTS.length ? '' : 'err');
+        $('siOverlay').classList.add('show');
+        $('siSearch').focus();
+    };
+    window.closeSingleInvoiceModal = function () { $('siOverlay').classList.remove('show'); };
+    window.siFilterStudents = function () { renderStudents($('siSearch').value); };
+
+    window.siStudentChange = function () {
+        var s = selectedStudent();
+        if (!s) return;
+        var cls = $('siClass');
+        cls.innerHTML = '';
+        s.classes.forEach(function (c) {
+            var o = document.createElement('option');
+            o.value = c.id; o.textContent = c.name;
+            cls.appendChild(o);
+        });
+        cls.disabled = s.classes.length === 1;
+        $('siDue').value = DUE_DEFAULT;
+        $('siStatus').value = 'unpaid';
+        $('siForm').style.display = '';
+        window.siPreview();
+    };
+
+    window.siPreview = function () {
+        var s = selectedStudent(), cid = $('siClass').value, due = $('siDue').value;
+        if (!s || !cid || !due) return;
+        // 이 달에 같은 수업 청구서가 이미 있으면 만들 수 없게 막는다
+        blocked = due.slice(0, 7) === PAGE_MONTH && EXISTING.indexOf(s.id + ':' + cid) !== -1;
+        $('siSave').disabled = blocked;
+        if (blocked) { say('이미 {{ year }}년 {{ month }}월 청구서가 있어요. 수정은 아래 청구서 목록에서 해주세요.', 'err'); return; }
+        var mine = ++seq;
+        say('금액 계산 중...');
+        fetch('/admin-services/classes/' + cid + '/modal-invoice/preview/?student_id=' + s.id + '&due_date=' + encodeURIComponent(due), { credentials: 'same-origin' })
+            .then(function (r) { return r.json().then(function (j) { if (!r.ok || j.ok === false) throw new Error(j.error || '계산하지 못했어요.'); return j; }); })
+            .then(function (p) {
+                if (mine !== seq) return;
+                editor.setCtx(p.base_amount, p.absence_deduction);
+                $('siBase').textContent = won(p.base_amount);
+                $('siAbs').textContent = p.absence_deduction ? '결석 ' + p.absence_count + '회 · −' + won(p.absence_deduction) : '-';
+                editor.fill(p.discount_reason, p.discount_amount, '', 0, 1);
+                $('siSave').disabled = false;
+                say('');
+            })
+            .catch(function (e) { if (mine === seq) say(e.message, 'err'); });
+    };
+
+    window.siSave = function () {
+        var s = selectedStudent(), btn = $('siSave');
+        if (!s || blocked) return;
+        btn.disabled = true; say('만드는 중...');
+        fetch('/admin-services/classes/' + $('siClass').value + '/modal-invoice/save/', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+            body: JSON.stringify(Object.assign({
+                student_id: s.id, amount: $('siAmount').value,
+                due_date: $('siDue').value, status: $('siStatus').value, once_per_month: true,
+            }, editor.values())),
+        }).then(function (r) { return r.json().then(function (j) { if (!r.ok || j.ok === false) throw new Error(j.error || '생성하지 못했어요.'); return j; }); })
+          .then(function () { say('✅ 청구서를 만들었어요!', 'ok'); setTimeout(function () { location.reload(); }, 800); })
+          .catch(function (e) { say(e.message, 'err'); btn.disabled = false; });
+    };
+
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') window.closeSingleInvoiceModal(); });
+})();
+</script>
