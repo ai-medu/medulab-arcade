@@ -81,6 +81,22 @@ class UserProfile(models.Model):
     def needs_approval(self):
         return self.user_type in self.FULL_ACCESS_TYPES and not self.is_approved
 
+    # 메듀랩 회원 승인을 거절할 때 바꿔 주는 일반 가입 유형 (승인 없이 바로 가입 완료되는 유형)
+    REJECT_FALLBACK_TYPES = {
+        'medulab_member': 'student',
+        'medulab_parent': 'parent',
+        'medulab_teacher': 'teacher',
+        'medulab_staff': 'general',
+    }
+
+    @property
+    def reject_fallback_type(self):
+        return self.REJECT_FALLBACK_TYPES.get(self.user_type, 'general')
+
+    @property
+    def reject_fallback_label(self):
+        return dict(self.USER_TYPE_CHOICES)[self.reject_fallback_type]
+
     @property
     def display_name(self):
         return self.nickname or self.real_name or self.user.username

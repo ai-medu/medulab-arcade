@@ -136,7 +136,7 @@
                         <span style="font-size: 12px; color: var(--accent-green);">● 승인됨</span>
                         {% elif u.profile.needs_approval %}
                         <button type="button" class="approval-pending"
-                            onclick="openApproveModal({{ u.id }}, '{{ u.profile.real_name|default:u.username|escapejs }}', '{{ u.profile.get_user_type_display|escapejs }}')">
+                            onclick="openApproveModal({{ u.id }}, '{{ u.profile.real_name|default:u.username|escapejs }}', '{{ u.profile.get_user_type_display|escapejs }}', '{{ u.profile.reject_fallback_label|escapejs }}')">
                             ⏳ 승인 대기
                         </button>
                         <div id="signupInfo-{{ u.id }}" style="display:none;">
@@ -223,7 +223,7 @@
             <input type="hidden" name="next" value="{{ request.get_full_path }}">
             <div class="approve-modal-actions">
                 <button type="button" class="approve-modal-cancel" onclick="closeApproveModal()">취소</button>
-                <button type="submit" class="approve-modal-reject" id="approveModalReject" onclick="return confirm('이 가입 신청을 거절하고 계정을 삭제할까요? 되돌릴 수 없습니다.');">❌ 거절하기</button>
+                <button type="submit" class="approve-modal-reject" id="approveModalReject" onclick="return confirm(this.dataset.confirm);">❌ 거절하기</button>
                 <button type="submit" class="approve-modal-confirm">✅ 승인하기</button>
             </div>
         </form>
@@ -234,13 +234,16 @@
 var approveUrlTemplate = "{% url 'member_approve' 999999 %}".replace('999999', '__ID__');
 var rejectUrlTemplate = "{% url 'member_reject' 999999 %}".replace('999999', '__ID__');
 
-function openApproveModal(userId, name, typeLabel) {
+function openApproveModal(userId, name, typeLabel, fallbackLabel) {
     document.getElementById('approveModalName').textContent = name;
     document.getElementById('approveModalType').textContent = typeLabel + ' 회원으로 승인할까요?';
     var info = document.getElementById('signupInfo-' + userId);
     document.getElementById('approveModalInfo').innerHTML = info ? info.innerHTML : '';
     document.getElementById('approveModalForm').action = approveUrlTemplate.replace('__ID__', userId);
-    document.getElementById('approveModalReject').setAttribute('formaction', rejectUrlTemplate.replace('__ID__', userId));
+    var rejectBtn = document.getElementById('approveModalReject');
+    rejectBtn.setAttribute('formaction', rejectUrlTemplate.replace('__ID__', userId));
+    rejectBtn.textContent = '❌ 거절 (' + fallbackLabel + '으로 전환)';
+    rejectBtn.dataset.confirm = typeLabel + ' 신청을 거절하고 ' + fallbackLabel + '으로 전환해 가입을 완료할까요? (계정은 삭제되지 않습니다)';
     document.getElementById('approveModalOverlay').classList.add('show');
 }
 function closeApproveModal() {

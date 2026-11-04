@@ -114,12 +114,20 @@ class MemberRejectTests(TestCase):
         self._pending()
         res = self.client.get(reverse('member_list'))
         self.assertContains(res, 'id="approveModalReject"')
+        self.assertContains(res, "'학생회원')")  # 전환될 유형이 모달에 전달된다
 
-    def test_reject_deletes_pending_member(self):
-        user = self._pending()
-        res = self.client.post(reverse('member_reject', args=[user.id]))
-        self.assertEqual(res.status_code, 302)
-        self.assertFalse(User.objects.filter(pk=user.pk).exists())
+    def test_reject_converts_to_general_type_and_completes_signup(self):
+        cases = {'medulab_member': 'student', 'medulab_parent': 'parent',
+                 'medulab_teacher': 'teacher', 'medulab_staff': 'general'}
+        for i, (src, dst) in enumerate(cases.items()):
+            user = self._pending(f'u{i}', src)
+            res = self.client.post(reverse('member_reject', args=[user.id]))
+            self.assertEqual(res.status_code, 302)
+            user.profile.refresh_from_db()
+            self.assertEqual(user.profile.user_type, dst)
+            self.assertTrue(user.profile.is_approved)
+            self.assertFalse(user.profile.needs_approval)
+            self.assertTrue(User.objects.filter(pk=user.pk).exists())  # 삭제하지 않는다
 
     def test_cannot_reject_approved_staff_or_self(self):
         approved = self._pending('ok')
@@ -129,16 +137,18 @@ class MemberRejectTests(TestCase):
         other_staff.is_staff = True
         other_staff.save()
         for target in (approved, other_staff, self.staff):
+            before = target.profile.user_type
             self.client.post(reverse('member_reject', args=[target.id]))
-            self.assertTrue(User.objects.filter(pk=target.pk).exists())
+            target.profile.refresh_from_db()
+            self.assertEqual(target.profile.user_type, before)
 
     def test_non_staff_cannot_reject(self):
         user = self._pending()
         self.client.force_login(User.objects.create_user('plain', password='x'))
         self.client.post(reverse('member_reject', args=[user.id]))
-        self.assertTrue(User.objects.filter(pk=user.pk).exists())
+        user.profile.refresh_from_db()
+        self.assertEqual(user.profile.user_type, 'medulab_member')
 
     def test_get_not_allowed(self):
         user = self._pending()
         self.assertEqual(self.client.get(reverse('member_reject', args=[user.id])).status_code, 405)
-        self.assertTrue(User.objects.filter(pk=user.pk).exists())

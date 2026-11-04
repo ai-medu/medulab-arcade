@@ -3148,16 +3148,20 @@ def member_approve(request, user_id):
 @user_passes_test(staff_check)
 @require_POST
 def member_reject(request, user_id):
-    """승인 대기 중인 가입 신청을 거절한다 (계정 삭제). 이미 승인된 회원/관리자/본인은 거절할 수 없다."""
+    """승인 대기 중인 메듀랩 회원 신청을 거절한다. 계정은 지우지 않고, 승인 없이 쓸 수 있는 일반 가입 유형
+    (메듀랩 학생→학생회원, 메듀랩 학부모→학부모회원 ...)으로 바꿔 가입이 완료되도록 한다."""
     target_user = get_object_or_404(User, pk=user_id)
     profile, _ = UserProfile.objects.get_or_create(user=target_user)
     redirect_url = request.POST.get('next') or reverse('member_list')
-    if target_user == request.user or target_user.is_staff or profile.is_approved:
-        messages.error(request, '승인 대기 중인 일반 회원만 거절할 수 있습니다.')
+    if target_user == request.user or target_user.is_staff or not profile.needs_approval:
+        messages.error(request, '승인 대기 중인 메듀랩 회원 신청만 거절할 수 있습니다.')
         return redirect(redirect_url)
-    username = target_user.username
-    target_user.delete()
-    messages.success(request, f'가입 신청 "{username}" 을 거절하고 계정을 삭제했습니다.')
+    label = profile.reject_fallback_label
+    profile.user_type = profile.reject_fallback_type
+    profile.is_approved = True
+    profile.approved_at = timezone.now()
+    profile.save(update_fields=['user_type', 'is_approved', 'approved_at'])
+    messages.success(request, f'가입 신청 "{target_user.username}" 을 거절하고 {label}으로 전환해 가입을 완료했습니다.')
     return redirect(redirect_url)
 
 
