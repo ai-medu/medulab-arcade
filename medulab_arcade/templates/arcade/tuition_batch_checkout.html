@@ -99,16 +99,30 @@
         statusEl.textContent = message;
     }
 
-    function verifyPayment() {
+    function verifyPayment(attempt) {
+        attempt = attempt || 1;
         fetch('{% if public_token %}{% url "tuition_pay_public_all_verify" public_token batch.id %}{% else %}{% url "tuition_batch_verify" batch.id %}{% endif %}', {
             method: 'POST',
             headers: { 'X-CSRFToken': '{{ csrf_token }}' },
-        }).then(function (r) { return r.json(); }).then(function (data) {
+        }).then(function (r) {
+            return r.json().catch(function () { return { ok: false, retry: true, error: '서버 응답을 확인하지 못했습니다.' }; });
+        }).then(function (data) {
             if (data.ok) {
                 showStatus('success', '결제가 완료되었습니다.');
                 setTimeout(function () { window.location.href = '{% if public_token %}{% url "tuition_pay_public" public_token %}{% else %}{% url "my_report" %}{% endif %}'; }, 1200);
+            } else if (data.retry && attempt < 6) {
+                // 결제 직후에는 포트원 반영이 조금 늦을 수 있어 몇 번 다시 확인한다
+                showStatus('info', '결제 확인 중입니다... (' + attempt + '/5)');
+                setTimeout(function () { verifyPayment(attempt + 1); }, 2000);
             } else {
-                showStatus('error', data.error || '결제 확인에 실패했습니다.');
+                showStatus('error', (data.error || '결제 확인에 실패했습니다.') + ' 이미 결제하셨다면 다시 결제하지 마시고, 이 화면을 새로고침하거나 학원으로 문의해 주세요.');
+                document.querySelectorAll('.pay-btn').forEach(function (b) { b.disabled = false; });
+            }
+        }).catch(function () {
+            if (attempt < 6) {
+                setTimeout(function () { verifyPayment(attempt + 1); }, 2000);
+            } else {
+                showStatus('error', '결제 확인 중 네트워크 오류가 발생했습니다. 이미 결제하셨다면 다시 결제하지 마시고 학원으로 문의해 주세요.');
                 document.querySelectorAll('.pay-btn').forEach(function (b) { b.disabled = false; });
             }
         });
@@ -156,7 +170,13 @@
                 params.easyPay = { easyPayProvider: 'EASY_PAY_PROVIDER_KAKAOPAY' };
             }
 
+            function alreadyPaid(message) { return /이미 결제/.test(message || ''); }
             PortOne.requestPayment(params).then(function (response) {
+                if (response && response.code && alreadyPaid(response.message)) {
+                    showStatus('info', '이미 결제된 건입니다. 완납 처리를 확인하는 중입니다...');
+                    verifyPayment();
+                    return;
+                }
                 if (!response || response.code) {
                     showStatus('error', (response && response.message) || '결제가 취소되었습니다.');
                     document.querySelectorAll('.pay-btn').forEach(function (b) { b.disabled = false; });
@@ -166,6 +186,11 @@
             }).catch(function (err) {
                 console.error('PortOne requestPayment error:', err);
                 var detail = (err && (err.message || err.pgMessage || err.errorMsg)) || '';
+                if (alreadyPaid(detail)) {
+                    showStatus('info', '이미 결제된 건입니다. 완납 처리를 확인하는 중입니다...');
+                    verifyPayment();
+                    return;
+                }
                 showStatus('error', '결제 중 오류가 발생했습니다.' + (detail ? ' (' + detail + ')' : ''));
                 document.querySelectorAll('.pay-btn').forEach(function (b) { b.disabled = false; });
             });

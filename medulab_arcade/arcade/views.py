@@ -4838,6 +4838,14 @@ def tuition_verify_payment(request, invoice_id):
     return _verify_invoice_payment(invoice)
 
 
+# 포트원이 아직 결제를 확정하지 않은 상태 (결제 직후 잠깐 이럴 수 있어 화면에서 몇 번 다시 확인한다)
+PORTONE_PENDING_STATUSES = ('READY', 'PAY_PENDING')
+
+
+def _portone_not_paid_response(status):
+    return JsonResponse({'ok': False, 'error': '결제가 완료되지 않았습니다.', 'retry': status in PORTONE_PENDING_STATUSES}, status=400)
+
+
 def _verify_invoice_payment(invoice):
     """포트원 API로 청구서 결제 상태를 재검증하고 완납 처리 (로그인 결제/링크 결제 공통)"""
     import requests
@@ -4855,14 +4863,14 @@ def _verify_invoice_payment(invoice):
             timeout=10,
         )
     except requests.RequestException:
-        return JsonResponse({'ok': False, 'error': '결제 확인 중 오류가 발생했습니다.'}, status=502)
+        return JsonResponse({'ok': False, 'error': '결제 확인 중 오류가 발생했습니다.', 'retry': True}, status=502)
 
     if resp.status_code != 200:
-        return JsonResponse({'ok': False, 'error': '결제 정보를 확인할 수 없습니다.'}, status=502)
+        return JsonResponse({'ok': False, 'error': '결제 정보를 확인할 수 없습니다.', 'retry': True}, status=502)
 
     data = resp.json()
     if data.get('status') != 'PAID':
-        return JsonResponse({'ok': False, 'error': '결제가 완료되지 않았습니다.'}, status=400)
+        return _portone_not_paid_response(data.get('status'))
 
     paid_amount = (data.get('amount') or {}).get('total')
     if paid_amount != invoice.amount:
@@ -5004,14 +5012,14 @@ def _verify_batch_payment(batch):
             timeout=10,
         )
     except requests.RequestException:
-        return JsonResponse({'ok': False, 'error': '결제 확인 중 오류가 발생했습니다.'}, status=502)
+        return JsonResponse({'ok': False, 'error': '결제 확인 중 오류가 발생했습니다.', 'retry': True}, status=502)
 
     if resp.status_code != 200:
-        return JsonResponse({'ok': False, 'error': '결제 정보를 확인할 수 없습니다.'}, status=502)
+        return JsonResponse({'ok': False, 'error': '결제 정보를 확인할 수 없습니다.', 'retry': True}, status=502)
 
     data = resp.json()
     if data.get('status') != 'PAID':
-        return JsonResponse({'ok': False, 'error': '결제가 완료되지 않았습니다.'}, status=400)
+        return _portone_not_paid_response(data.get('status'))
 
     paid_amount = (data.get('amount') or {}).get('total')
     if paid_amount != batch.amount:

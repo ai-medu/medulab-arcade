@@ -433,3 +433,39 @@ class CombinedPublicPaymentTests(TestCase):
         self.assertTrue(res.json()['ok'])
         self.old.refresh_from_db()
         self.assertEqual(self.old.status, TuitionInvoice.STATUS_PAID)
+
+
+@override_settings(PORTONE_API_SECRET='sec', PORTONE_STORE_ID='store')
+class VerifyRetrySignalTests(TestCase):
+    def setUp(self):
+        self.kid = User.objects.create_user('kid', password='x')
+        klass = SchoolClass.objects.create(name='AICE반', tuition_fee=100000)
+        self.inv = TuitionInvoice.objects.create(student=self.kid, school_class=klass, amount=100000, base_amount=100000,
+                                                 due_date=timezone.localdate() + timedelta(days=5))
+        self.url = reverse('tuition_pay_public_verify', args=[self.inv.ensure_pay_token()])
+
+    def _resp(self, status, code=200):
+        resp = mock.Mock(status_code=code)
+        resp.json.return_value = {'status': status, 'amount': {'total': 100000}}
+        return resp
+
+    def test_pending_payment_asks_client_to_retry(self):
+        with mock.patch('requests.get', return_value=self._resp('PAY_PENDING')):
+            res = self.client.post(self.url)
+        self.assertEqual((res.status_code, res.json()['retry']), (400, True))
+
+    def test_failed_payment_is_final(self):
+        with mock.patch('requests.get', return_value=self._resp('FAILED')):
+            res = self.client.post(self.url)
+        self.assertEqual((res.status_code, res.json()['retry']), (400, False))
+
+    def test_gateway_error_asks_client_to_retry(self):
+        with mock.patch('requests.get', return_value=self._resp('PAID', code=500)):
+            res = self.client.post(self.url)
+        self.assertEqual((res.status_code, res.json()['retry']), (502, True))
+
+    def test_paid_marks_invoice(self):
+        with mock.patch('requests.get', return_value=self._resp('PAID')):
+            self.assertTrue(self.client.post(self.url).json()['ok'])
+        self.inv.refresh_from_db()
+        self.assertEqual(self.inv.status, TuitionInvoice.STATUS_PAID)
