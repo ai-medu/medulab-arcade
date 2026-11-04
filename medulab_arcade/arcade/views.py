@@ -4019,6 +4019,44 @@ def _absence_type_names():
     return set(ClassDiscountType.objects.filter(is_absence=True).values_list('name', flat=True))
 
 
+def _holiday_dates_in_month(year, month):
+    """학원 달력의 공휴일/휴원일(ScheduleEvent 휴일) 중 해당 월에 속한 날짜 집합"""
+    ensure_holidays()  # 올해/내년 법정 공휴일이 아직 없으면 등록
+    holidays = set()
+    for event in ScheduleEvent.objects.filter(event_type=ScheduleEvent.EVENT_TYPE_HOLIDAY, is_active=True):
+        if not event.start_date:
+            continue
+        start_d = timezone.localtime(event.start_date).date()
+        end_d = timezone.localtime(event.end_date).date() if event.end_date else start_d
+        cur = start_d
+        while cur <= end_d:
+            if cur.year == year and cur.month == month:
+                holidays.add(cur)
+            cur += timedelta(days=1)
+    return holidays
+
+
+def _billable_session_dates(school_class, year, month):
+    """결석 차감 계산에 쓰는 수업일: 수업 요일 중 공휴일/휴원일은 수업이 없으니 뺀다"""
+    holidays = _holiday_dates_in_month(year, month)
+    return [d for d in _class_session_dates(school_class, year, month) if d not in holidays]
+
+
+def _presence_for_dates(enrollment, dates):
+    """수업일별 출석 여부 {날짜: True/False}. 출석부(class_attendance)와 같은 규칙:
+    ① 출석부에 저장된 기록이 있으면 그 값  ② 없으면 학생이 직접 한 출석 체크(출석/보강)가 있으면 출석
+    ③ 그것도 없으면 결석"""
+    from .models import Attendance
+    if not dates:
+        return {}
+    saved = {r.date: r.is_present for r in ClassAttendance.objects.filter(enrollment=enrollment, date__in=dates)}
+    self_checkins = set(Attendance.objects.filter(
+        user_id=enrollment.student_id, date__in=dates,
+        attendance_type__in=[Attendance.TYPE_PRESENT, Attendance.TYPE_MAKEUP],
+    ).values_list('date', flat=True))
+    return {d: saved[d] if d in saved else d in self_checkins for d in dates}
+
+
 def compute_invoice_amounts(school_class, enrollment, due_date, discount_override=None, extra=None):
     """한 학생의 청구 금액 계산 — 일괄 생성(납부관리/수업관리)과 직접 생성이 모두 이 함수를 쓴다.
     ① 전월 결석(출석 기록) 횟수 × 회당 단가를 차감
@@ -4030,10 +4068,8 @@ def compute_invoice_amounts(school_class, enrollment, due_date, discount_overrid
     period_start = due_date.replace(day=1)
     prev_month_last_day = period_start - timedelta(days=1)
     prev_month_start = prev_month_last_day.replace(day=1)
-    scheduled = _class_session_dates(school_class, prev_month_start.year, prev_month_start.month)
-    absence_count = ClassAttendance.objects.filter(
-        enrollment=enrollment, is_present=False, date__in=scheduled,
-    ).count()
+    scheduled = _billable_session_dates(school_class, prev_month_start.year, prev_month_start.month)
+    absence_count = sum(1 for present in _presence_for_dates(enrollment, scheduled).values() if not present)
     deduction = min(school_class.per_session_fee * absence_count, fee)
 
     if discount_override is not None:
@@ -4749,14 +4785,9 @@ def tuition_invoice_attendance_detail(request, invoice_id):
     prev_month_last_day = period_start - timedelta(days=1)
     prev_year, prev_month = prev_month_last_day.year, prev_month_last_day.month
 
-    scheduled_dates = _class_session_dates(invoice.school_class, prev_year, prev_month)
+    scheduled_dates = _billable_session_dates(invoice.school_class, prev_year, prev_month)
     enrollment = ClassEnrollment.objects.filter(school_class=invoice.school_class, student=invoice.student).first()
-    present_map = {}
-    if enrollment:
-        present_map = {
-            r.date: r.is_present
-            for r in ClassAttendance.objects.filter(enrollment=enrollment, date__in=scheduled_dates)
-        }
+    present_map = _presence_for_dates(enrollment, scheduled_dates) if enrollment else {}
     cells = [{'date': d, 'is_present': present_map.get(d, True)} for d in scheduled_dates]
 
     context = {
