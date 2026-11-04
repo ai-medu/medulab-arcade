@@ -4883,22 +4883,12 @@ def _public_pay_invoice_or_404(token):
 
 
 def tuition_pay_public(request, token):
-    """학부모에게 알림톡으로 보낸 로그인 없는 결제 링크. 이 청구서 결제 외에는 아무 것도 할 수 없다."""
+    """학부모에게 알림톡으로 보낸 로그인 없는 결제 링크. 이 청구서(와 이전 미납) 결제 외에는 아무 것도 할 수 없다.
+    이전 미납 청구서가 있으면 별도 안내 없이 처음부터 이전 미납이 합쳐진 한 번에 결제 화면을 보여 준다."""
     from .parent_notify import parent_phones
     invoice = _public_pay_invoice_or_404(token)
     phones = parent_phones(invoice.student)
-    previous_unpaid = []
-    for prev in TuitionInvoice.objects.filter(
-            student=invoice.student, status=TuitionInvoice.STATUS_UNPAID,
-            due_date__lt=invoice.due_date).exclude(pk=invoice.pk).select_related('school_class').order_by('due_date'):
-        previous_unpaid.append({'invoice': prev, 'token': prev.ensure_pay_token()})
-    context = {
-        'invoice': invoice,
-        'public_token': token,
-        'previous_unpaid': previous_unpaid,
-        'previous_total': sum(row['invoice'].amount for row in previous_unpaid),
-        'combined_total': invoice.amount + sum(row['invoice'].amount for row in previous_unpaid),
-        'can_pay_all': bool(previous_unpaid) and invoice.status == TuitionInvoice.STATUS_UNPAID,
+    customer = {
         'portone_store_id': settings.PORTONE_STORE_ID,
         'portone_channel_key_card': settings.PORTONE_CHANNEL_KEY_CARD,
         'portone_channel_key_kakaopay': settings.PORTONE_CHANNEL_KEY_KAKAOPAY,
@@ -4906,7 +4896,23 @@ def tuition_pay_public(request, token):
         'portone_customer_phone': phones[0] if phones else '01000000000',
         'portone_customer_name': invoice.student.profile.real_name or invoice.student.username,
     }
-    return render(request, 'arcade/tuition_checkout.html', context)
+
+    invoices = _public_pay_batch_invoices(invoice) if invoice.status == TuitionInvoice.STATUS_UNPAID else [invoice]
+    if len(invoices) < 2:
+        return render(request, 'arcade/tuition_checkout.html', {'invoice': invoice, 'public_token': token, **customer})
+
+    total_amount = sum(inv.amount for inv in invoices)
+    current_ids = {inv.id for inv in invoices}
+    batch = None
+    for candidate in TuitionBatchPayment.objects.filter(payer__isnull=True, status=TuitionInvoice.STATUS_UNPAID, invoices=invoice):
+        if set(candidate.invoices.values_list('id', flat=True)) == current_ids and candidate.amount == total_amount:
+            batch = candidate
+            break
+    if not batch:
+        batch = TuitionBatchPayment.objects.create(payer=None, amount=total_amount)
+        batch.invoices.set(invoices)
+    context = {'batch': batch, 'invoices': invoices, 'total_amount': total_amount, 'public_token': token, **customer}
+    return render(request, 'arcade/tuition_batch_checkout.html', context)
 
 
 def _public_pay_batch_invoices(invoice):
@@ -4919,40 +4925,8 @@ def _public_pay_batch_invoices(invoice):
 
 
 def tuition_pay_public_all(request, token):
-    """알림톡 결제 링크에서, 이전 미납 청구서까지 합쳐 한 번에 결제하는 화면 (로그인 불필요)"""
-    from .parent_notify import parent_phones
-    invoice = _public_pay_invoice_or_404(token)
-    if invoice.status != TuitionInvoice.STATUS_UNPAID:
-        return redirect('tuition_pay_public', token=token)
-    invoices = _public_pay_batch_invoices(invoice)
-    if len(invoices) < 2:  # 합칠 이전 미납이 없으면 단건 결제로
-        return redirect('tuition_pay_public', token=token)
-
-    total_amount = sum(inv.amount for inv in invoices)
-    current_ids = {inv.id for inv in invoices}
-    batch = None
-    for candidate in TuitionBatchPayment.objects.filter(payer__isnull=True, status=TuitionInvoice.STATUS_UNPAID, invoices=invoice):
-        if set(candidate.invoices.values_list('id', flat=True)) == current_ids and candidate.amount == total_amount:
-            batch = candidate
-            break
-    if not batch:
-        batch = TuitionBatchPayment.objects.create(payer=None, amount=total_amount)
-        batch.invoices.set(invoices)
-
-    phones = parent_phones(invoice.student)
-    context = {
-        'batch': batch,
-        'invoices': invoices,
-        'total_amount': total_amount,
-        'public_token': token,
-        'portone_store_id': settings.PORTONE_STORE_ID,
-        'portone_channel_key_card': settings.PORTONE_CHANNEL_KEY_CARD,
-        'portone_channel_key_kakaopay': settings.PORTONE_CHANNEL_KEY_KAKAOPAY,
-        'portone_customer_email': f'{invoice.student.username}@medulab.kr',
-        'portone_customer_phone': phones[0] if phones else '01000000000',
-        'portone_customer_name': invoice.student.profile.real_name or invoice.student.username,
-    }
-    return render(request, 'arcade/tuition_batch_checkout.html', context)
+    """예전에 안내했던 '이전 미납 포함 결제' 주소. 지금은 결제 링크 주소 하나가 같은 화면을 보여 준다."""
+    return redirect('tuition_pay_public', token=token)
 
 
 @require_POST

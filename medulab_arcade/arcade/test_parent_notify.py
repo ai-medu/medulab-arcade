@@ -163,9 +163,9 @@ class ParentNotifyTests(TestCase):
         self.assertIn('1건 150,000원', v['#{이전미납}'])
         self.assertEqual(v['#{총미납액}'], '330,000원')
         res = self.client.get(reverse('tuition_pay_public', args=[new.pay_token]))
-        self.assertContains(res, '이전 미납')
-        old.refresh_from_db()
-        self.assertContains(res, old.pay_token)
+        self.assertEqual(res.status_code, 200)
+        self.assertNotContains(res, '이전 미납 청구서가 있습니다')
+        self.assertEqual({i.id for i in res.context['invoices']}, {old.id, new.id})  # 처음부터 합산 결제 화면
 
     @override_settings(**SOLAPI)
     def test_notice_without_previous(self):
@@ -350,6 +350,7 @@ class CombinedPublicPaymentTests(TestCase):
         self.old = self._inv(150000, today - timedelta(days=30))
         self.new = self._inv(100000, today + timedelta(days=10))
         self.url = reverse('tuition_pay_public_all', args=[self.new.ensure_pay_token()])
+        self.main = reverse('tuition_pay_public', args=[self.new.pay_token])
 
     def _inv(self, amount, due, student=None, **kw):
         return TuitionInvoice.objects.create(student=student or self.kid, school_class=self.klass, amount=amount,
@@ -360,34 +361,43 @@ class CombinedPublicPaymentTests(TestCase):
         resp.json.return_value = {'status': 'PAID', 'amount': {'total': total}, 'method': {'type': 'PaymentMethodCard'}}
         return resp
 
-    def test_single_page_offers_combined_payment(self):
+    def test_link_opens_combined_payment_directly(self):
         res = self.client.get(reverse('tuition_pay_public', args=[self.new.pay_token]))
-        self.assertContains(res, '이전 미납 포함 한 번에 결제하기 (250,000원)')
-        self.assertContains(res, self.url)
+        self.assertEqual(res.status_code, 200)
+        self.assertTemplateUsed(res, 'arcade/tuition_batch_checkout.html')
+        self.assertContains(res, '250,000원')
+        self.assertNotContains(res, '이전 미납 청구서가 있습니다')
+        self.assertNotContains(res, '한 번에 결제하기')
 
-    def test_no_combined_button_without_previous_unpaid(self):
+    def test_old_all_url_redirects_to_main_link(self):
+        main = reverse('tuition_pay_public', args=[self.new.pay_token])
+        self.assertRedirects(self.client.get(self.url), main, fetch_redirect_response=False)
+
+    def test_single_checkout_when_no_previous_unpaid(self):
         TuitionInvoice.objects.filter(pk=self.old.pk).update(status=TuitionInvoice.STATUS_PAID)
         res = self.client.get(reverse('tuition_pay_public', args=[self.new.pay_token]))
-        self.assertNotContains(res, '한 번에 결제하기')
-        self.assertRedirects(self.client.get(self.url), reverse('tuition_pay_public', args=[self.new.pay_token]))
+        self.assertTemplateUsed(res, 'arcade/tuition_checkout.html')
+        self.assertContains(res, '100,000원')
 
     def test_combined_page_builds_batch_once(self):
-        res = self.client.get(self.url)
+        res = self.client.get(self.main)
         self.assertEqual(res.status_code, 200)
         self.assertContains(res, '250,000원')
         batch = res.context['batch']
         self.assertIsNone(batch.payer)
         self.assertEqual(batch.amount, 250000)
         self.assertEqual(set(batch.invoices.all()), {self.old, self.new})
-        self.client.get(self.url)
+        self.client.get(self.main)
         self.assertEqual(TuitionBatchPayment.objects.count(), 1)
 
-    def test_combined_page_redirects_when_current_invoice_paid(self):
+    def test_paid_current_invoice_shows_single_paid_page(self):
         TuitionInvoice.objects.filter(pk=self.new.pk).update(status=TuitionInvoice.STATUS_PAID)
-        self.assertEqual(self.client.get(self.url).status_code, 302)
+        res = self.client.get(self.main)
+        self.assertTemplateUsed(res, 'arcade/tuition_checkout.html')
+        self.assertContains(res, '이미 납부가 완료된')
 
     def test_verify_marks_all_invoices_paid(self):
-        batch = self.client.get(self.url).context['batch']
+        batch = self.client.get(self.main).context['batch']
         verify = reverse('tuition_pay_public_all_verify', args=[self.new.pay_token, batch.id])
         with mock.patch('requests.get', return_value=self._paid_response(250000)):
             res = self.client.post(verify)
@@ -400,7 +410,7 @@ class CombinedPublicPaymentTests(TestCase):
         self.assertEqual(batch.status, TuitionInvoice.STATUS_PAID)
 
     def test_verify_rejects_wrong_amount_and_other_students_batch(self):
-        batch = self.client.get(self.url).context['batch']
+        batch = self.client.get(self.main).context['batch']
         verify = reverse('tuition_pay_public_all_verify', args=[self.new.pay_token, batch.id])
         with mock.patch('requests.get', return_value=self._paid_response(100000)):
             self.assertEqual(self.client.post(verify).status_code, 400)

@@ -35,7 +35,7 @@
 
 {% block content %}
 <div class="checkout-wrap">
-    <h1 class="checkout-title">💳 학원비 일괄 결제</h1>
+    <h1 class="checkout-title">💳 {% if public_token %}학원비 결제{% else %}학원비 일괄 결제{% endif %}</h1>
 
     <div class="invoice-card">
         {% for inv in invoices %}
