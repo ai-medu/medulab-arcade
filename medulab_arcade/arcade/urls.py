@@ -180,6 +180,7 @@ urlpatterns = [
     path('admin-services/members/<int:user_id>/convert-to-inactive/', views.member_convert_to_inactive, name='member_convert_to_inactive'),
     path('admin-services/members/<int:user_id>/convert-to-active/', views.member_convert_to_active, name='member_convert_to_active'),
     path('admin-services/members/<int:user_id>/edit/', views.member_edit, name='member_edit'),
+    path('admin-services/members/<int:user_id>/reject/', views.member_reject, name='member_reject'),
     path('admin-services/members/<int:user_id>/delete/', views.member_delete, name='member_delete'),
     path('admin-services/members/<int:user_id>/link-child/', views.member_link_child, name='member_link_child'),
     path('admin-services/members/<int:user_id>/create-child/', views.member_create_child, name='member_create_child'),

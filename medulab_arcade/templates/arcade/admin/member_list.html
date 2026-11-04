@@ -69,6 +69,8 @@
     .approve-modal-cancel:hover { background:rgba(255,255,255,0.1); }
     .approve-modal-confirm { background:var(--accent-green); color:var(--bg-primary); border-color:transparent; }
     .approve-modal-confirm:hover { transform:translateY(-1px); box-shadow:0 4px 14px rgba(0,255,180,0.25); }
+    .approve-modal-reject { background:rgba(239,68,68,0.12); color:#fca5a5; border-color:rgba(239,68,68,0.3); }
+    .approve-modal-reject:hover { background:rgba(239,68,68,0.25); }
 </style>
 {% endblock %}
 
@@ -221,6 +223,7 @@
             <input type="hidden" name="next" value="{{ request.get_full_path }}">
             <div class="approve-modal-actions">
                 <button type="button" class="approve-modal-cancel" onclick="closeApproveModal()">취소</button>
+                <button type="submit" class="approve-modal-reject" id="approveModalReject" onclick="return confirm('이 가입 신청을 거절하고 계정을 삭제할까요? 되돌릴 수 없습니다.');">❌ 거절하기</button>
                 <button type="submit" class="approve-modal-confirm">✅ 승인하기</button>
             </div>
         </form>
@@ -229,6 +232,7 @@
 
 <script>
 var approveUrlTemplate = "{% url 'member_approve' 999999 %}".replace('999999', '__ID__');
+var rejectUrlTemplate = "{% url 'member_reject' 999999 %}".replace('999999', '__ID__');
 
 function openApproveModal(userId, name, typeLabel) {
     document.getElementById('approveModalName').textContent = name;
@@ -236,6 +240,7 @@ function openApproveModal(userId, name, typeLabel) {
     var info = document.getElementById('signupInfo-' + userId);
     document.getElementById('approveModalInfo').innerHTML = info ? info.innerHTML : '';
     document.getElementById('approveModalForm').action = approveUrlTemplate.replace('__ID__', userId);
+    document.getElementById('approveModalReject').setAttribute('formaction', rejectUrlTemplate.replace('__ID__', userId));
     document.getElementById('approveModalOverlay').classList.add('show');
 }
 function closeApproveModal() {

@@ -96,3 +96,49 @@ class MemberEditFieldsTests(TestCase):
         res = self.client.post(reverse('member_edit', args=[user.id]), self._post_data(user, phone_number='12'))
         self.assertEqual(res.status_code, 200)
         self.assertContains(res, '전화번호는 숫자 기준')
+
+
+class MemberRejectTests(TestCase):
+    def setUp(self):
+        self.staff = User.objects.create_user('boss', password='x', is_staff=True)
+        self.client.force_login(self.staff)
+
+    def _pending(self, name='newbie', user_type='medulab_member'):
+        user = User.objects.create_user(name, password='x')
+        user.profile.user_type = user_type
+        user.profile.is_approved = False
+        user.profile.save()
+        return user
+
+    def test_list_has_reject_button(self):
+        self._pending()
+        res = self.client.get(reverse('member_list'))
+        self.assertContains(res, 'id="approveModalReject"')
+
+    def test_reject_deletes_pending_member(self):
+        user = self._pending()
+        res = self.client.post(reverse('member_reject', args=[user.id]))
+        self.assertEqual(res.status_code, 302)
+        self.assertFalse(User.objects.filter(pk=user.pk).exists())
+
+    def test_cannot_reject_approved_staff_or_self(self):
+        approved = self._pending('ok')
+        approved.profile.is_approved = True
+        approved.profile.save()
+        other_staff = self._pending('adm')
+        other_staff.is_staff = True
+        other_staff.save()
+        for target in (approved, other_staff, self.staff):
+            self.client.post(reverse('member_reject', args=[target.id]))
+            self.assertTrue(User.objects.filter(pk=target.pk).exists())
+
+    def test_non_staff_cannot_reject(self):
+        user = self._pending()
+        self.client.force_login(User.objects.create_user('plain', password='x'))
+        self.client.post(reverse('member_reject', args=[user.id]))
+        self.assertTrue(User.objects.filter(pk=user.pk).exists())
+
+    def test_get_not_allowed(self):
+        user = self._pending()
+        self.assertEqual(self.client.get(reverse('member_reject', args=[user.id])).status_code, 405)
+        self.assertTrue(User.objects.filter(pk=user.pk).exists())

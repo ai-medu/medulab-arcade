@@ -3147,6 +3147,23 @@ def member_approve(request, user_id):
 @login_required
 @user_passes_test(staff_check)
 @require_POST
+def member_reject(request, user_id):
+    """승인 대기 중인 가입 신청을 거절한다 (계정 삭제). 이미 승인된 회원/관리자/본인은 거절할 수 없다."""
+    target_user = get_object_or_404(User, pk=user_id)
+    profile, _ = UserProfile.objects.get_or_create(user=target_user)
+    redirect_url = request.POST.get('next') or reverse('member_list')
+    if target_user == request.user or target_user.is_staff or profile.is_approved:
+        messages.error(request, '승인 대기 중인 일반 회원만 거절할 수 있습니다.')
+        return redirect(redirect_url)
+    username = target_user.username
+    target_user.delete()
+    messages.success(request, f'가입 신청 "{username}" 을 거절하고 계정을 삭제했습니다.')
+    return redirect(redirect_url)
+
+
+@login_required
+@user_passes_test(staff_check)
+@require_POST
 def member_convert_to_inactive(request, user_id):
     """메듀랩 학생 -> 메듀랩 미수강생 원클릭 전환"""
     target_user = get_object_or_404(User, pk=user_id)
