@@ -647,3 +647,72 @@ class InvoiceBreakdownEditTests(TestCase):
         self.assertContains(res, 'data-prededucted="1"')
         self.assertContains(res, 'id="amPre"')
         self.assertContains(res, 'id="amDisc"')
+
+
+class ModalInvoiceSaveBreakdownTests(TestCase):
+    """학생 현황의 청구서 창(class_modal_invoice_save)도 전월 차감 수정 / 전월 미리 차감을 저장한다"""
+
+    def setUp(self):
+        from .models import ClassEnrollment
+        self.staff = User.objects.create_user('boss', password='x', is_staff=True)
+        self.kid = User.objects.create_user('kid', password='x')
+        self.klass = SchoolClass.objects.create(name='맞춤성장 토요반', tuition_fee=140000, monthly_sessions=4)
+        ClassEnrollment.objects.create(school_class=self.klass, student=self.kid)
+        self.client.force_login(self.staff)
+        self.url = reverse('class_modal_invoice_save', args=[self.klass.id])
+        self.due = timezone.localdate() + timedelta(days=5)
+
+    def _post(self, **data):
+        base = {'student_id': self.kid.id, 'due_date': self.due.isoformat(), 'status': 'unpaid',
+                'discount_reason': '', 'discount_amount': '0', 'extra_reason': '', 'extra_amount': '0', 'extra_sessions': '1'}
+        base.update(data)
+        return self.client.post(self.url, base, content_type='application/json')
+
+    def test_create_with_prededucted(self):
+        res = self._post(amount=135000, absence_deduction=0, absence_prededucted=True,
+                         discount_reason='친구소개', discount_amount='5000')
+        self.assertEqual(res.status_code, 200)
+        inv = TuitionInvoice.objects.get()
+        self.assertEqual((inv.absence_prededucted, inv.absence_deduction, inv.discount_amount, inv.amount), (True, 0, 5000, 135000))
+
+    def test_create_with_manual_deduction(self):
+        res = self._post(amount=96250, absence_deduction=33750, absence_prededucted=False,
+                         discount_reason='친구소개', discount_amount='5000')
+        self.assertEqual(res.status_code, 200)
+        inv = TuitionInvoice.objects.get()
+        self.assertEqual((inv.absence_prededucted, inv.absence_deduction, inv.amount), (False, 33750, 96250))
+
+    def test_edit_updates_deduction_and_prededucted(self):
+        inv = TuitionInvoice.objects.create(student=self.kid, school_class=self.klass, amount=105000, base_amount=140000,
+                                            absence_count=1, absence_deduction=35000, due_date=self.due)
+        res = self._post(id=inv.id, amount=101250, absence_deduction=33750, absence_prededucted=False,
+                         discount_reason='친구소개', discount_amount='5000')
+        self.assertEqual(res.status_code, 200)
+        inv.refresh_from_db()
+        self.assertEqual((inv.absence_deduction, inv.discount_amount, inv.amount), (33750, 5000, 101250))
+        res = self._post(id=inv.id, amount=135000, absence_deduction=33750, absence_prededucted=True,
+                         discount_reason='친구소개', discount_amount='5000')
+        inv.refresh_from_db()
+        self.assertEqual((inv.absence_prededucted, inv.absence_deduction, inv.amount), (True, 0, 135000))
+
+    def test_invalid_deduction_rejected(self):
+        res = self._post(amount=1000, absence_deduction='abc', absence_prededucted=False)
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(TuitionInvoice.objects.count(), 0)
+
+    def test_preview_and_dashboard_rows_include_session_info(self):
+        from .models import ClassEnrollment
+        res = self.client.get(reverse('class_modal_invoice_preview', args=[self.klass.id]),
+                              {'student_id': self.kid.id, 'due_date': self.due.isoformat()})
+        self.assertEqual(res.json()['monthly_sessions'], 4)
+        self.kid.profile.user_type = 'medulab_member'
+        self.kid.profile.save()
+        TuitionInvoice.objects.create(student=self.kid, school_class=self.klass, amount=140000, base_amount=140000,
+                                      due_date=timezone.localdate(), absence_prededucted=True)
+        self.klass.days_of_week = '0,1,2,3,4,5,6'
+        self.klass.save()
+        page = self.client.get(reverse('my_report'))
+        self.assertContains(page, 'id="ivPre"')
+        row = page.context['student_rows'][0]['student'].month_invoices_json
+        self.assertIn('"monthly_sessions": 4', row)
+        self.assertIn('"absence_prededucted": true', row)

@@ -3887,7 +3887,13 @@ def class_modal_invoice_save(request, class_id):
         # 할인 사유/금액을 함께 보낸 경우(학생 현황의 수정 창) 청구서에 기록된 할인도 수정한다
         #  · 기본할인(discount_*): 이 청구서 + 학생의 수업 배정 정보(앞으로의 청구서)에 반영
         #  · 추가할인(extra_*): 이 청구서에만 반영
-        if 'discount_amount' in data or 'extra_reason' in data or 'extra_amount' in data:
+        if 'absence_deduction' in data or 'absence_prededucted' in data:
+            # 전월 결석 차감/전월 미리 차감까지 함께 보낸 경우(학생 현황·납부 관리의 수정 창)
+            try:
+                _apply_invoice_breakdown(invoice, data)
+            except ValueError as exc:
+                return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+        elif 'discount_amount' in data or 'extra_reason' in data or 'extra_amount' in data:
             try:
                 override = _parse_discount_override(data.get('discount_reason'), data.get('discount_amount')) if 'discount_amount' in data else None
                 extra_req = _parse_extra_discount(data.get('extra_reason'), data.get('extra_amount'), data.get('extra_sessions'))
@@ -3942,6 +3948,13 @@ def class_modal_invoice_save(request, class_id):
                 setattr(invoice, key, calc[key])
         # 기본할인은 학생의 배정 정보에도 저장해서 앞으로의 청구서에 계속 적용한다
         _persist_base_discount(enrollment, override)
+        if 'absence_deduction' in data or 'absence_prededucted' in data:
+            # 창에서 전월 차감을 직접 고쳤거나 '전월 미리 차감'을 체크한 경우 그 내용을 따른다 (결석 횟수 기록은 출석부 기준 그대로)
+            invoice.absence_count = calc['absence_count']
+            try:
+                _apply_invoice_breakdown(invoice, data)
+            except ValueError as exc:
+                return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
 
     invoice.amount = amount
     invoice.due_date = due_date
@@ -3976,6 +3989,7 @@ def class_modal_invoice_preview(request, class_id):
         return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
     calc = compute_invoice_amounts(school_class, enrollment, due_date, discount_override=override, extra=extra_req)
     calc['ok'] = True
+    calc['monthly_sessions'] = school_class.monthly_sessions
     return JsonResponse(calc)
 
 
@@ -4816,6 +4830,60 @@ def _bulk_notify_invoices(request, invoices):
 
 TUITION_AMOUNT_MAX = 10_000_000
 
+BREAKDOWN_KEYS = ('absence_deduction', 'absence_prededucted', 'discount_amount', 'extra_reason', 'extra_amount')
+
+
+def _apply_invoice_breakdown(invoice, data):
+    """청구서의 전월 결석 차감 / 기본할인 / 추가할인 / '전월 미리 차감'을 요청 데이터대로 바꾼다 (저장은 호출한 쪽에서).
+    ① 전월 차감: absence_prededucted 가 참이면 이번 청구서에서는 0원, 아니면 absence_deduction(원)
+    ② 기본할인: 이 청구서 + 학생의 수업 배정 정보(앞으로의 청구서)   ③ 추가할인: 이 청구서만
+    반환값은 이 내역으로 계산한 청구 금액. 입력이 잘못되면 ValueError."""
+    def _int(value, label):
+        try:
+            return int(str(value).replace(',', '').strip())
+        except (TypeError, ValueError):
+            raise ValueError(f'{label}을(를) 숫자로 입력해 주세요.')
+
+    fee_base = invoice.base_amount or invoice.school_class.tuition_fee
+    if data.get('absence_prededucted'):
+        deduction, prededucted = 0, True
+    else:
+        deduction = max(0, min(_int(data.get('absence_deduction', invoice.absence_deduction), '전월 차감액'), fee_base))
+        prededucted = False
+    override = (_parse_discount_override(data.get('discount_reason'), data.get('discount_amount'))
+                if 'discount_amount' in data else (invoice.discount_reason, invoice.discount_amount))
+    extra_req = (_parse_extra_discount(data.get('extra_reason'), data.get('extra_amount'), data.get('extra_sessions'))
+                 if ('extra_reason' in data or 'extra_amount' in data) else
+                 ((invoice.extra_discount_reason, invoice.extra_discount_amount, invoice.extra_absence_count)
+                  if invoice.extra_discount_amount else None))
+
+    reason, value = override if override is not None else ('', 0)
+    discount = max(0, min(int(value or 0), fee_base - deduction))
+    if 'discount_amount' in data:
+        _persist_base_discount(
+            ClassEnrollment.objects.filter(school_class=invoice.school_class, student=invoice.student)
+            .select_related('school_class').first(), override)
+    extra_amount, extra_reason, extra_sessions = 0, '', 0
+    if extra_req is not None:
+        e_reason, e_amount, e_sessions = extra_req
+        e_reason = (e_reason or '').strip()[:50]
+        if e_reason in _absence_type_names():
+            extra_sessions = e_sessions
+            e_amount = extra_sessions * (max(fee_base - discount, 0) // 4)
+        extra_amount = max(0, min(int(e_amount or 0), fee_base - deduction - discount))
+        if extra_amount:
+            extra_reason = e_reason or '직접입력'
+        else:
+            extra_sessions = 0
+    invoice.absence_deduction = deduction
+    invoice.absence_prededucted = prededucted
+    invoice.discount_amount = discount
+    invoice.discount_reason = ((reason or '').strip()[:50] or '직접입력') if discount else ''
+    invoice.extra_discount_amount = extra_amount
+    invoice.extra_discount_reason = extra_reason
+    invoice.extra_absence_count = extra_sessions
+    return fee_base - deduction - discount - extra_amount
+
 
 @login_required
 @user_passes_test(staff_check)
@@ -4828,75 +4896,22 @@ def tuition_invoice_set_amount(request, invoice_id):
     if invoice.status != TuitionInvoice.STATUS_UNPAID:
         return JsonResponse({'ok': False, 'error': '미납 청구서만 금액을 수정할 수 있어요.'}, status=400)
     data = _json_body(request)
-
-    def _int(value, label):
-        try:
-            return int(str(value).replace(',', '').strip())
-        except (TypeError, ValueError):
-            raise ValueError(f'{label}을(를) 숫자로 입력해 주세요.')
-
-    breakdown_keys = ('absence_deduction', 'absence_prededucted', 'discount_amount', 'extra_reason', 'extra_amount')
-    has_breakdown = any(k in data for k in breakdown_keys)
     old_amount = invoice.amount
+    auto_amount = None
     try:
-        if has_breakdown:
-            fee_base = invoice.base_amount or invoice.school_class.tuition_fee
-            # ① 전월 결석 차감: '전월 미리 차감'이면 이번 청구서에서는 0원
-            if data.get('absence_prededucted'):
-                deduction, prededucted = 0, True
-            else:
-                deduction = max(0, min(_int(data.get('absence_deduction', invoice.absence_deduction), '전월 차감액'), fee_base))
-                prededucted = False
-            # ② 기본할인(이 청구서 + 학생의 수업 배정 정보) / ③ 추가할인(이 청구서만)
-            override = (_parse_discount_override(data.get('discount_reason'), data.get('discount_amount'))
-                        if 'discount_amount' in data else (invoice.discount_reason, invoice.discount_amount))
-            extra_req = (_parse_extra_discount(data.get('extra_reason'), data.get('extra_amount'), data.get('extra_sessions'))
-                         if ('extra_reason' in data or 'extra_amount' in data) else
-                         ((invoice.extra_discount_reason, invoice.extra_discount_amount, invoice.extra_absence_count)
-                          if invoice.extra_discount_amount else None))
+        if any(k in data for k in BREAKDOWN_KEYS):
+            auto_amount = _apply_invoice_breakdown(invoice, data)
+        if data.get('amount') in (None, ''):
+            if auto_amount is None:
+                raise ValueError('금액을 숫자로 입력해 주세요.')
+            amount = auto_amount
+        else:
+            try:
+                amount = int(str(data.get('amount')).replace(',', '').strip())
+            except (TypeError, ValueError):
+                raise ValueError('금액을 숫자로 입력해 주세요.')
     except ValueError as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
-
-    if has_breakdown:
-        reason, value = override if override is not None else ('', 0)
-        discount = max(0, min(int(value or 0), fee_base - deduction))
-        if 'discount_amount' in data:
-            _persist_base_discount(
-                ClassEnrollment.objects.filter(school_class=invoice.school_class, student=invoice.student)
-                .select_related('school_class').first(), override)
-        extra_amount, extra_reason, extra_sessions = 0, '', 0
-        if extra_req is not None:
-            e_reason, e_amount, e_sessions = extra_req
-            e_reason = (e_reason or '').strip()[:50]
-            if e_reason in _absence_type_names():
-                extra_sessions = e_sessions
-                e_amount = extra_sessions * (max(fee_base - discount, 0) // 4)
-            extra_amount = max(0, min(int(e_amount or 0), fee_base - deduction - discount))
-            if extra_amount:
-                extra_reason = e_reason or '직접입력'
-            else:
-                extra_sessions = 0
-        auto_amount = fee_base - deduction - discount - extra_amount
-        invoice.absence_deduction = deduction
-        invoice.absence_prededucted = prededucted
-        invoice.discount_amount = discount
-        invoice.discount_reason = ((reason or '').strip()[:50] or '직접입력') if discount else ''
-        invoice.extra_discount_amount = extra_amount
-        invoice.extra_discount_reason = extra_reason
-        invoice.extra_absence_count = extra_sessions
-    else:
-        auto_amount = None
-
-    # 최종 결제금액: 보낸 값(직접 고친 금액 포함)을 쓰고, 없으면 계산된 금액
-    if data.get('amount') in (None, ''):
-        if auto_amount is None:
-            return JsonResponse({'ok': False, 'error': '금액을 숫자로 입력해 주세요.'}, status=400)
-        amount = auto_amount
-    else:
-        try:
-            amount = _int(data.get('amount'), '금액')
-        except ValueError as exc:
-            return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
     if amount < 0 or amount > TUITION_AMOUNT_MAX:
         return JsonResponse({'ok': False, 'error': f'금액은 0원 이상 {TUITION_AMOUNT_MAX:,}원 이하로 입력해 주세요.'}, status=400)
     invoice.amount = amount
@@ -6991,6 +7006,7 @@ def _render_staff_student_dashboard(request):
             'id': inv.id, 'class_id': inv.school_class_id, 'class_name': inv.school_class.name,
             'amount': inv.amount, 'base_amount': inv.base_amount or inv.amount,
             'absence_count': inv.absence_count, 'absence_deduction': inv.absence_deduction,
+            'absence_prededucted': inv.absence_prededucted, 'monthly_sessions': inv.school_class.monthly_sessions,
             'discount_reason': inv.discount_reason, 'discount_amount': inv.discount_amount,
             'extra_discount_reason': inv.extra_discount_reason, 'extra_discount_amount': inv.extra_discount_amount,
             'extra_absence_count': inv.extra_absence_count,

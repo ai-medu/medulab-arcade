@@ -50,6 +50,14 @@
     .iv-calc .r { display:flex; justify-content:space-between; gap:10px; }
     .iv-calc .r.total { border-top:1px solid var(--border); margin-top:4px; padding-top:6px; font-weight:900; font-size:14.5px; }
     .iv-chip-abs { color:#d97706; font-weight:800; } .iv-chip-disc { color:#ec4899; font-weight:800; }
+    .iv-abs { padding:10px 12px; border:1px dashed rgba(217,119,6,0.55); border-radius:12px; background:rgba(245,158,11,0.06); margin:0 0 14px; }
+    .iv-abs-title { font-size:12.5px; font-weight:800; margin-bottom:8px; }
+    .iv-abs-title small { font-weight:500; font-size:11.5px; color:var(--text-muted); }
+    .iv-abs-calc { font-size:12px; line-height:1.6; color:var(--text-muted); margin-top:7px; }
+    .iv-abs-calc button { border:none; background:rgba(16,185,129,0.15); color:#6ee7b7; border-radius:7px; padding:2px 8px; font-size:11.5px; font-weight:800; cursor:pointer; margin-left:4px; }
+    .iv-check { display:flex; align-items:center; gap:8px; margin-top:9px; font-size:13px; font-weight:700; cursor:pointer; }
+    .iv-check input { width:17px; height:17px; }
+    .iv-check small { font-weight:500; color:var(--text-muted); }
     .iv-disc-box { padding:10px 12px; border:1px dashed rgba(236,72,153,0.5); border-radius:12px; background:rgba(236,72,153,0.05); }
     .iv-edit-note { font-size:12px; line-height:1.6; color:#d97706; background:rgba(251,191,36,0.12); border-radius:10px; padding:8px 12px; margin-bottom:12px; }
     .iv-btns { display:flex; gap:10px; position:sticky; bottom:-26px; margin:0 -26px -26px; padding:12px 26px 18px; background:var(--bg-card); border-top:1px solid var(--border); z-index:2; }
@@ -334,10 +342,17 @@
             </div>
             <div class="iv-calc" id="ivCalc">
                 <div class="r"><span>수업비</span><span id="ivBase">-</span></div>
-                <div class="r"><span>전월 결석 차감</span><span id="ivAbs" class="iv-chip-abs">-</span></div>
-                <div class="r total"><span>청구 금액</span><span id="ivTotal">-</span></div>
             </div>
             {% include 'arcade/admin/_invoice_disc_box.html' with p='iv' %}
+            <div class="iv-abs">
+                <div class="iv-abs-title">전월 결석 차감 <small id="ivAbsInfo"></small></div>
+                <input type="number" id="ivAbsInput" class="iv-input" min="0" step="1" inputmode="numeric" placeholder="전월 차감액(원)">
+                <div class="iv-abs-calc" id="ivAbsCalc"></div>
+                <label class="iv-check"><input type="checkbox" id="ivPre"> 전월 미리 차감 <small>(이번 청구서에서는 0원으로 차감)</small></label>
+            </div>
+            <div class="iv-calc" id="ivTotalBox">
+                <div class="r total"><span>청구 금액</span><span id="ivTotal">-</span></div>
+            </div>
             <div class="iv-field"><label>금액(원) <span style="font-weight:500;">· 자동 계산된 값이에요. 필요하면 직접 고칠 수 있어요</span></label><input type="number" id="ivAmount" class="iv-input" min="0"></div>
             <div class="iv-edit-note" id="ivEditNote" style="display:none;">💸 이미 결제된 돈을 <strong>환불</strong>해야 한다면 상태만 바꾸지 말고 <a href="{% url 'tuition_admin_dashboard' %}" style="color:inherit;text-decoration:underline;">납부 관리</a>에서 <strong>"✅ 완납"</strong> 버튼으로 취소해 주세요. (여기서 "취소"로 바꾸면 환불 없이 상태만 바뀝니다)</div>
             <div class="iv-msg" id="ivMsg"></div>
@@ -601,13 +616,16 @@ function openInvoiceEdit(studentId, studentName, btn) {
 }
 function ivLoadInvoice(k) {
     const v = ivInvoices[k]; if (!v) return;
-    ivBase = v.base_amount; ivAbs = v.absence_deduction;
-    ivEd.setCtx(v.base_amount, v.absence_deduction);
+    ivBase = v.base_amount; ivAbsCount = v.absence_count || 0; ivSessions = v.monthly_sessions || 0;
     document.getElementById('ivDue').value = v.due_date;
     document.getElementById('ivStatus').value = v.status;
     document.getElementById('ivBase').textContent = ivWon(v.base_amount);
-    document.getElementById('ivAbs').textContent = v.absence_deduction ? '결석 ' + v.absence_count + '회 · −' + ivWon(v.absence_deduction) : '-';
+    ivSetAbs(v.absence_prededucted ? 0 : v.absence_deduction, !!v.absence_prededucted);
+    ivEd.setCtx(v.base_amount, ivAbsValue());
     ivEd.fill(v.discount_reason, v.discount_amount, v.extra_discount_reason, v.extra_discount_amount, v.extra_absence_count || 1, true);
+    ivLastAuto = ivAutoAbs();     // 저장된 차감액이 이 계산값과 같으면 '자동' 상태로 보고, 기본할인을 바꿀 때 따라 바꾼다
+    ivRestoreAbs = v.absence_deduction > 0 ? v.absence_deduction : ivLastAuto;
+    ivRenderAbsCalc();
     document.getElementById('ivAmount').value = v.amount;      // 저장된 금액 그대로 (할인을 바꾸면 다시 계산)
     document.getElementById('ivTotal').textContent = ivWon(v.amount);
     ivSay('');
@@ -619,12 +637,71 @@ function closeInvoiceModal() {
     ivStudentId = null;
 }
 const IV_TYPES = {{ discount_types_json|safe }};
-let ivBase = 0, ivAbs = 0;
+let ivBase = 0, ivAbsCount = 0, ivSessions = 0, ivLastAuto = 0, ivRestoreAbs = 0;
 // 기본할인(매달) + 추가할인(이번 달만, 결석차감 포함) 입력기. 바뀔 때마다 청구 금액을 다시 계산한다
 const ivEd = DiscEditor('iv', function () { return IV_TYPES; }, function (r) {
     document.getElementById('ivTotal').textContent = ivWon(r.total);
     document.getElementById('ivAmount').value = r.total;
 });
+
+// ── 전월 결석 차감: 직접 고칠 수 있고, '전월 미리 차감'을 체크하면 0원 ──
+// 결석 1회 차감액 = (수업비 - 기본할인) ÷ 월 출석 횟수   예) (140,000 - 5,000) ÷ 4 = 33,750원
+function ivAbsValue() {
+    if (document.getElementById('ivPre').checked) return 0;
+    return Math.max(0, Math.min(parseInt(document.getElementById('ivAbsInput').value, 10) || 0, ivBase));
+}
+function ivSetAbs(value, pre) {
+    document.getElementById('ivPre').checked = !!pre;
+    document.getElementById('ivAbsInput').value = pre ? 0 : (value || 0);
+    document.getElementById('ivAbsInput').disabled = !!pre;
+}
+function ivBaseDiscount() { return Math.max(0, Math.min(parseInt(document.getElementById('ivBaseAmt').value, 10) || 0, ivBase)); }
+function ivPerSession() { return ivSessions ? Math.floor(Math.max(ivBase - ivBaseDiscount(), 0) / ivSessions) : 0; }
+function ivAutoAbs() { return Math.min(ivPerSession() * ivAbsCount, Math.max(ivBase - ivBaseDiscount(), 0)); }
+function ivRenderAbsCalc() {
+    const box = document.getElementById('ivAbsCalc');
+    document.getElementById('ivAbsInfo').textContent = ivAbsCount ? '· 전월 결석 ' + ivAbsCount + '회' : '· 전월 결석 없음';
+    if (!ivAbsCount) { box.textContent = ''; return; }
+    const auto = ivAutoAbs();
+    box.textContent = '1회 ' + ivWon(ivPerSession()) + ' = (수업비 ' + ivWon(ivBase) + ' − 기본할인 ' + ivWon(ivBaseDiscount()) + ') ÷ ' + ivSessions + '회 · 결석 ' + ivAbsCount + '회 = ' + ivWon(auto);
+    if (!document.getElementById('ivPre').checked && ivAbsValue() !== auto) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = '자동 계산 ' + ivWon(auto) + ' 적용';
+        b.onclick = function () { document.getElementById('ivAbsInput').value = auto; ivLastAuto = auto; ivRecalc(); };
+        box.appendChild(b);
+    }
+}
+function ivRecalc() {
+    ivEd.setCtx(ivBase, ivAbsValue());
+    ivEd.refresh();       // 청구 금액 칸을 새로 계산된 값으로 채운다
+    ivRenderAbsCalc();
+}
+// 기본할인을 바꾸면, 직접 고치지 않은(자동 계산값 그대로인) 전월 차감액은 새 계산값으로 따라 바꾼다
+function ivOnDiscountChanged() {
+    const input = document.getElementById('ivAbsInput');
+    if (!document.getElementById('ivPre').checked && (parseInt(input.value, 10) || 0) === ivLastAuto) {
+        ivLastAuto = ivAutoAbs();
+        input.value = ivLastAuto;
+        ivRecalc();
+    } else {
+        ivRenderAbsCalc();
+    }
+}
+document.getElementById('ivAbsInput').addEventListener('input', ivRecalc);
+document.getElementById('ivPre').addEventListener('change', function () {
+    const input = document.getElementById('ivAbsInput');
+    if (this.checked) {
+        const typed = parseInt(input.value, 10) || 0;
+        if (typed > 0) ivRestoreAbs = typed;
+        input.value = 0; input.disabled = true;
+    } else {
+        input.value = ivRestoreAbs; input.disabled = false;
+    }
+    ivRecalc();
+});
+document.getElementById('ivBaseSel').addEventListener('change', ivOnDiscountChanged);   // 할인 입력기가 먼저 처리한 뒤 실행된다
+document.getElementById('ivBaseAmt').addEventListener('input', ivOnDiscountChanged);
 function ivPreview() {
     const cid = document.getElementById('ivClass').value, due = document.getElementById('ivDue').value;
     if (!cid || !due || !ivStudentId) return;
@@ -633,12 +710,14 @@ function ivPreview() {
         .then(function (r) { return r.json().then(function (j) { if (!r.ok || j.ok === false) throw new Error(j.error || '계산하지 못했어요.'); return j; }); })
         .then(function (p) {
             if (seq !== ivSeq) return;
-            ivCalc = p; ivBase = p.base_amount; ivAbs = p.absence_deduction;
-            ivEd.setCtx(p.base_amount, p.absence_deduction);
+            ivCalc = p; ivBase = p.base_amount; ivAbsCount = p.absence_count || 0; ivSessions = p.monthly_sessions || 0;
             document.getElementById('ivBase').textContent = ivWon(p.base_amount);
-            document.getElementById('ivAbs').textContent = p.absence_deduction ? '결석 ' + p.absence_count + '회 · −' + ivWon(p.absence_deduction) : '-';
+            ivSetAbs(p.absence_deduction, false);
+            ivEd.setCtx(p.base_amount, ivAbsValue());
             // 학생에게 정해진 기본할인을 채우고, 추가할인은 비운다
             ivEd.fill(p.discount_reason, p.discount_amount, '', 0, 1);
+            ivLastAuto = p.absence_deduction; ivRestoreAbs = p.absence_deduction;
+            ivRenderAbsCalc();
             ivSay('');
         })
         .catch(function (e) { if (seq === ivSeq) ivSay(e.message, 'err'); });
@@ -655,6 +734,7 @@ function ivSave() {
             id: editing ? inv.id : undefined,
             student_id: ivStudentId, amount: document.getElementById('ivAmount').value,
             due_date: document.getElementById('ivDue').value, status: document.getElementById('ivStatus').value,
+            absence_deduction: ivAbsValue(), absence_prededucted: document.getElementById('ivPre').checked,
             ...ivEd.values(),
         }),
     }).then(function (r) { return r.json().then(function (j) { if (!r.ok || j.ok === false) throw new Error(j.error || '생성하지 못했어요.'); return j; }); })
