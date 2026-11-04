@@ -302,6 +302,21 @@
         font-size: 14px;
     }
 
+    /* 수정할 수 있는 칸은 흰 바탕, 바꿀 수 없는 칸(아이디·회원 유형)은 회색으로 구분한다 */
+    .edit-profile-section .form-group input:not([type="checkbox"]):not([type="hidden"]):not([readonly]):not([data-col]),
+    .edit-profile-section .form-group select,
+    .edit-profile-section #id_address {
+        background: #fff !important;
+        color: #1f2937 !important;
+        border: 1px solid #c7cbe0 !important;
+    }
+    .edit-profile-section .form-group input::placeholder { color: #9aa0b8 !important; }
+    .edit-profile-section .form-group input:not([readonly]):focus,
+    .edit-profile-section .form-group select:focus { border-color: var(--accent-green) !important; }
+    .edit-profile-section .form-group input[readonly]:not(#id_address) {
+        background: rgba(120, 120, 140, 0.12) !important;
+        color: #6b7280 !important;
+    }
     .form-group input[type="checkbox"] {
         width: 18px;
         height: 18px;
@@ -437,7 +452,7 @@
 
                                     <div class="form-group">
                                         <label class="form-label">회원 유형</label>
-                                        <div class="form-input" style="display:flex; align-items:center; opacity:.8;">{{ profile.get_user_type_display }}</div>
+                                        <div class="form-input" style="display:flex; align-items:center; background:rgba(120,120,140,0.12); color:#6b7280;">{{ profile.get_user_type_display }}</div>
                                         <div class="help-text">회원 유형은 관리자만 변경할 수 있어요. 바꾸려면 학원에 문의해 주세요.</div>
                                     </div>
 
