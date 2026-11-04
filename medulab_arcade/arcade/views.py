@@ -45,8 +45,8 @@ def get_certinfo_group_name(name):
     return re.sub(r'\s+', ' ', (name or '').strip())
 
 
-def home(request):
-    """메인 페이지 - 작품 리스트"""
+def _works_context(request):
+    """학생 작품 목록(검색/카테고리 필터) 화면에 필요한 데이터 - 메인 페이지와 학생 작품 갤러리가 함께 쓴다"""
     category_slug = request.GET.get('category', '')
     search = request.GET.get('q', '')
 
@@ -91,7 +91,21 @@ def home(request):
         'total_awards': total_awards,
         'total_certs': total_certs,
     }
+    return context
+
+
+def home(request):
+    """메인 페이지 - 작품 리스트"""
+    context = _works_context(request)
+    context['works_url'] = reverse('home') + '#works'
     return render(request, 'arcade/home.html', context)
+
+
+def works_gallery(request):
+    """학생 작품 갤러리 - 작품 목록만 보여 주는 별도 페이지 (업로드 버튼 포함)"""
+    context = _works_context(request)
+    context['works_url'] = reverse('works_gallery')
+    return render(request, 'arcade/works_gallery.html', context)
 
 
 AI_PROMPT_CARDS = [

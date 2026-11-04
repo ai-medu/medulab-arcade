@@ -1,0 +1,17 @@
+{% extends 'arcade/home.html' %}
+
+{% block title %}학생 작품 갤러리 - 메듀랩{% endblock %}
+
+{% block content %}
+<div style="height:24px;"></div>
+{% include 'arcade/_works_section.html' with works_url=works_url show_tabs=False show_upload=True %}
+
+<script>
+/* 스크롤 fade-up */
+const fadeEls = document.querySelectorAll('.fade-up');
+const io = new IntersectionObserver(entries => {
+    entries.forEach(e => { if(e.isIntersecting) { e.target.classList.add('visible'); io.unobserve(e.target); } });
+}, {threshold: 0.08});
+fadeEls.forEach(el => io.observe(el));
+</script>
+{% endblock %}

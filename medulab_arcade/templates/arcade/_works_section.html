@@ -1,0 +1,70 @@
+<section class="works-wrap fade-up" id="works">
+
+    <!-- 탭 내비게이션 -->
+    {% if show_tabs %}
+    <div class="works-tab-bar">
+        <a href="{% url 'works_gallery' %}" class="works-tab active">
+            🎨 학생 작품
+        </a>
+        <a href="{% url 'board_awards' %}" class="works-tab">
+            🏆 대회 수상
+        </a>
+        <a href="{% url 'board_cert' %}" class="works-tab">
+            🏅 자격 취득
+        </a>
+        <a href="{% url 'board_contest' %}" class="works-tab">
+            ✨ 추천 공모전
+        </a>
+        <a href="{% url 'board_certinfo' %}" class="works-tab">
+            🎖️ 자격종류
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- 헤더 -->
+    <div class="works-header">
+        <h2 class="works-title">MEDULAB WORKS</h2>
+        <span class="works-count">{{ total_projects }}개 작품</span>
+        {% if show_upload and user.is_authenticated %}
+        <a href="{% url 'upload' %}" class="works-upload-btn">📤 작품 업로드</a>
+        {% endif %}
+    </div>
+    <p class="works-desc" style="color:rgba(255,255,255,.45);font-size:14px;margin-bottom:28px;">
+        메듀랩 학생들이 창의력으로 만들어낸 코딩 작품들을 만나보세요.
+    </p>
+
+    <!-- 검색 + 필터 -->
+    <div class="works-search-row">
+        <form method="GET" action="{{ works_url }}" class="works-search">
+            <span class="works-search-icon">🔍</span>
+            <input type="text" name="q" placeholder="작품명 또는 제작자 검색..."
+                value="{{ search_query|default:'' }}"
+                autocomplete="off">
+        </form>
+    </div>
+
+    <div class="works-filters">
+        <a href="{{ works_url }}" class="wf-btn {% if not current_category %}active{% endif %}">전체</a>
+        {% for cat in categories %}
+        <a href="?category={{ cat.name }}" class="wf-btn {% if current_category == cat.name %}active{% endif %}">
+            {{ cat.icon }} {{ cat.name }}
+        </a>
+        {% endfor %}
+    </div>
+
+    <!-- 작품 그리드 -->
+    <div class="grid">
+        {% for project in projects %}
+            {% include 'arcade/components/project_card.html' with project=project %}
+        {% empty %}
+        <div class="works-empty" style="grid-column:1/-1;text-align:center;padding:80px 24px;background:rgba(255,255,255,.03);border-radius:24px;border:1px solid rgba(255,255,255,.07);">
+            <div style="font-size:48px;margin-bottom:16px;">🏜️</div>
+            <p style="color:rgba(255,255,255,.4);font-size:16px;">
+                {% if search_query %}"{{ search_query }}"에 대한 작품이 없습니다.
+                {% else %}아직 등록된 작품이 없습니다.{% endif %}
+            </p>
+        </div>
+        {% endfor %}
+    </div>
+
+</section>

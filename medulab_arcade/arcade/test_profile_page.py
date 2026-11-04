@@ -85,3 +85,33 @@ class ProfileEditRulesTests(TestCase):
         self.assertContains(res, '회원 유형은 관리자만 변경할 수 있어요')
         self.assertNotContains(res, 'name="user_type"')
         self.assertContains(res, 'profileAddressBtn')
+
+
+class WorksGalleryPageTests(TestCase):
+    """학생 작품 갤러리는 작품 목록만 있는 별도 페이지이고, 업로드 버튼은 여기에 있다"""
+
+    def test_gallery_page_has_only_works_and_upload_button(self):
+        user = User.objects.create_user('uploader', password='x')
+        self.client.force_login(user)
+        res = self.client.get(reverse('works_gallery'))
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'MEDULAB WORKS')
+        self.assertContains(res, 'class="works-upload-btn"')
+        self.assertNotContains(res, '<section class="lp-hero"')
+        self.assertNotContains(res, '<div class="works-tab-bar"')
+
+    def test_top_menu_no_longer_has_upload_button(self):
+        user = User.objects.create_user('uploader2', password='x')
+        self.client.force_login(user)
+        res = self.client.get(reverse('profile'))
+        self.assertNotContains(res, 'class="nav-link accent">📤 업로드')
+
+    def test_gallery_visible_without_login_and_no_upload_button(self):
+        res = self.client.get(reverse('works_gallery'))
+        self.assertEqual(res.status_code, 200)
+        self.assertNotContains(res, 'class="works-upload-btn"')
+
+    def test_home_still_shows_works_section(self):
+        res = self.client.get(reverse('home'))
+        self.assertContains(res, 'id="works"')
+        self.assertContains(res, '<section class="lp-hero"')

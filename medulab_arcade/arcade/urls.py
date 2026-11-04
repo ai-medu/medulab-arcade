@@ -3,6 +3,7 @@ from . import views
 
 urlpatterns = [
     path('', views.home, name='home'),
+    path('works/', views.works_gallery, name='works_gallery'),
     path('tools/ai-prompts/', views.ai_prompts, name='ai_prompts'),
     path('tools/ai-prompts/reorder/', views.ai_prompts_reorder, name='ai_prompts_reorder'),
     path('tools/ai-prompts/program-reorder/', views.ai_prompts_program_reorder, name='ai_prompts_program_reorder'),
