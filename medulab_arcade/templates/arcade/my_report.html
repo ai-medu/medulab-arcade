@@ -442,7 +442,7 @@
         {% if viewing_as_admin %}
         <a href="{% url 'my_report' %}" style="color:var(--text-muted); font-size:13px; text-decoration:none;">← 학생 목록으로 돌아가기</a>
         {% else %}
-        <a href="{% url 'profile' %}" style="color:var(--text-muted); font-size:13px; text-decoration:none;">← 내 프로필로 돌아가기</a>
+        <span></span>
         {% endif %}
         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
             {% if sibling_links|length > 1 %}
