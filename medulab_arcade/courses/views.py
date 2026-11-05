@@ -19,6 +19,7 @@ from functools import wraps
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
+from django.contrib.auth.views import redirect_to_login
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -842,6 +843,27 @@ def require_full_member(view_func):
             messages.warning(request, '메듀랩 정회원만 이용 가능합니다.')
             return redirect('home')
         return view_func(request, *args, **kwargs)
+    return _wrapped
+
+def require_full_member_page(view_func):
+    """문제 페이지용: 로그인한 메듀랩 정회원(승인 완료)과 관리자만 열 수 있다.
+    비로그인은 로그인 화면으로, 정회원이 아니면 안내 후 메인으로 보낸다. 검색 엔진이 색인하지 않도록 noindex도 붙인다."""
+    @wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        user = request.user
+        if not user.is_authenticated:
+            response = redirect_to_login(request.get_full_path())
+        elif user.is_staff or user.is_superuser:
+            response = view_func(request, *args, **kwargs)
+        else:
+            profile = getattr(user, 'profile', None)
+            if not profile or not profile.is_full_member:
+                messages.warning(request, '메듀랩 정회원(승인 완료)만 문제를 풀 수 있어요.')
+                response = redirect('home')
+            else:
+                response = view_func(request, *args, **kwargs)
+        response['X-Robots-Tag'] = 'noindex, nofollow'
+        return response
     return _wrapped
 
 # --- Python 오류 한글 가이드 매핑 ---
@@ -2188,6 +2210,7 @@ def chapter_detail(request, chapter_id):
     })
 
 # --- (6) 학습 아이템 페이지 ---
+@require_full_member_page
 def item_page(request, item_id):
     item = get_object_or_404(Item, id=item_id)
     program = item.chapter.program
@@ -2537,6 +2560,7 @@ def submit_olympiad_answer(request, item_id):
     return redirect("item_page", item_id=item.id)
 
 
+@require_full_member_page
 def sub_question_page(request, item_id, sq_number):
     """하위문제 전용 페이지 — 문제 하나만 표시, 이전/다음 네비게이션"""
     item = get_object_or_404(Item, id=item_id, item_type="olympiad")

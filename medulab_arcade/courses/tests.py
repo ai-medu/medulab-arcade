@@ -397,10 +397,15 @@ class OlympiadAnswerZipManageTests(TestCase):
 
     def test_item_page_hides_example_upload_form_for_non_staff(self):
         item = Item.objects.get(chapter__program=self.program, chapter__number=1, number=2)
-        self.client.logout()
+        member = User.objects.create_user(username="member1", password="pass")
+        member.profile.user_type = "medulab_member"
+        member.profile.is_approved = True
+        member.profile.save()
+        self.client.force_login(member)
 
         response = self.client.get(reverse("item_page", args=[item.id]))
 
+        self.assertContains(response, "")
         self.assertNotContains(response, "+ 예시답안 직접 추가")
         self.assertNotContains(response, 'name="caption"')
 
