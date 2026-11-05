@@ -2870,6 +2870,13 @@ def member_list(request):
         users = users.filter(profile__user_type=user_type)
     if status == 'pending':
         users = users.filter(pending_q)
+    # 소셜 가입 후 추가정보 입력을 끝내지 않은 계정은 가입이 끝난 회원이 아니므로 목록에서 빼고,
+    # 전용 버튼('가입 미완료')이나 검색으로만 보여 준다
+    incomplete_count = User.objects.filter(profile__onboarding_complete=False).count()
+    if status == 'incomplete':
+        users = users.filter(profile__onboarding_complete=False)
+    elif not search:
+        users = users.filter(profile__onboarding_complete=True)
 
     users = list(users)
     for u in users:
@@ -2903,6 +2910,7 @@ def member_list(request):
         'pending_count': pending_count,
         'user_types': UserProfile.USER_TYPE_CHOICES,
         'type_filters': type_filters,
+        'incomplete_count': incomplete_count,
         # 가입 신청을 거절할 때 바꿔 줄 수 있는 유형 (승인 없이 바로 쓸 수 있는 일반 유형)
         'reject_type_choices': [c for c in UserProfile.USER_TYPE_CHOICES if c[0] in UserProfile.AUTO_APPROVE_TYPES],
     }

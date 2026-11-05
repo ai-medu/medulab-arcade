@@ -319,7 +319,7 @@ class AdminListOnboardingBadgeTests(TestCase):
         ghost.profile.onboarding_complete = False
         ghost.profile.save()
         self.client.force_login(admin)
-        res = self.client.get(reverse('member_list'))
+        res = self.client.get(reverse('member_list') + '?status=incomplete')
         self.assertContains(res, '추가정보 입력 전')
 
 
@@ -336,3 +336,22 @@ class AdminListSignupViaTests(TestCase):
         self.assertContains(res, 'class="signup-via via-google">Google')
         self.assertContains(res, 'class="signup-via via-kakao">Kakao')
         self.assertContains(res, 'class="signup-via via-email">이메일 가입')
+
+
+class IncompleteSignupHiddenTests(TestCase):
+    def test_incomplete_hidden_from_default_list_but_findable(self):
+        admin = User.objects.create_user('adm11', password='x', is_staff=True)
+        ghost = User.objects.create_user('halfway', password='x', email='half@example.com')
+        ghost.profile.onboarding_complete = False
+        ghost.profile.save()
+        done = User.objects.create_user('finished', password='x')
+        self.client.force_login(admin)
+        res = self.client.get(reverse('member_list'))
+        self.assertContains(res, 'finished')
+        self.assertNotContains(res, 'half@example.com')
+        self.assertContains(res, '가입 미완료 (1)')
+        res = self.client.get(reverse('member_list') + '?status=incomplete')
+        self.assertContains(res, 'half@example.com')
+        self.assertNotContains(res, 'class="username">finished')
+        res = self.client.get(reverse('member_list') + '?q=half')
+        self.assertContains(res, 'half@example.com')
