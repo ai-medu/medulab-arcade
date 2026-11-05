@@ -135,7 +135,8 @@ class SignupPreselectTests(TestCase):
 class SignupFieldsTests(TestCase):
     """가입 경로/사유, 학부모 전화번호 필수, 메듀랩 학생 아이디 자동 생성"""
 
-    BASE = {'real_name': '홍길동', 'birth_date': '2016.03.15', 'phone_number': '', 'email': '',
+    BASE = {'real_name': '홍길동', 'birth_date': '2016.03.15', 'phone_number': '01012345678',
+            'signup_source': '지인 소개', 'signup_reason': '수업 문의', 'email': '',
             'password1': 'Str0ng!pass9', 'password2': 'Str0ng!pass9'}
 
     def _post(self, **extra):
@@ -159,7 +160,7 @@ class SignupFieldsTests(TestCase):
         self.assertFalse(User.objects.filter(username='gen3').exists())
 
     def test_parent_requires_phone(self):
-        res = self._post(username='par1', user_type='parent')
+        res = self._post(username='par1', user_type='parent', phone_number='')
         self.assertEqual(res.status_code, 200)
         self.assertContains(res, '학부모 전화번호를 입력해 주세요.')
         res = self._post(username='par1', user_type='parent', phone_number='010-1234-5678')
@@ -185,3 +186,11 @@ class SignupFieldsTests(TestCase):
         res = self.client.get(reverse('signup'))
         self.assertContains(res, 'placeholder="한글, 영문, 숫자, @/./+/-/_ 만 사용할 수 있습니다."')
         self.assertContains(res, 'id="id_signup_source"')
+
+    def test_phone_source_reason_required_for_all(self):
+        for field in ('phone_number', 'signup_source', 'signup_reason'):
+            res = self._post(username='req1', user_type='general', **{field: ''})
+            self.assertEqual(res.status_code, 200, field)
+            self.assertFalse(User.objects.filter(username='req1').exists(), field)
+        res = self._post(username='req1', user_type='general', phone_number='')
+        self.assertContains(res, '전화번호를 입력해 주세요.')

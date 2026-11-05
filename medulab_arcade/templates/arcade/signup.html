@@ -392,14 +392,16 @@
                 {% for field in form %}
                     {% if field.name == 'signup_source' %}
                         <div class="form-group full" id="group_signup_source">
-                            <label class="field-label" for="{{ form.signup_source.id_for_label }}"><span>가입 경로</span><span class="field-badge optional">선택</span></label>
+                            <label class="field-label" for="{{ form.signup_source.id_for_label }}"><span>가입 경로</span><span class="field-badge required">필수</span></label>
                             {{ form.signup_source }}
+                            {% if form.signup_source.errors %}<span class="error-msg">{{ form.signup_source.errors.0 }}</span>{% endif %}
                             <div id="signupSourceOtherWrap" style="display:{% if form.signup_source.value == 'other' %}block{% else %}none{% endif %}; margin-top:8px;">{{ form.signup_source_other }}</div>
                             {% if form.signup_source_other.errors %}<span class="error-msg">{{ form.signup_source_other.errors.0 }}</span>{% endif %}
                         </div>
                         <div class="form-group full" id="group_signup_reason">
-                            <label class="field-label" for="{{ form.signup_reason.id_for_label }}"><span>가입 사유</span><span class="field-badge optional">선택</span></label>
+                            <label class="field-label" for="{{ form.signup_reason.id_for_label }}"><span>가입 사유</span><span class="field-badge required">필수</span></label>
                             {{ form.signup_reason }}
+                            {% if form.signup_reason.errors %}<span class="error-msg">{{ form.signup_reason.errors.0 }}</span>{% endif %}
                         </div>
                     {% elif field.name != 'user_type' and field.name != 'children_info' and field.name != 'signup_source_other' and field.name != 'signup_reason' %}
                         <div class="form-group {% if field.name == 'username' or field.name == 'email' or field.name == 'password1' or field.name == 'password2' or field.name == 'address' %}full{% endif %}" id="group_{{ field.name }}">
@@ -410,7 +412,7 @@
                                 {% elif field.name == 'address' %}
                                     <span class="field-badge optional" id="address-badge">선택</span>
                                 {% else %}
-                                    <span class="field-badge optional"{% if field.name == 'phone_number' %} id="phoneBadge"{% endif %}>선택</span>
+                                    {% if field.name == 'phone_number' %}<span class="field-badge required" id="phoneBadge">필수</span>{% else %}<span class="field-badge optional">선택</span>{% endif %}
                                 {% endif %}
                             </label>
                             {% if field.name == 'address' %}
@@ -523,11 +525,6 @@
             const phoneBadge = document.getElementById('phoneBadge');
             const isParentPhone = !!checked && (checked.value === 'parent' || checked.value === 'medulab_parent');
             if (phoneLabel) phoneLabel.textContent = isParentPhone ? '학부모 전화번호' : '전화번호';
-            if (phoneBadge) {
-                phoneBadge.textContent = isParentPhone ? '필수' : '선택';
-                phoneBadge.classList.toggle('required', isParentPhone);
-                phoneBadge.classList.toggle('optional', !isParentPhone);
-            }
 
             const parentFields = document.getElementById('medulabParentFields');
             const addressBadge = document.getElementById('address-badge');

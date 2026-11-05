@@ -22,7 +22,7 @@
 
     /* 테이블 스타일 */
     .member-table-wrap { background: var(--bg-card); border-radius: 18px; border: 1px solid var(--border); overflow-x: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-    table { width: 100%; border-collapse: collapse; text-align: left; min-width: 800px; }
+    table { width: 100%; border-collapse: collapse; text-align: left; min-width: 960px; }
     th { padding: 18px 24px; background: rgba(255,255,255,0.03); color: var(--text-muted); font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
     td { padding: 18px 24px; border-top: 1px solid var(--border); font-size: 14px; vertical-align: middle; }
     tr:hover td { background: rgba(255,255,255,0.02); }
@@ -38,6 +38,15 @@
     .badge-medulab_teacher { background: rgba(0, 255, 180, 0.15); color: var(--accent-green); }
     .badge-medulab_staff { background: rgba(0, 255, 180, 0.15); color: var(--accent-green); }
     .badge-general { background: rgba(255, 255, 255, 0.1); color: var(--text-secondary); }
+    .badge-parent { background: rgba(251, 146, 60, 0.18); color: #fb923c; }
+    .badge-teacher { background: rgba(244, 114, 182, 0.18); color: #f472b6; }
+    .badge-medulab_parent { background: rgba(250, 204, 21, 0.18); color: #facc15; }
+    .badge-medulab_inactive { background: rgba(148, 163, 184, 0.18); color: #94a3b8; }
+    .badge-medulab_teacher { background: rgba(244, 114, 182, 0.18); color: #f472b6; }
+    .badge-medulab_staff { background: rgba(45, 212, 191, 0.18); color: #2dd4bf; }
+    .signup-src { font-size: 12px; line-height: 1.5; max-width: 220px; }
+    .signup-src b { color: #fff; font-weight: 700; display: block; }
+    .signup-src span { color: var(--text-muted); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     .action-btns { display: flex; gap: 8px; }
     .btn-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; text-decoration: none; transition: all 0.2s; border: 1px solid var(--border); background: rgba(255,255,255,0.05); color: #fff; cursor: pointer; padding: 0; }
@@ -108,6 +117,7 @@
                     <th>유형</th>
                     <th>권한 / 상태</th>
                     <th>연결</th>
+                    <th>가입경로 / 사유</th>
                     <th>가입일</th>
                     <th>관리</th>
                 </tr>
@@ -150,7 +160,9 @@
                                 <tr><th>전화번호</th><td>{{ u.profile.phone_number|default:"-" }}</td></tr>
                                 <tr><th>주소</th><td>{{ u.profile.address|default:"-" }}</td></tr>
                                 <tr><th>회원 유형</th><td>{{ u.profile.get_user_type_display }}</td></tr>
-                                <tr><th>가입 경로</th><td>{{ u.signup_providers }}</td></tr>
+                                <tr><th>가입 방식</th><td>{{ u.signup_providers }}</td></tr>
+                                <tr><th>가입 경로</th><td>{{ u.profile.signup_source|default:"-" }}</td></tr>
+                                <tr><th>가입 사유</th><td>{{ u.profile.signup_reason|default:"-" }}</td></tr>
                                 <tr><th>가입일</th><td>{{ u.date_joined|date:"Y.m.d H:i" }}</td></tr>
                                 {% if u.children_list %}
                                 <tr><th>자녀 정보</th><td>
@@ -173,6 +185,14 @@
                         {% else %}
                         <span style="color: var(--text-muted);">-</span>
                         {% endif %}
+                    </td>
+                    <td>
+                        {% if u.profile.signup_source or u.profile.signup_reason %}
+                        <div class="signup-src" title="{{ u.profile.signup_reason }}">
+                            <b>{{ u.profile.signup_source|default:"-" }}</b>
+                            <span>{{ u.profile.signup_reason|default:"" }}</span>
+                        </div>
+                        {% else %}<span style="color: var(--text-muted);">-</span>{% endif %}
                     </td>
                     <td style="color: var(--text-muted); font-size: 13px;">
                         {{ u.date_joined|date:"Y.m.d" }}
@@ -204,7 +224,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" style="text-align:center; padding: 60px; color: var(--text-muted);">
+                    <td colspan="7" style="text-align:center; padding: 60px; color: var(--text-muted);">
                         조건에 맞는 회원이 없습니다.
                     </td>
                 </tr>

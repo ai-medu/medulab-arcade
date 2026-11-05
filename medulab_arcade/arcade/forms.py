@@ -205,16 +205,20 @@ PARENT_PHONE_TYPES = ('parent', 'medulab_parent')
 
 
 def clean_signup_extras(form, cleaned_data):
-    """가입 경로(직접 입력 포함)와 학부모 전화번호 필수 검사"""
+    """전화번호·가입 경로(직접 입력 포함)·가입 사유 필수 검사"""
     source = cleaned_data.get('signup_source') or ''
     if source == 'other':
         source = (cleaned_data.get('signup_source_other') or '').strip()
         if not source:
             form.add_error('signup_source_other', '가입 경로를 직접 입력해 주세요.')
     cleaned_data['signup_source'] = source
-    if cleaned_data.get('user_type') in PARENT_PHONE_TYPES and 'phone_number' not in form.errors:
-        if not cleaned_data.get('phone_number'):
-            form.add_error('phone_number', '학부모 전화번호를 입력해 주세요.')
+    if not source and 'signup_source_other' not in form.errors:
+        form.add_error('signup_source', '가입 경로를 선택해 주세요.')
+    if not (cleaned_data.get('signup_reason') or '').strip():
+        form.add_error('signup_reason', '가입 사유를 입력해 주세요.')
+    if 'phone_number' not in form.errors and not cleaned_data.get('phone_number'):
+        is_parent = cleaned_data.get('user_type') in PARENT_PHONE_TYPES
+        form.add_error('phone_number', '학부모 전화번호를 입력해 주세요.' if is_parent else '전화번호를 입력해 주세요.')
 
 
 def apply_signup_extras(profile, cleaned_data):
@@ -434,8 +438,9 @@ class AdminUserProfileForm(forms.ModelForm):
     class Meta:
         model = UserProfile
         fields = ('user_type', 'is_approved', 'real_name', 'birth_date', 'phone_number', 'nickname',
-                  'address', 'notify_attendance', 'notify_news')
+                  'address', 'notify_attendance', 'notify_news', 'signup_source', 'signup_reason')
         labels = {
+            'signup_source': '가입 경로', 'signup_reason': '가입 사유',
             'user_type': '회원 유형', 'is_approved': '승인 여부', 'real_name': '이름',
             'phone_number': '전화번호', 'nickname': '닉네임(표시 이름)', 'address': '주소',
             'notify_attendance': '출석 알림 수신', 'notify_news': '소식 알림 수신',
@@ -447,6 +452,8 @@ class AdminUserProfileForm(forms.ModelForm):
             'phone_number': forms.TextInput(attrs={'class': 'form-input', 'inputmode': 'numeric', 'placeholder': '숫자만 입력해도 됩니다'}),
             'nickname': forms.TextInput(attrs={'class': 'form-input'}),
             'address': forms.TextInput(attrs={'class': 'form-input'}),
+            'signup_source': forms.TextInput(attrs={'class': 'form-input'}),
+            'signup_reason': forms.Textarea(attrs={'class': 'form-input', 'rows': 3}),
             'notify_attendance': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
             'notify_news': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
         }
