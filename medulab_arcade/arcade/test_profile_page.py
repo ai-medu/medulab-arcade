@@ -125,9 +125,8 @@ class SignupPreselectTests(TestCase):
         self.assertContains(res, 'value="medulab_parent" checked')
         self.assertContains(res, 'id="regularSignupWrap" style="display:block;')
         self.assertContains(res, 'id="typeGridLocked"')
-        self.assertNotContains(res, 'id="googleSignupBtn"')
-        self.assertNotContains(res, 'id="kakaoSignupBtn"')
-        self.assertNotContains(res, 'id="regularSignupToggle"')
+        self.assertContains(res, 'id="googleSignupBtn"')
+        self.assertContains(res, 'id="kakaoSignupBtn"')
 
     def test_default_and_invalid_type(self):
         res = self.client.get(reverse('signup') + '?type=hacker')
@@ -355,3 +354,32 @@ class IncompleteSignupHiddenTests(TestCase):
         self.assertNotContains(res, 'class="username">finished')
         res = self.client.get(reverse('member_list') + '?q=half')
         self.assertContains(res, 'half@example.com')
+
+
+class LockedSocialSignupTests(TestCase):
+    def test_locked_link_limits_onboarding_to_that_type(self):
+        self.client.get(reverse('social_signup_redirect', args=['google']) + '?user_type=medulab_parent&lock=1')
+        user = User.objects.create_user('lockeduser', password='x', email='l@example.com')
+        user.profile.onboarding_complete = False
+        user.profile.save()
+        self.client.force_login(user)
+        session = self.client.session
+        session['pending_signup_user_type'] = 'medulab_parent'
+        session['pending_signup_locked_type'] = 'medulab_parent'
+        session.save()
+        res = self.client.get(reverse('social_onboarding'))
+        self.assertContains(res, 'value="medulab_parent"')
+        self.assertNotContains(res, 'value="general"')
+        data = {'real_name': '박학부모', 'birth_date': '1985.01.01', 'phone_number': '01012345678',
+                'email': 'l@example.com', 'user_type': 'general', 'signup_source': '블로그', 'signup_reason': 'x'}
+        res = self.client.post(reverse('social_onboarding'), data)
+        self.assertEqual(res.status_code, 200)   # 정해진 유형 외에는 선택할 수 없다
+
+    def test_unlocked_link_shows_all_types(self):
+        user = User.objects.create_user('openuser', password='x', email='o@example.com')
+        user.profile.onboarding_complete = False
+        user.profile.save()
+        self.client.force_login(user)
+        res = self.client.get(reverse('social_onboarding'))
+        self.assertContains(res, 'value="general"')
+        self.assertContains(res, 'value="medulab_parent"')

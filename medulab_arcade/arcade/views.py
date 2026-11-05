@@ -5868,6 +5868,11 @@ def social_signup_redirect(request, provider):
     user_type = request.GET.get('user_type', '')
     if user_type in dict(UserProfile.PUBLIC_TYPE_CHOICES):
         request.session['pending_signup_user_type'] = user_type
+        # lock=1: 유형이 정해진 가입 링크에서 왔으므로 추가정보 화면에서도 그 유형만 보여 준다
+        if request.GET.get('lock') == '1':
+            request.session['pending_signup_locked_type'] = user_type
+        else:
+            request.session.pop('pending_signup_locked_type', None)
     if provider not in ('google', 'kakao'):
         return redirect('signup')
     return redirect(f'{provider}_login')
@@ -5880,8 +5885,9 @@ def social_onboarding(request):
     if profile.onboarding_complete:
         return redirect('home')
 
+    locked_type = request.session.get('pending_signup_locked_type')
     if request.method == 'POST':
-        form = SocialOnboardingForm(request.POST, user=request.user)
+        form = SocialOnboardingForm(request.POST, user=request.user, locked_type=locked_type)
         if form.is_valid():
             user_type = form.cleaned_data['user_type']
             profile.real_name = form.cleaned_data['real_name']
@@ -5897,10 +5903,12 @@ def social_onboarding(request):
             profile.is_approved = user_type in UserProfile.AUTO_APPROVE_TYPES
             profile.onboarding_complete = True
             profile.save()
+            request.session.pop('pending_signup_user_type', None)
+            request.session.pop('pending_signup_locked_type', None)
             messages.success(request, '추가정보 입력이 완료되었습니다.')
             return redirect('home')
     else:
-        pending_user_type = request.session.pop('pending_signup_user_type', None)
+        pending_user_type = request.session.get('pending_signup_user_type')
         initial = {
             'real_name': profile.real_name,
             'phone_number': profile.phone_number,
@@ -5911,7 +5919,7 @@ def social_onboarding(request):
             initial['birth_date'] = profile.birth_date.strftime('%Y.%m.%d')
         if pending_user_type:
             initial['user_type'] = pending_user_type
-        form = SocialOnboardingForm(initial=initial, user=request.user)
+        form = SocialOnboardingForm(initial=initial, user=request.user, locked_type=locked_type)
     return render(request, 'arcade/social_onboarding.html', {'form': form})
 
 

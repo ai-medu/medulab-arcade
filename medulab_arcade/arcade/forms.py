@@ -748,10 +748,14 @@ class SocialOnboardingForm(forms.Form):
         widget=forms.EmailInput(attrs={'class': 'form-input'}),
     )
 
-    def __init__(self, *args, user=None, **kwargs):
+    def __init__(self, *args, user=None, locked_type=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.user = user
         self.fields.update(signup_extra_fields())
+        # 유형이 정해진 가입 링크로 들어온 경우 그 유형만 선택할 수 있다
+        if locked_type:
+            self.fields['user_type'].choices = [c for c in self.USER_TYPE_CHOICES if c[0] == locked_type]
+            self.fields['user_type'].initial = locked_type
 
     def clean_email(self):
         email = (self.cleaned_data.get('email') or '').strip()

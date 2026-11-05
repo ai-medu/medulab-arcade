@@ -103,7 +103,7 @@ label.fl { display:block; color:var(--text-muted); margin-bottom:7px; font-weigh
                 <div class="type-grid">
                     {% for value, label in form.fields.user_type.choices %}
                     <label class="type-item">
-                        <input type="radio" name="user_type" value="{{ value }}" {% if form.user_type.value|default:'general' == value %}checked{% endif %}>
+                        <input type="radio" name="user_type" value="{{ value }}" {% if form.user_type.value|default:'general' == value or form.fields.user_type.choices|length == 1 %}checked{% endif %}>
                         <div class="type-card">{{ label }}</div>
                     </label>
                     {% endfor %}
