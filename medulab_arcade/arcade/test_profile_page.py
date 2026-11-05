@@ -306,3 +306,14 @@ class AdminLinkChildAddsInfoTests(TestCase):
         self.assertEqual(parent.profile.children_info[0]['birth_date'], '20130903')
         res = self.client.get(reverse('member_edit', args=[parent.id]))
         self.assertNotContains(res, '그 외 연결된 자녀 계정')
+
+
+class AdminListOnboardingBadgeTests(TestCase):
+    def test_incomplete_social_signup_is_labelled(self):
+        admin = User.objects.create_user('adm9', password='x', is_staff=True)
+        ghost = User.objects.create_user('ghost1', password='x', email='g@example.com')
+        ghost.profile.onboarding_complete = False
+        ghost.profile.save()
+        self.client.force_login(admin)
+        res = self.client.get(reverse('member_list'))
+        self.assertContains(res, '추가정보 입력 전')
