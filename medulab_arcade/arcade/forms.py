@@ -611,11 +611,15 @@ class UserProfileUpdateForm(forms.ModelForm):
         # 주소·자녀 정보·알림 수신 설정은 메듀랩 학부모 화면에만 있다. 화면에 없는 칸이 저장 때 비워지거나
         # '해제'로 덮어써지지 않도록 학부모가 아니면 폼에서 뺀다
         self.has_parent_fields = self.instance.user_type == 'medulab_parent'
+        # 자녀 정보는 학부모회원·메듀랩 학부모 모두 수정할 수 있다
+        self.has_children_fields = self.instance.user_type in PARENT_PHONE_TYPES
         if not self.has_parent_fields:
-            for name in ('address', 'children_info', 'notify_attendance'):
+            for name in ('address', 'notify_attendance'):
                 del self.fields[name]
+        if not self.has_children_fields:
+            del self.fields['children_info']
         import json as _json
-        if self.has_parent_fields:
+        if self.has_children_fields:
             self.fields['children_info'].initial = _json.dumps(normalize_children_info(self.instance.children_info))
 
     def clean_email(self):
@@ -663,6 +667,7 @@ class UserProfileUpdateForm(forms.ModelForm):
         profile.nickname = self.cleaned_data['nickname']
         if self.has_parent_fields:
             profile.address = self.cleaned_data.get('address', '')
+        if self.has_children_fields:
             try:
                 profile.children_info = normalize_children_info(self.cleaned_data.get('children_info') or '[]') or None
             except (ValueError, TypeError):

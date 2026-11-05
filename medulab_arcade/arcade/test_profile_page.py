@@ -260,3 +260,24 @@ class SocialOnboardingFieldsTests(TestCase):
         res = self.client.post(reverse('social_onboarding'), self._data(user_type='medulab_member', signup_source='', signup_reason=''))
         self.assertEqual(res.status_code, 302)
 
+
+class ParentChildrenEditTests(TestCase):
+    """학부모회원도 마이페이지에서 자녀 정보를 수정할 수 있다"""
+
+    def test_parent_edits_children(self):
+        user = User.objects.create_user('mom2', password='x', email='m2@example.com')
+        user.profile.user_type = 'parent'
+        user.profile.address = '유지될 주소'
+        user.profile.save()
+        self.client.force_login(user)
+        res = self.client.get(reverse('profile'))
+        self.assertContains(res, 'id="profileChildRows"')
+        self.assertNotContains(res, 'id="profileAddressBtn"')
+        kids = '[{"name": "지우", "birth_date": "20150101", "school": "해솔초", "grade": "4"}]'
+        res = self.client.post(reverse('profile'), {'real_name': '엄마', 'nickname': '', 'birth_date': '',
+                                                  'phone_number': '01012345678', 'email': 'm2@example.com',
+                                                  'children_info': kids})
+        self.assertEqual(res.status_code, 302)
+        user.profile.refresh_from_db()
+        self.assertEqual(user.profile.children_info[0]['name'], '지우')
+        self.assertEqual(user.profile.address, '유지될 주소')

@@ -489,7 +489,9 @@
                                             <div class="help-text" style="color: #ff8585;">{{ form.address.errors.0 }}</div>
                                         {% endif %}
                                     </div>
+                                    {% endif %}
 
+                                    {% if profile.user_type == 'parent' or profile.user_type == 'medulab_parent' %}
                                     <div class="form-group">
                                         <label class="form-label">👶 자녀 정보</label>
                                         {{ form.children_info }}
@@ -505,7 +507,9 @@
                                         </div>
                                         <button type="button" id="profileChildAddBtn" style="width:100%; padding:9px; background:rgba(255,255,255,0.03); border:none; border-top:1px solid var(--border); color:rgba(255,255,255,0.4); font-size:13px; cursor:pointer;">＋ 자녀 추가</button>
                                     </div>
+                                    {% endif %}
 
+                                    {% if profile.user_type == 'medulab_parent' %}
                                     <div class="form-group">
                                         <label class="form-label">알림 수신 설정</label>
                                         <label style="display:flex; align-items:center; gap:8px; font-size:13px; color: var(--text-secondary);">
