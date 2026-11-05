@@ -44,6 +44,10 @@
     .badge-medulab_inactive { background: rgba(148, 163, 184, 0.18); color: #94a3b8; }
     .badge-medulab_teacher { background: rgba(244, 114, 182, 0.18); color: #f472b6; }
     .badge-medulab_staff { background: rgba(45, 212, 191, 0.18); color: #2dd4bf; }
+    .signup-via { display: inline-block; margin-top: 3px; padding: 1px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 800; }
+    .via-google { background: rgba(66,133,244,0.18); color: #60a5fa; }
+    .via-kakao { background: rgba(254,229,0,0.2); color: #facc15; }
+    .via-email { background: rgba(255,255,255,0.08); color: var(--text-muted); }
     .signup-src { font-size: 12px; line-height: 1.5; max-width: 220px; }
     .signup-src b { color: #fff; font-weight: 700; display: block; }
     .signup-src span { color: var(--text-muted); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -131,6 +135,7 @@
                             <div>
                                 <span class="username">{{ u.username }}</span>
                                 <span class="email">{{ u.email }}</span>
+                                <span class="signup-via via-{{ u.signup_via }}">{{ u.signup_providers }}</span>
                             </div>
                         </div>
                     </td>

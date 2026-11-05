@@ -4,8 +4,12 @@
 
 {% block extra_css %}
 <style>
-.fi { width:100%; padding:10px; border-radius:8px; background:rgba(255,255,255,0.05); color:white; border:1px solid rgba(255,255,255,0.1); font-size:14px; }
-.fi:focus { outline:none; border-color:rgba(59,130,246,0.5); }
+.fi { width:100%; padding:12px 14px; border-radius:10px; background:#fff; color:#1f2937; border:1px solid #c7cbe0; font-size:14px; }
+.fi::placeholder { color:#9ca3af; }
+.fi:focus { outline:none; border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,0.15); }
+.req-badge, .opt-badge { display:inline-block; margin-left:6px; padding:1px 8px; border-radius:999px; font-size:11px; font-weight:800; vertical-align:middle; }
+.req-badge { background:#fee2e2; color:#b91c1c; }
+.opt-badge { background:#e5e7eb; color:#6b7280; }
 label.fl { display:block; color:var(--text-muted); margin-bottom:7px; font-weight:700; font-size:13px; }
 .fgroup { margin-bottom:22px; }
 
@@ -15,18 +19,18 @@ label.fl { display:block; color:var(--text-muted); margin-bottom:7px; font-weigh
 .type-card {
     background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.12);
     border-radius:12px; padding:12px; text-align:center; font-size:13px; font-weight:700;
-    color:rgba(255,255,255,0.7); transition:all .15s;
+    color:#374151; background:#fff; transition:all .15s;
 }
-.type-item input:checked + .type-card { border-color:#00ffb4; background:rgba(0,255,180,0.08); color:#fff; }
+.type-item input:checked + .type-card { border-color:#00c896; background:#e6fff7; color:#065f46; }
 
-.child-editor { border:1px solid rgba(255,255,255,0.1); border-radius:12px; overflow:hidden; margin-top:6px; }
+.child-editor { border:1px solid #c7cbe0; border-radius:12px; overflow:hidden; margin-top:6px; }
 .child-editor-head { display:grid; grid-template-columns:1fr 130px 1fr 90px 36px; background:rgba(255,255,255,0.05); border-bottom:1px solid rgba(255,255,255,0.08); }
 .child-editor-head span { padding:9px 12px; font-size:12px; font-weight:700; color:var(--text-muted); }
 .child-row { display:grid; grid-template-columns:1fr 130px 1fr 90px 36px; border-bottom:1px solid rgba(255,255,255,0.05); }
 .child-row:last-child { border-bottom:none; }
-.child-row input { width:100%; padding:9px 12px; background:transparent; color:#e0e0e0; border:none; border-right:1px solid rgba(255,255,255,0.05); font-size:13px; outline:none; }
+.child-row input { width:100%; padding:9px 12px; background:#fff; color:#1f2937; border:none; border-right:1px solid #e5e7eb; font-size:13px; outline:none; }
 .child-row-del { display:flex; align-items:center; justify-content:center; background:transparent; border:none; color:rgba(255,80,80,0.5); cursor:pointer; font-size:16px; }
-.child-add-btn { width:100%; padding:9px; background:rgba(255,255,255,0.03); border:none; border-top:1px solid rgba(255,255,255,0.07); color:rgba(255,255,255,0.4); font-size:13px; cursor:pointer; }
+.child-add-btn { width:100%; padding:9px; background:rgba(255,255,255,0.03); border:none; border-top:1px solid rgba(255,255,255,0.07); color:#6b7280; font-size:13px; cursor:pointer; }
 </style>
 {% endblock %}
 
@@ -51,25 +55,25 @@ label.fl { display:block; color:var(--text-muted); margin-bottom:7px; font-weigh
             {% csrf_token %}
 
             <div class="fgroup">
-                <label class="fl">이름 <span style="color:#ef4444;">*</span></label>
+                <label class="fl">이름 <span class="req-badge">필수</span></label>
                 <input type="text" name="real_name" class="fi" value="{{ form.real_name.value|default:'' }}">
             </div>
             <div class="fgroup">
-                <label class="fl">생년월일 <span style="color:#ef4444;">*</span></label>
+                <label class="fl">생년월일 <span class="req-badge">필수</span></label>
                 <input type="text" name="birth_date" class="fi" placeholder="예: 1989.01.16" value="{{ form.birth_date.value|default:'' }}">
             </div>
             <div class="fgroup">
-                <label class="fl">이메일 <span style="color:#ef4444;">*</span></label>
+                <label class="fl">이메일 <span class="req-badge">필수</span></label>
                 <input type="email" name="email" class="fi" value="{{ form.email.value|default:'' }}">
                 {% if form.email.errors %}<div style="color:#ef4444; font-size:12px; margin-top:4px;">{{ form.email.errors.0 }}</div>{% endif %}
             </div>
             <div class="fgroup">
-                <label class="fl"><span id="phoneLabel">전화번호</span> <span id="phoneRequired" style="color:#ef4444;">*</span></label>
+                <label class="fl"><span id="phoneLabel">전화번호</span> <span class="req-badge">필수</span></label>
                 <input type="text" name="phone_number" class="fi" value="{{ form.phone_number.value|default:'' }}">
             </div>
 
             <div class="fgroup">
-                <label class="fl">주소</label>
+                <label class="fl">주소 <span class="opt-badge">선택</span></label>
                 <div style="display:flex; gap:8px; margin-bottom:8px;">
                     <input type="text" name="address" id="id_address" class="fi" value="{{ form.address.value|default:'' }}" style="flex:1;">
                     <button type="button" id="addressSearchBtn" style="flex:0 0 auto; padding:0 18px; border-radius:8px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); color:#fff; font-weight:700; font-size:13px; cursor:pointer; white-space:nowrap;">🔍 주소 검색</button>
@@ -78,7 +82,7 @@ label.fl { display:block; color:var(--text-muted); margin-bottom:7px; font-weigh
             </div>
 
             <div class="fgroup source-fields">
-                <label class="fl">가입 경로 <span style="color:#ef4444;">*</span></label>
+                <label class="fl">가입 경로 <span class="req-badge">필수</span></label>
                 <select name="signup_source" id="signupSource" class="fi">
                     {% for value, label in form.fields.signup_source.choices %}
                     <option value="{{ value }}" {% if form.signup_source.value == value %}selected{% endif %}>{{ label }}</option>
@@ -89,13 +93,13 @@ label.fl { display:block; color:var(--text-muted); margin-bottom:7px; font-weigh
                 {% if form.signup_source_other.errors %}<div style="color:#ef4444; font-size:12px; margin-top:4px;">{{ form.signup_source_other.errors.0 }}</div>{% endif %}
             </div>
             <div class="fgroup source-fields">
-                <label class="fl">가입 사유 <span style="color:#ef4444;">*</span></label>
+                <label class="fl">가입 사유 <span class="req-badge">필수</span></label>
                 <textarea name="signup_reason" class="fi" rows="3" placeholder="가입하시는 이유를 간단히 적어 주세요.">{{ form.signup_reason.value|default:'' }}</textarea>
                 {% if form.signup_reason.errors %}<div style="color:#ef4444; font-size:12px; margin-top:4px;">{{ form.signup_reason.errors.0 }}</div>{% endif %}
             </div>
 
             <div class="fgroup">
-                <label class="fl">회원 유형 <span style="color:#ef4444;">*</span></label>
+                <label class="fl">회원 유형 <span class="req-badge">필수</span></label>
                 <div class="type-grid">
                     {% for value, label in form.fields.user_type.choices %}
                     <label class="type-item">
@@ -107,10 +111,10 @@ label.fl { display:block; color:var(--text-muted); margin-bottom:7px; font-weigh
             </div>
 
             <div class="fgroup" id="parentExtraFields" style="display:none;">
-                <label class="fl">👶 자녀 정보 <span style="color:#ef4444;">*</span></label>
+                <label class="fl">👶 자녀 정보 <span class="req-badge">필수</span></label>
                 <input type="hidden" name="children_info" id="id_children_info" value="{{ form.children_info.value|default:'[]' }}">
                 <div class="child-editor" id="childEditor">
-                    <div class="child-editor-head"><span>이름 *</span><span>생년월일 *</span><span>학교</span><span>학년</span><span></span></div>
+                    <div class="child-editor-head"><span>이름 (필수)</span><span>생년월일 (필수)</span><span>학교 (선택)</span><span>학년 (선택)</span><span></span></div>
                     <div id="childRows"></div>
                 </div>
                 <button type="button" class="child-add-btn" id="childAddBtn">＋ 자녀 추가</button>

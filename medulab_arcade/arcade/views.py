@@ -2874,7 +2874,9 @@ def member_list(request):
     users = list(users)
     for u in users:
         u.children_list = normalize_children_info(u.profile.children_info) if u.profile else []
-        u.signup_providers = ', '.join(sorted({a.get_provider().name for a in u.socialaccount_set.all()})) or '이메일/아이디 가입'
+        provider_ids = sorted({a.provider for a in u.socialaccount_set.all()})
+        u.signup_providers = ', '.join(sorted({a.get_provider().name for a in u.socialaccount_set.all()})) or '이메일 가입'
+        u.signup_via = provider_ids[0] if len(provider_ids) == 1 else ('social' if provider_ids else 'email')
 
     # 필터 버튼 표시 순서 (메듀랩 회원 먼저, 그다음 일반 가입 유형, 레거시 유형은 맨 뒤)
     type_filter_order = [

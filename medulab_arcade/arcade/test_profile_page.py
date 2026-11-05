@@ -125,10 +125,14 @@ class SignupPreselectTests(TestCase):
         self.assertContains(res, 'value="medulab_parent" checked')
         self.assertContains(res, 'id="regularSignupWrap" style="display:block;')
         self.assertContains(res, 'id="typeGridLocked"')
+        self.assertNotContains(res, 'id="googleSignupBtn"')
+        self.assertNotContains(res, 'id="kakaoSignupBtn"')
+        self.assertNotContains(res, 'id="regularSignupToggle"')
 
     def test_default_and_invalid_type(self):
         res = self.client.get(reverse('signup') + '?type=hacker')
         self.assertNotContains(res, 'value="medulab_parent" checked')
+        self.assertContains(res, 'id="googleSignupBtn"')
         self.assertContains(res, 'id="regularSignupWrap" style="display:none;')
 
 
@@ -317,3 +321,18 @@ class AdminListOnboardingBadgeTests(TestCase):
         self.client.force_login(admin)
         res = self.client.get(reverse('member_list'))
         self.assertContains(res, '추가정보 입력 전')
+
+
+class AdminListSignupViaTests(TestCase):
+    def test_member_list_shows_google_or_kakao(self):
+        from allauth.socialaccount.models import SocialAccount
+        admin = User.objects.create_user('adm10', password='x', is_staff=True)
+        g = User.objects.create_user('guser', password='x')
+        k = User.objects.create_user('kuser', password='x')
+        SocialAccount.objects.create(user=g, provider='google', uid='1')
+        SocialAccount.objects.create(user=k, provider='kakao', uid='2')
+        self.client.force_login(admin)
+        res = self.client.get(reverse('member_list'))
+        self.assertContains(res, 'class="signup-via via-google">Google')
+        self.assertContains(res, 'class="signup-via via-kakao">Kakao')
+        self.assertContains(res, 'class="signup-via via-email">이메일 가입')
