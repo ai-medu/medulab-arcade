@@ -199,11 +199,7 @@ function toggleParentFields() {
     const isParentPhone = !!checked && (checked.value === 'parent' || checked.value === 'medulab_parent');
     document.querySelectorAll('.source-fields').forEach(g => { g.style.display = (checked && checked.value === 'medulab_member') ? 'none' : ''; });
     document.getElementById('phoneLabel').textContent = isParentPhone ? '학부모 전화번호' : '전화번호';
-    if (checked && checked.value === 'medulab_parent') {
-        parentExtraFields.style.display = 'block';
-    } else {
-        parentExtraFields.style.display = 'none';
-    }
+    parentExtraFields.style.display = isParentPhone ? 'block' : 'none';
 }
 
 document.querySelectorAll('input[name="user_type"]').forEach(r => r.addEventListener('change', toggleParentFields));

@@ -532,15 +532,14 @@
 
             const parentFields = document.getElementById('medulabParentFields');
             const addressBadge = document.getElementById('address-badge');
+            parentFields.style.display = isParentPhone ? 'block' : 'none';
             if (checked && checked.value === 'medulab_parent') {
-                parentFields.style.display = 'block';
                 if (addressBadge) {
                     addressBadge.textContent = '필수';
                     addressBadge.classList.remove('optional');
                     addressBadge.classList.add('required');
                 }
             } else {
-                parentFields.style.display = 'none';
                 if (addressBadge) {
                     addressBadge.textContent = '선택';
                     addressBadge.classList.remove('required');

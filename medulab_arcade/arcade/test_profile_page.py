@@ -132,6 +132,9 @@ class SignupPreselectTests(TestCase):
         self.assertContains(res, 'id="regularSignupWrap" style="display:none;')
 
 
+KIDS = '[{"name": "민수", "birth_date": "20160315", "school": "한빛초", "grade": "3"}]'
+
+
 class SignupFieldsTests(TestCase):
     """가입 경로/사유, 학부모 전화번호 필수, 메듀랩 학생 아이디 자동 생성"""
 
@@ -163,7 +166,7 @@ class SignupFieldsTests(TestCase):
         res = self._post(username='par1', user_type='parent', phone_number='')
         self.assertEqual(res.status_code, 200)
         self.assertContains(res, '학부모 전화번호를 입력해 주세요.')
-        res = self._post(username='par1', user_type='parent', phone_number='010-1234-5678')
+        res = self._post(username='par1', user_type='parent', phone_number='010-1234-5678', children_info=KIDS)
         self.assertEqual(res.status_code, 302)
 
     def test_medulab_member_username_auto_generated(self):
@@ -210,6 +213,15 @@ class SignupFieldsTests(TestCase):
         res = self.client.get(reverse('signup'))
         self.assertContains(res, 'id="group_signup_source"')
 
+    def test_parent_requires_children_info(self):
+        res = self._post(username='par2', user_type='parent', children_info='[]')
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, '자녀 정보를 1명 이상 입력해 주세요.')
+        self.assertFalse(User.objects.filter(username='par2').exists())
+        res = self._post(username='par2', user_type='parent', children_info=KIDS)
+        self.assertEqual(res.status_code, 302)
+        self.assertEqual(User.objects.get(username='par2').profile.children_info[0]['name'], '민수')
+
 
 class SocialOnboardingFieldsTests(TestCase):
     """구글/카카오 가입 후 추가정보 화면도 같은 정보를 받는다"""
@@ -247,3 +259,4 @@ class SocialOnboardingFieldsTests(TestCase):
             self.assertEqual(res.status_code, 200, field)
         res = self.client.post(reverse('social_onboarding'), self._data(user_type='medulab_member', signup_source='', signup_reason=''))
         self.assertEqual(res.status_code, 302)
+

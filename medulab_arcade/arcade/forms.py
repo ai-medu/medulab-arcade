@@ -363,11 +363,10 @@ class SignUpForm(UserCreationForm):
             elif not self.errors.get('username'):
                 self.add_error('username', '이름과 생년월일을 입력하면 아이디가 자동으로 만들어집니다.')
         clean_signup_extras(self, cleaned_data)
-        if user_type == 'medulab_parent':
+        if user_type == 'medulab_parent' and not (cleaned_data.get('address') or '').strip():
+            self.add_error('address', '메듀랩 학부모는 주소를 입력해 주세요.')
+        if user_type in PARENT_PHONE_TYPES:
             import json
-
-            if not (cleaned_data.get('address') or '').strip():
-                self.add_error('address', '메듀랩 학부모는 주소를 입력해 주세요.')
 
             raw = cleaned_data.get('children_info') or '[]'
             try:
@@ -784,9 +783,9 @@ class SocialOnboardingForm(forms.Form):
         cleaned_data = super().clean()
         user_type = cleaned_data.get('user_type')
         clean_signup_extras(self, cleaned_data)
-        if user_type == 'medulab_parent':
-            if not (cleaned_data.get('address') or '').strip():
-                self.add_error('address', '메듀랩 학부모는 주소를 입력해 주세요.')
+        if user_type == 'medulab_parent' and not (cleaned_data.get('address') or '').strip():
+            self.add_error('address', '메듀랩 학부모는 주소를 입력해 주세요.')
+        if user_type in PARENT_PHONE_TYPES:
             raw = cleaned_data.get('children_info') or '[]'
             try:
                 children = json.loads(raw)
