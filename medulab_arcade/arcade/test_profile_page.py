@@ -124,6 +124,7 @@ class SignupPreselectTests(TestCase):
         res = self.client.get(reverse('signup') + '?type=medulab_parent')
         self.assertContains(res, 'value="medulab_parent" checked')
         self.assertContains(res, 'id="regularSignupWrap" style="display:block;')
+        self.assertContains(res, 'id="typeGridLocked"')
 
     def test_default_and_invalid_type(self):
         res = self.client.get(reverse('signup') + '?type=hacker')

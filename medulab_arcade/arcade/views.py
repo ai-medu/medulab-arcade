@@ -5795,7 +5795,10 @@ def consult_inquiry_toggle_handled(request, pk):
 
 def signup(request):
     """회원가입"""
-    preselect = ''
+    # /signup/?type=medulab_parent 처럼 회원 유형을 정해 둔 가입 링크 (폼 제출 때도 주소의 type 값이 유지된다)
+    preselect = request.GET.get('type', '')
+    if preselect not in dict(SignUpForm.USER_TYPE_CHOICES):
+        preselect = ''
     if request.method == 'POST':
         form = SignUpForm(request.POST)
         if form.is_valid():
@@ -5803,10 +5806,6 @@ def signup(request):
             messages.success(request, '회원가입이 완료되었습니다. 이제 로그인할 수 있습니다.')
             return redirect('home')
     else:
-        # /signup/?type=medulab_parent 처럼 회원 유형을 미리 선택한 가입 링크
-        preselect = request.GET.get('type', '')
-        if preselect not in dict(SignUpForm.USER_TYPE_CHOICES):
-            preselect = ''
         form = SignUpForm(initial={'user_type': preselect} if preselect else None)
     return render(request, 'arcade/signup.html', {'form': form, 'preselect': preselect})
 

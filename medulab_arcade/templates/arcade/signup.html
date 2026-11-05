@@ -296,7 +296,7 @@
             {% endif %}
 
             <label class="type-section-label">ACCOUNT TYPE</label>
-            <div class="type-grid">
+            <div class="type-grid"{% if preselect %} id="typeGridLocked"{% endif %}>
                 <label class="type-item">
                     <input type="radio" name="user_type" value="student" {% if form.user_type.value|default:'student' == 'student' %}checked{% endif %}>
                     <div class="type-card">
@@ -617,6 +617,14 @@
         }
 
         radios.forEach(radio => radio.addEventListener('change', toggleNote));
+        // 회원 유형이 정해진 가입 링크(?type=...)에서는 해당 유형만 보여 준다
+        const lockedGrid = document.getElementById('typeGridLocked');
+        if (lockedGrid) {
+            lockedGrid.querySelectorAll('.type-item').forEach(item => {
+                if (!item.querySelector('input').checked) item.style.display = 'none';
+                else item.style.gridColumn = '1 / -1';
+            });
+        }
         toggleNote();
 
         // ── 가입 경로: '직접 입력'을 고르면 입력칸 표시 ──
