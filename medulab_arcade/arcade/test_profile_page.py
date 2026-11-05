@@ -383,3 +383,29 @@ class LockedSocialSignupTests(TestCase):
         res = self.client.get(reverse('social_onboarding'))
         self.assertContains(res, 'value="general"')
         self.assertContains(res, 'value="medulab_parent"')
+
+
+class OnboardingCancelTests(TestCase):
+    def test_cancel_removes_incomplete_account(self):
+        user = User.objects.create_user('quitter', password='x', email='q@example.com')
+        user.profile.onboarding_complete = False
+        user.profile.save()
+        self.client.force_login(user)
+        self.assertContains(self.client.get(reverse('social_onboarding')), 'id="onboardCancelBtn"')
+        res = self.client.post(reverse('social_onboarding_cancel'))
+        self.assertRedirects(res, reverse('home'), fetch_redirect_response=False)
+        self.assertFalse(User.objects.filter(username='quitter').exists())
+
+    def test_cancel_never_deletes_completed_member(self):
+        user = User.objects.create_user('member9', password='x')
+        self.client.force_login(user)
+        self.client.post(reverse('social_onboarding_cancel'))
+        self.assertTrue(User.objects.filter(username='member9').exists())
+
+    def test_cancel_requires_post(self):
+        user = User.objects.create_user('quitter2', password='x')
+        user.profile.onboarding_complete = False
+        user.profile.save()
+        self.client.force_login(user)
+        self.assertEqual(self.client.get(reverse('social_onboarding_cancel')).status_code, 405)
+        self.assertTrue(User.objects.filter(username='quitter2').exists())

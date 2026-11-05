@@ -21,7 +21,7 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.db import DatabaseError
 from django.db.models import Count, Q, Case, When, Value, IntegerField, Sum
-from django.contrib.auth import login
+from django.contrib.auth import login, logout
 from django.contrib import messages
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.contrib.auth.models import User
@@ -5876,6 +5876,19 @@ def social_signup_redirect(request, provider):
     if provider not in ('google', 'kakao'):
         return redirect('signup')
     return redirect(f'{provider}_login')
+
+
+@login_required
+@require_POST
+def social_onboarding_cancel(request):
+    """추가정보 입력 중 '가입 취소': 아직 가입이 끝나지 않은 소셜 계정만 지우고 로그아웃한다"""
+    user = request.user
+    if user.profile.onboarding_complete or user.is_staff or user.is_superuser:
+        return redirect('home')
+    logout(request)
+    user.delete()
+    messages.info(request, '가입을 취소했어요. 언제든 다시 가입할 수 있어요.')
+    return redirect('home')
 
 
 @login_required

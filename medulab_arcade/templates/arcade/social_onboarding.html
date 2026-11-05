@@ -120,8 +120,12 @@ label.fl { display:block; color:var(--text-muted); margin-bottom:7px; font-weigh
                 <button type="button" class="child-add-btn" id="childAddBtn">＋ 자녀 추가</button>
             </div>
 
-            <button type="submit" onclick="syncChildJSON()" style="width:100%; margin-top:18px; border:none; border-radius:14px; padding:14px; background:linear-gradient(135deg,#00ffb4,#3b82f6); color:#03140e; font-weight:900; font-size:15px; cursor:pointer;">완료</button>
+            <div style="display:flex; gap:10px; margin-top:18px;">
+                <button type="button" id="onboardCancelBtn" style="flex:1; border:1px solid #c7cbe0; border-radius:14px; padding:14px; background:#fff; color:#6b7280; font-weight:800; font-size:15px; cursor:pointer;">가입 취소</button>
+                <button type="submit" onclick="syncChildJSON()" style="flex:2; border:none; border-radius:14px; padding:14px; background:linear-gradient(135deg,#00ffb4,#3b82f6); color:#03140e; font-weight:900; font-size:15px; cursor:pointer;">완료</button>
+            </div>
         </form>
+        <form method="post" action="{% url 'social_onboarding_cancel' %}" id="onboardCancelForm" style="display:none;">{% csrf_token %}</form>
     </div>
 </div>
 
@@ -208,6 +212,10 @@ function toggleParentFields() {
 
 document.querySelectorAll('input[name="user_type"]').forEach(r => r.addEventListener('change', toggleParentFields));
 document.getElementById('onboardForm').addEventListener('submit', syncChildJSON);
+
+document.getElementById('onboardCancelBtn').addEventListener('click', function() {
+    if (confirm('가입을 취소할까요? 입력한 내용은 저장되지 않아요.')) document.getElementById('onboardCancelForm').submit();
+});
 
 loadChildJSON();
 toggleParentFields();
