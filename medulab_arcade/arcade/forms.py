@@ -654,6 +654,12 @@ class UserProfileUpdateForm(forms.ModelForm):
             raise forms.ValidationError('전화번호는 숫자 기준 9자리에서 11자리로 입력해 주세요.')
         return digits
 
+    def clean_address(self):
+        address = (self.cleaned_data.get('address') or '').strip()
+        if self.has_parent_fields and not address:
+            raise forms.ValidationError('메듀랩 학부모는 주소를 입력해 주세요.')
+        return address
+
     def save(self, commit=True):
         import json
 

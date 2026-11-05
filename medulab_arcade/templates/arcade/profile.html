@@ -478,7 +478,7 @@
 
                                     {% if profile.user_type == 'medulab_parent' %}
                                     <div class="form-group">
-                                        <label class="form-label">주소</label>
+                                        <label class="form-label">주소 <span style="color:#ef4444; font-size:12px; font-weight:800;">필수</span></label>
                                         <div style="display:flex; gap:8px;">
                                             <div style="flex:1;">{{ form.address }}</div>
                                             <button type="button" id="profileAddressBtn" style="flex:0 0 auto; padding:0 18px; border-radius:10px; background:rgba(255,255,255,0.08); border:1px solid var(--border); color:inherit; font-weight:700; font-size:13px; cursor:pointer; white-space:nowrap;">🔍 주소 검색</button>

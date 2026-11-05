@@ -409,3 +409,29 @@ class OnboardingCancelTests(TestCase):
         self.client.force_login(user)
         self.assertEqual(self.client.get(reverse('social_onboarding_cancel')).status_code, 405)
         self.assertTrue(User.objects.filter(username='quitter2').exists())
+
+
+class MedulabParentAddressRequiredTests(TestCase):
+    def test_profile_edit_requires_address(self):
+        user = User.objects.create_user('mp5', password='x', email='mp5@example.com')
+        user.profile.user_type = 'medulab_parent'
+        user.profile.save()
+        self.client.force_login(user)
+        data = {'real_name': '학부모', 'nickname': '', 'birth_date': '', 'phone_number': '01012345678',
+                'email': 'mp5@example.com', 'address': '', 'children_info': '[]'}
+        self.assertEqual(self.client.post(reverse('profile'), data).status_code, 200)
+        data['address'] = '서울 강남구 1'
+        self.assertEqual(self.client.post(reverse('profile'), data).status_code, 302)
+
+    def test_social_onboarding_requires_address_for_medulab_parent(self):
+        user = User.objects.create_user('mp6', password='x', email='mp6@example.com')
+        user.profile.onboarding_complete = False
+        user.profile.save()
+        self.client.force_login(user)
+        kids = '[{"name": "민수", "birth_date": "20160315", "school": "a", "grade": "3"}]'
+        data = {'real_name': '학부모', 'birth_date': '1985.01.01', 'phone_number': '01012345678',
+                'email': 'mp6@example.com', 'user_type': 'medulab_parent', 'signup_source': '블로그',
+                'signup_reason': 'x', 'children_info': kids, 'address': ''}
+        self.assertEqual(self.client.post(reverse('social_onboarding'), data).status_code, 200)
+        data['address'] = '서울 강남구 1'
+        self.assertEqual(self.client.post(reverse('social_onboarding'), data).status_code, 302)

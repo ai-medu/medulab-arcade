@@ -83,7 +83,7 @@ label.fl { display:block; color:var(--text-muted); margin-bottom:7px; font-weigh
             </div>
 
             <div class="fgroup">
-                <label class="fl">주소 <span class="opt-badge">선택</span></label>
+                <label class="fl">주소 <span class="opt-badge" id="addressBadge">선택</span></label>
                 <div style="display:flex; gap:8px; margin-bottom:8px;">
                     <input type="text" name="address" id="id_address" class="fi" value="{{ form.address.value|default:'' }}" style="flex:1;">
                     <button type="button" id="addressSearchBtn" style="flex:0 0 auto; padding:0 18px; border-radius:8px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); color:#fff; font-weight:700; font-size:13px; cursor:pointer; white-space:nowrap;">🔍 주소 검색</button>
@@ -230,6 +230,10 @@ function toggleParentFields() {
     document.querySelectorAll('.source-fields').forEach(g => { g.style.display = (checked && checked.value === 'medulab_member') ? 'none' : ''; });
     document.getElementById('phoneLabel').textContent = isParentPhone ? '학부모 전화번호' : '전화번호';
     parentExtraFields.style.display = isParentPhone ? 'block' : 'none';
+    const addressBadge = document.getElementById('addressBadge');
+    const addressRequired = !!checked && checked.value === 'medulab_parent';
+    addressBadge.textContent = addressRequired ? '필수' : '선택';
+    addressBadge.className = addressRequired ? 'req-badge' : 'opt-badge';
 }
 
 document.querySelectorAll('input[name="user_type"]').forEach(r => r.addEventListener('change', toggleParentFields));
