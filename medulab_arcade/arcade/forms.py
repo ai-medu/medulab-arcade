@@ -205,16 +205,20 @@ PARENT_PHONE_TYPES = ('parent', 'medulab_parent')
 
 
 def clean_signup_extras(form, cleaned_data):
-    """전화번호·가입 경로(직접 입력 포함)·가입 사유 필수 검사"""
+    """전화번호·가입 경로(직접 입력 포함)·가입 사유 필수 검사 (가입 경로/사유는 메듀랩 학생 제외)"""
+    asks_source = cleaned_data.get('user_type') != 'medulab_member'
     source = cleaned_data.get('signup_source') or ''
+    if not asks_source:
+        cleaned_data['signup_source'] = cleaned_data['signup_reason'] = ''
+        source = ''
     if source == 'other':
         source = (cleaned_data.get('signup_source_other') or '').strip()
         if not source:
             form.add_error('signup_source_other', '가입 경로를 직접 입력해 주세요.')
     cleaned_data['signup_source'] = source
-    if not source and 'signup_source_other' not in form.errors:
+    if asks_source and not source and 'signup_source_other' not in form.errors:
         form.add_error('signup_source', '가입 경로를 선택해 주세요.')
-    if not (cleaned_data.get('signup_reason') or '').strip():
+    if asks_source and not (cleaned_data.get('signup_reason') or '').strip():
         form.add_error('signup_reason', '가입 사유를 입력해 주세요.')
     if 'phone_number' not in form.errors and not cleaned_data.get('phone_number'):
         is_parent = cleaned_data.get('user_type') in PARENT_PHONE_TYPES
@@ -252,8 +256,9 @@ class SignUpForm(UserCreationForm):
         help_text='하이픈 없이 숫자만 입력해도 자동으로 정리됩니다.',
     )
     email = forms.EmailField(
-        required=False,
-        widget=forms.EmailInput(attrs={'placeholder': '이메일 주소(선택)', 'class': 'form-input'}),
+        label='이메일',
+        required=True,
+        widget=forms.EmailInput(attrs={'placeholder': '이메일 주소', 'class': 'form-input'}),
     )
     user_type = forms.ChoiceField(
         label='회원 유형',
@@ -294,7 +299,7 @@ class SignUpForm(UserCreationForm):
         )
         self.fields['email'].widget.attrs.update(
             {
-                'placeholder': '이메일 주소(선택)',
+                'placeholder': '이메일 주소',
                 'class': 'form-input',
             }
         )
@@ -734,9 +739,24 @@ class SocialOnboardingForm(forms.Form):
         widget=forms.HiddenInput(),
     )
 
-    def __init__(self, *args, **kwargs):
+    email = forms.EmailField(
+        label='이메일',
+        widget=forms.EmailInput(attrs={'class': 'form-input'}),
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.user = user
         self.fields.update(signup_extra_fields())
+
+    def clean_email(self):
+        email = (self.cleaned_data.get('email') or '').strip()
+        others = User.objects.filter(email__iexact=email)
+        if self.user is not None:
+            others = others.exclude(pk=self.user.pk)
+        if others.exists():
+            raise forms.ValidationError('이미 가입된 이메일 주소입니다.')
+        return email
 
     def clean_birth_date(self):
         birth_date = self.cleaned_data.get('birth_date', '').strip()

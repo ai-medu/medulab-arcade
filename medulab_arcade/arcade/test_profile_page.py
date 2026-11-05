@@ -136,7 +136,7 @@ class SignupFieldsTests(TestCase):
     """가입 경로/사유, 학부모 전화번호 필수, 메듀랩 학생 아이디 자동 생성"""
 
     BASE = {'real_name': '홍길동', 'birth_date': '2016.03.15', 'phone_number': '01012345678',
-            'signup_source': '지인 소개', 'signup_reason': '수업 문의', 'email': '',
+            'signup_source': '지인 소개', 'signup_reason': '수업 문의', 'email': 'new@example.com',
             'password1': 'Str0ng!pass9', 'password2': 'Str0ng!pass9'}
 
     def _post(self, **extra):
@@ -194,3 +194,56 @@ class SignupFieldsTests(TestCase):
             self.assertFalse(User.objects.filter(username='req1').exists(), field)
         res = self._post(username='req1', user_type='general', phone_number='')
         self.assertContains(res, '전화번호를 입력해 주세요.')
+
+    def test_email_required(self):
+        res = self._post(username='mail1', user_type='general', email='')
+        self.assertEqual(res.status_code, 200)
+        self.assertFalse(User.objects.filter(username='mail1').exists())
+
+    def test_medulab_member_needs_no_source_or_reason(self):
+        res = self._post(user_type='medulab_member', signup_source='', signup_reason='')
+        self.assertEqual(res.status_code, 302)
+        p = User.objects.get(username='홍길동20160315').profile
+        self.assertEqual((p.signup_source, p.signup_reason), ('', ''))
+
+    def test_signup_page_hides_source_for_member_via_js_hook(self):
+        res = self.client.get(reverse('signup'))
+        self.assertContains(res, 'id="group_signup_source"')
+
+
+class SocialOnboardingFieldsTests(TestCase):
+    """구글/카카오 가입 후 추가정보 화면도 같은 정보를 받는다"""
+
+    def setUp(self):
+        self.user = User.objects.create_user('sociala', password='x', email='')
+        self.user.profile.onboarding_complete = False
+        self.user.profile.save()
+        self.client.force_login(self.user)
+
+    def _data(self, **extra):
+        data = {'real_name': '김소셜', 'birth_date': '1990.01.02', 'phone_number': '01011112222',
+                'email': 'social@example.com', 'user_type': 'general',
+                'signup_source': '블로그', 'signup_reason': '후기를 보고'}
+        data.update(extra)
+        return data
+
+    def test_page_shows_fields(self):
+        res = self.client.get(reverse('social_onboarding'))
+        for name in ('name="email"', 'name="phone_number"', 'name="signup_source"', 'name="signup_reason"'):
+            self.assertContains(res, name)
+
+    def test_saves_all_info(self):
+        res = self.client.post(reverse('social_onboarding'), self._data())
+        self.assertEqual(res.status_code, 302)
+        self.user.refresh_from_db()
+        p = self.user.profile
+        self.assertEqual(self.user.email, 'social@example.com')
+        self.assertEqual((p.signup_source, p.signup_reason, p.phone_number), ('블로그', '후기를 보고', '01011112222'))
+        self.assertTrue(p.onboarding_complete)
+
+    def test_required_fields(self):
+        for field in ('email', 'phone_number', 'signup_source', 'signup_reason'):
+            res = self.client.post(reverse('social_onboarding'), self._data(**{field: ''}))
+            self.assertEqual(res.status_code, 200, field)
+        res = self.client.post(reverse('social_onboarding'), self._data(user_type='medulab_member', signup_source='', signup_reason=''))
+        self.assertEqual(res.status_code, 302)

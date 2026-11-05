@@ -5857,12 +5857,15 @@ def social_onboarding(request):
         return redirect('home')
 
     if request.method == 'POST':
-        form = SocialOnboardingForm(request.POST)
+        form = SocialOnboardingForm(request.POST, user=request.user)
         if form.is_valid():
             user_type = form.cleaned_data['user_type']
             profile.real_name = form.cleaned_data['real_name']
             profile.birth_date = form.cleaned_data['birth_date']
             profile.phone_number = form.cleaned_data['phone_number']
+            if request.user.email != form.cleaned_data['email']:
+                request.user.email = form.cleaned_data['email']
+                request.user.save(update_fields=['email'])
             profile.user_type = user_type
             profile.address = form.cleaned_data.get('address', '')
             profile.children_info = form.cleaned_data.get('children_info') or None
@@ -5878,12 +5881,13 @@ def social_onboarding(request):
             'real_name': profile.real_name,
             'phone_number': profile.phone_number,
             'address': profile.address,
+            'email': request.user.email,
         }
         if profile.birth_date:
             initial['birth_date'] = profile.birth_date.strftime('%Y.%m.%d')
         if pending_user_type:
             initial['user_type'] = pending_user_type
-        form = SocialOnboardingForm(initial=initial)
+        form = SocialOnboardingForm(initial=initial, user=request.user)
     return render(request, 'arcade/social_onboarding.html', {'form': form})
 
 
