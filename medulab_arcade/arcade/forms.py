@@ -478,6 +478,64 @@ class AdminUserProfileForm(forms.ModelForm):
             raise forms.ValidationError('전화번호는 숫자 기준 9자리에서 11자리로 입력해 주세요.')
         return digits
 
+    def clean(self):
+        cleaned_data = super().clean()
+        # 메듀랩 학부모는 주소 필수 (주소 칸이 있는 폼에서만 검사한다)
+        if (cleaned_data.get('user_type') == 'medulab_parent' and 'address' in self.fields
+                and not (cleaned_data.get('address') or '').strip()):
+            self.add_error('address', '메듀랩 학부모는 주소를 입력해 주세요.')
+        return cleaned_data
+
+
+class AdminOnboardingForm(forms.Form):
+    """관리자가 '추가정보 입력 전' 소셜 가입 계정의 정보를 대신 입력하고 가입을 완료(승인)시키는 폼"""
+
+    user_type = forms.ChoiceField(label='회원 유형', choices=UserProfile.PUBLIC_TYPE_CHOICES)
+    real_name = forms.CharField(label='이름', max_length=20)
+    birth_date = forms.CharField(label='생년월일')
+    email = forms.EmailField(label='이메일')
+    phone_number = forms.CharField(label='전화번호')
+    address = forms.CharField(label='주소', required=False)
+    signup_source = forms.CharField(label='가입 경로', required=False, max_length=100)
+    signup_reason = forms.CharField(label='가입 사유', required=False)
+    approve = forms.BooleanField(label='승인', required=False)
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+
+    def clean_birth_date(self):
+        import datetime
+
+        raw = (self.cleaned_data.get('birth_date') or '').strip()
+        for fmt in ('%Y.%m.%d', '%Y-%m-%d', '%Y%m%d'):
+            try:
+                return datetime.datetime.strptime(raw, fmt).date()
+            except ValueError:
+                continue
+        raise forms.ValidationError('생년월일 형식이 올바르지 않습니다. (예: 2016.03.15)')
+
+    def clean_phone_number(self):
+        digits = ''.join(ch for ch in (self.cleaned_data.get('phone_number') or '') if ch.isdigit())
+        if len(digits) < 9 or len(digits) > 11:
+            raise forms.ValidationError('전화번호는 숫자 기준 9자리에서 11자리로 입력해 주세요.')
+        return digits
+
+    def clean_email(self):
+        email = (self.cleaned_data.get('email') or '').strip()
+        others = User.objects.filter(email__iexact=email)
+        if self.user is not None:
+            others = others.exclude(pk=self.user.pk)
+        if others.exists():
+            raise forms.ValidationError('이미 다른 회원이 사용 중인 이메일 주소입니다.')
+        return email
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if cleaned_data.get('user_type') == 'medulab_parent' and not (cleaned_data.get('address') or '').strip():
+            self.add_error('address', '메듀랩 학부모는 주소를 입력해 주세요.')
+        return cleaned_data
+
 
 class BadgeForm(forms.ModelForm):
     class Meta:

@@ -84,6 +84,15 @@
     .approve-modal-confirm:hover { transform:translateY(-1px); box-shadow:0 4px 14px rgba(0,255,180,0.25); }
     .reject-type-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:0 0 14px 0; font-size:12.5px; color:var(--text-muted); text-align:left; }
     .reject-type-row select { padding:8px 10px; border-radius:8px; background:rgba(255,255,255,0.06); border:1px solid var(--border); color:#fff; font-size:13px; color-scheme:dark; }
+    .ob-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .ob-grid label { display:block; font-size:12.5px; font-weight:700; color:var(--text-muted); }
+    .ob-grid .ob-full { grid-column:1 / -1; }
+    .ob-grid input[type=text], .ob-grid input[type=email], .ob-grid select, .ob-grid textarea { display:block; width:100%; margin-top:5px; padding:10px 12px; border-radius:10px; border:1px solid #c7cbe0; background:#fff; color:#1f2937; font-size:14px; }
+    .ob-grid .ob-check { display:flex; gap:8px; align-items:flex-start; font-weight:600; color:var(--text-secondary); }
+    .ob-grid .ob-check input { margin-top:3px; }
+    .ob-req, .ob-opt { display:inline-block; margin-left:4px; padding:0 7px; border-radius:999px; font-size:10.5px; font-weight:800; }
+    .ob-req { background:#fee2e2; color:#b91c1c; } .ob-opt { background:#e5e7eb; color:#6b7280; }
+    .ob-search { flex:0 0 auto; margin-top:5px; padding:0 14px; border-radius:10px; border:1px solid var(--border); background:rgba(255,255,255,0.08); color:inherit; font-weight:700; font-size:12.5px; cursor:pointer; white-space:nowrap; }
     .approve-modal-reject { background:rgba(239,68,68,0.12); color:#fca5a5; border-color:rgba(239,68,68,0.3); }
     .approve-modal-reject:hover { background:rgba(239,68,68,0.25); }
 </style>
@@ -151,7 +160,12 @@
                         {% endif %}
                         
                         {% if not u.profile.onboarding_complete %}
-                        <span class="approval-pending" style="cursor:default;" title="구글/카카오로 가입만 하고 이름·생년월일·전화번호 등 추가정보를 아직 입력하지 않은 계정입니다.">📝 추가정보 입력 전</span>
+                        <button type="button" class="approval-pending" title="누르면 추가정보를 대신 입력하고 승인할 수 있어요."
+                            data-id="{{ u.id }}" data-name="{{ u.profile.real_name }}" data-email="{{ u.email }}"
+                            data-birth="{{ u.profile.birth_date|date:'Y.m.d' }}" data-phone="{{ u.profile.phone_number }}"
+                            data-address="{{ u.profile.address }}" data-type="{{ u.profile.user_type }}"
+                            data-via="{{ u.signup_providers }}"
+                            onclick="openOnboardModal(this)">📝 추가정보 입력 전</button>
                         {% elif u.profile.is_approved %}
                         <span style="font-size: 12px; color: var(--accent-green);">● 승인됨</span>
                         {% elif u.profile.needs_approval %}
@@ -242,6 +256,38 @@
     </div>
 </div>
 
+<div class="approve-modal-overlay" id="onboardModalOverlay" onclick="if(event.target===this) closeOnboardModal();">
+    <div class="approve-modal-box" style="text-align:left; max-width:520px;">
+        <h3 style="text-align:center;">📝 추가정보 입력 · 승인</h3>
+        <p style="text-align:center; margin-bottom:18px;"><span id="onboardModalWho">-</span><br>가입만 하고 추가정보를 입력하지 않은 계정입니다. 정보를 입력하면 가입이 완료됩니다.</p>
+        <form method="post" id="onboardModalForm">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <div class="ob-grid">
+                <label>회원 유형 <span class="ob-req">필수</span>
+                    <select name="user_type" id="obType">
+                        {% for value, label in onboard_type_choices %}<option value="{{ value }}" data-ob="1">{{ label }}</option>{% endfor %}
+                    </select>
+                </label>
+                <label>이름 <span class="ob-req">필수</span><input type="text" name="real_name" id="obName" required></label>
+                <label>생년월일 <span class="ob-req">필수</span><input type="text" name="birth_date" id="obBirth" placeholder="예: 2016.03.15" required></label>
+                <label>이메일 <span class="ob-req">필수</span><input type="email" name="email" id="obEmail" required></label>
+                <label class="ob-full"><span id="obPhoneLabel">전화번호</span> <span class="ob-req">필수</span><input type="text" name="phone_number" id="obPhone" inputmode="numeric" required></label>
+                <label class="ob-full">주소 <span class="ob-req" id="obAddrBadge" style="display:none;">필수</span><span class="ob-opt" id="obAddrOpt">선택</span>
+                    <span style="display:flex; gap:8px;"><input type="text" name="address" id="obAddress" style="flex:1;"><button type="button" onclick="obSearchAddress()" class="ob-search">🔍 주소 검색</button></span>
+                </label>
+                <label class="ob-full">가입 경로 <span class="ob-opt">선택</span><input type="text" name="signup_source" id="obSource" placeholder="예: 네이버 검색, 지인 소개"></label>
+                <label class="ob-full">가입 사유 <span class="ob-opt">선택</span><textarea name="signup_reason" id="obReason" rows="2"></textarea></label>
+                <label class="ob-full ob-check"><input type="checkbox" name="approve" value="on" checked> 입력 후 바로 승인하기 (메듀랩 계열 유형은 승인해야 서비스를 쓸 수 있어요)</label>
+            </div>
+            <div class="approve-modal-actions" style="margin-top:18px;">
+                <button type="button" class="approve-modal-cancel" onclick="closeOnboardModal()">취소</button>
+                <button type="submit" class="approve-modal-confirm">저장하고 가입 완료</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="approve-modal-overlay" id="approveModalOverlay" onclick="if(event.target===this) closeApproveModal();">
     <div class="approve-modal-box">
         <div class="icon">⏳</div>
@@ -266,7 +312,46 @@
     </div>
 </div>
 
+<script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 <script>
+var onboardUrlTemplate = "{% url 'member_complete_onboarding' 999999 %}".replace('999999', '__ID__');
+
+function openOnboardModal(btn) {
+    var d = btn.dataset;
+    document.getElementById('onboardModalWho').textContent = (d.name || '이름 없음') + ' · ' + d.email + ' · ' + d.via + ' 가입';
+    document.getElementById('onboardModalForm').action = onboardUrlTemplate.replace('__ID__', d.id);
+    var typeSel = document.getElementById('obType');
+    typeSel.value = d.type || 'general';
+    if (typeSel.value !== (d.type || 'general')) typeSel.value = 'general';
+    document.getElementById('obName').value = d.name || '';
+    document.getElementById('obBirth').value = d.birth || '';
+    document.getElementById('obEmail').value = d.email || '';
+    document.getElementById('obPhone').value = d.phone || '';
+    document.getElementById('obAddress').value = d.address || '';
+    document.getElementById('obSource').value = '';
+    document.getElementById('obReason').value = '';
+    obSyncType();
+    document.getElementById('onboardModalOverlay').classList.add('show');
+}
+function closeOnboardModal() { document.getElementById('onboardModalOverlay').classList.remove('show'); }
+function obSyncType() {
+    var t = document.getElementById('obType').value;
+    var parent = (t === 'parent' || t === 'medulab_parent');
+    document.getElementById('obPhoneLabel').textContent = parent ? '학부모 전화번호' : '전화번호';
+    var req = (t === 'medulab_parent');
+    document.getElementById('obAddrBadge').style.display = req ? 'inline-block' : 'none';
+    document.getElementById('obAddrOpt').style.display = req ? 'none' : 'inline-block';
+    document.getElementById('obAddress').required = req;
+}
+function obSearchAddress() {
+    new daum.Postcode({
+        oncomplete: function (data) {
+            document.getElementById('obAddress').value = data.roadAddress || data.jibunAddress || data.address;
+        }
+    }).open();
+}
+document.getElementById('obType').addEventListener('change', obSyncType);
+
 var approveUrlTemplate = "{% url 'member_approve' 999999 %}".replace('999999', '__ID__');
 var rejectUrlTemplate = "{% url 'member_reject' 999999 %}".replace('999999', '__ID__');
 
@@ -290,7 +375,7 @@ function closeApproveModal() {
     document.getElementById('approveModalOverlay').classList.remove('show');
 }
 document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') closeApproveModal();
+    if (e.key === 'Escape') { closeApproveModal(); closeOnboardModal(); }
 });
 </script>
 {% endblock %}

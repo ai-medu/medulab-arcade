@@ -29,7 +29,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from .badge_service import get_active_badges_with_user_state, get_recent_user_badges, get_user_badge_count
 from .parent_notify import notify_attendance
 from .models import ClassDiscountType, Badge, Project, Category, Like, Bookmark, Tag, UserProfile, EmailChangeRequest, SignupEmailVerification, ScheduleAttachment, ScheduleEvent, Notice, Award, Certification, CertInfo, CompetitionType, Contest, SchoolClass, ClassEnrollment, ParentChildLink, TuitionInvoice, ClassAttendance, TuitionBatchPayment, InstagramConfig, InstagramPost, InstagramUploadDraft, InstagramUploadDraftItem, FutureCareerSave, ContentFinderSubmission, ContentIdeaThumbnailSubmission, AIPromptCardOrder, ContentFinderDraft, ContentIdeaFinderDraft, ContentPlanDraft, ChannelBrandingDraft
-from .forms import apply_signup_extras, normalize_children_info, ProjectUploadForm, SignUpForm, AdminUserForm, AdminUserProfileForm, BadgeForm, ScheduleEventForm, TimetableForm, UserProfileUpdateForm, MedulabParentUpgradeForm, SocialOnboardingForm, SchoolClassForm
+from .forms import AdminOnboardingForm, apply_signup_extras, normalize_children_info, ProjectUploadForm, SignUpForm, AdminUserForm, AdminUserProfileForm, BadgeForm, ScheduleEventForm, TimetableForm, UserProfileUpdateForm, MedulabParentUpgradeForm, SocialOnboardingForm, SchoolClassForm
 from .holiday_utils import ensure_holidays
 
 
@@ -2846,6 +2846,44 @@ def confirm_signup_email(request, token):
 def staff_check(user):
     return user.is_staff
 
+
+@login_required
+@user_passes_test(staff_check)
+@require_POST
+def member_complete_onboarding(request, user_id):
+    """구글/카카오로 가입만 하고 추가정보를 입력하지 않은 계정을 관리자가 대신 입력하고 가입 완료(승인)시킨다"""
+    target = get_object_or_404(User, pk=user_id)
+    profile, _ = UserProfile.objects.get_or_create(user=target)
+    next_url = request.POST.get('next') or reverse('member_list')
+    if profile.onboarding_complete:
+        messages.info(request, '이미 가입이 완료된 회원입니다.')
+        return redirect(next_url)
+
+    form = AdminOnboardingForm(request.POST, user=target)
+    if not form.is_valid():
+        errors = ' / '.join(f'{form.fields[f].label}: {e[0]}' for f, e in form.errors.items() if f in form.fields)
+        messages.error(request, f'입력 내용을 확인해 주세요. ({errors or "알 수 없는 오류"})')
+        return redirect(next_url)
+
+    data = form.cleaned_data
+    user_type = data['user_type']
+    target.email = data['email']
+    target.save(update_fields=['email'])
+    profile.user_type = user_type
+    profile.real_name = data['real_name']
+    profile.birth_date = data['birth_date']
+    profile.phone_number = data['phone_number']
+    profile.address = data.get('address', '')
+    profile.signup_source = data.get('signup_source', '')
+    profile.signup_reason = (data.get('signup_reason') or '').strip()
+    profile.onboarding_complete = True
+    profile.is_approved = bool(data['approve']) or user_type in UserProfile.AUTO_APPROVE_TYPES
+    if profile.is_approved:
+        profile.approved_at = timezone.now()
+    profile.save()
+    messages.success(request, f'"{data["real_name"]}" 님의 가입을 완료했습니다.' + (' (승인됨)' if profile.is_approved else ' (승인 대기)'))
+    return redirect(next_url)
+
 @login_required
 @user_passes_test(staff_check)
 def member_list(request):
@@ -2911,6 +2949,7 @@ def member_list(request):
         'user_types': UserProfile.USER_TYPE_CHOICES,
         'type_filters': type_filters,
         'incomplete_count': incomplete_count,
+        'onboard_type_choices': UserProfile.PUBLIC_TYPE_CHOICES,
         # 가입 신청을 거절할 때 바꿔 줄 수 있는 유형 (승인 없이 바로 쓸 수 있는 일반 유형)
         'reject_type_choices': [c for c in UserProfile.USER_TYPE_CHOICES if c[0] in UserProfile.AUTO_APPROVE_TYPES],
     }

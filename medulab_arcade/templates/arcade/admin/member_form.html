@@ -143,8 +143,12 @@
 
             {% if profile_form.address %}
             <div class="form-group">
-                <label>주소</label>
-                {{ profile_form.address }}
+                <label>주소 <span id="adminAddrReq" style="display:none; font-size:11px; font-weight:800; color:#ef4444;">필수</span></label>
+                <div style="display:flex; gap:8px;">
+                    <div style="flex:1;">{{ profile_form.address }}</div>
+                    <button type="button" id="adminAddressSearchBtn" style="flex:0 0 auto; padding:0 16px; border-radius:10px; background:rgba(255,255,255,0.08); border:1px solid var(--border); color:inherit; font-weight:700; font-size:13px; cursor:pointer; white-space:nowrap;">🔍 주소 검색</button>
+                </div>
+                <div class="form-help">검색해서 바꾸거나, 상세주소(동/호수)는 직접 이어서 입력할 수 있어요.</div>
                 {% if profile_form.address.errors %}<div class="form-errors">{{ profile_form.address.errors.0 }}</div>{% endif %}
             </div>
             {% endif %}
@@ -367,6 +371,28 @@
         </div>
     </div>
 
+    <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+    <script>
+    (function () {
+        var btn = document.getElementById('adminAddressSearchBtn');
+        var addr = document.getElementById('id_address');
+        if (btn && addr) {
+            btn.addEventListener('click', function () {
+                new daum.Postcode({
+                    oncomplete: function (data) {
+                        addr.value = data.roadAddress || data.jibunAddress || data.address;
+                        addr.focus();
+                    }
+                }).open();
+            });
+        }
+        var typeSel = document.getElementById('id_user_type');
+        var req = document.getElementById('adminAddrReq');
+        function syncAddrReq() { if (typeSel && req) req.style.display = typeSel.value === 'medulab_parent' ? 'inline' : 'none'; }
+        if (typeSel) typeSel.addEventListener('change', syncAddrReq);
+        syncAddrReq();
+    })();
+    </script>
     <script>
     (function() {
         const linkForm = document.getElementById('linkChildForm');

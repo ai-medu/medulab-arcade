@@ -179,6 +179,7 @@ urlpatterns = [
     path('admin-services/members/', views.member_list, name='member_list'),
     path('admin-services/members/add/', views.member_create, name='member_create'),
     path('admin-services/members/<int:user_id>/approve/', views.member_approve, name='member_approve'),
+    path('admin-services/members/<int:user_id>/complete-onboarding/', views.member_complete_onboarding, name='member_complete_onboarding'),
     path('admin-services/members/<int:user_id>/convert-to-inactive/', views.member_convert_to_inactive, name='member_convert_to_inactive'),
     path('admin-services/members/<int:user_id>/convert-to-active/', views.member_convert_to_active, name='member_convert_to_active'),
     path('admin-services/members/<int:user_id>/edit/', views.member_edit, name='member_edit'),

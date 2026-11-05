@@ -435,3 +435,69 @@ class MedulabParentAddressRequiredTests(TestCase):
         self.assertEqual(self.client.post(reverse('social_onboarding'), data).status_code, 200)
         data['address'] = '서울 강남구 1'
         self.assertEqual(self.client.post(reverse('social_onboarding'), data).status_code, 302)
+
+
+class AdminCompleteOnboardingTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user('adm12', password='x', is_staff=True)
+        self.ghost = User.objects.create_user('ghost2', password='x', email='ghost@example.com')
+        self.ghost.profile.onboarding_complete = False
+        self.ghost.profile.save()
+        self.client.force_login(self.admin)
+        self.url = reverse('member_complete_onboarding', args=[self.ghost.id])
+        self.data = {'user_type': 'medulab_parent', 'real_name': '김학부모', 'birth_date': '1985.05.05',
+                     'email': 'ghost@example.com', 'phone_number': '010-1111-2222',
+                     'address': '광주 서구 1', 'signup_source': '네이버', 'signup_reason': '문의', 'approve': 'on'}
+
+    def test_list_shows_modal_button(self):
+        res = self.client.get(reverse('member_list') + '?status=incomplete')
+        self.assertContains(res, 'onclick="openOnboardModal(this)"')
+        self.assertContains(res, 'id="onboardModalForm"')
+
+    def test_completes_and_approves(self):
+        res = self.client.post(self.url, self.data)
+        self.assertEqual(res.status_code, 302)
+        self.ghost.refresh_from_db()
+        p = self.ghost.profile
+        self.assertTrue(p.onboarding_complete)
+        self.assertTrue(p.is_approved)
+        self.assertEqual((p.user_type, p.real_name, p.phone_number, p.address), ('medulab_parent', '김학부모', '01011112222', '광주 서구 1'))
+        self.assertEqual((p.signup_source, p.signup_reason), ('네이버', '문의'))
+
+    def test_without_approve_keeps_medulab_pending(self):
+        data = dict(self.data)
+        del data['approve']
+        self.client.post(self.url, data)
+        p = User.objects.get(pk=self.ghost.pk).profile
+        self.assertTrue(p.onboarding_complete)
+        self.assertFalse(p.is_approved)
+
+    def test_medulab_parent_requires_address(self):
+        data = dict(self.data, address='')
+        self.client.post(self.url, data)
+        self.assertFalse(User.objects.get(pk=self.ghost.pk).profile.onboarding_complete)
+
+    def test_non_staff_and_completed_members_blocked(self):
+        self.client.force_login(User.objects.create_user('plain9', password='x'))
+        self.client.post(self.url, self.data)
+        self.assertFalse(User.objects.get(pk=self.ghost.pk).profile.onboarding_complete)
+
+
+class AdminMemberEditAddressTests(TestCase):
+    def test_address_required_for_medulab_parent_and_search_button(self):
+        admin = User.objects.create_user('adm13', password='x', is_staff=True)
+        mp = User.objects.create_user('mp13', password='x', email='mp13@example.com')
+        mp.profile.user_type = 'medulab_parent'
+        mp.profile.is_approved = True
+        mp.profile.save()
+        self.client.force_login(admin)
+        url = reverse('member_edit', args=[mp.id])
+        self.assertContains(self.client.get(url), 'id="adminAddressSearchBtn"')
+        data = {'username': 'mp13', 'email': 'mp13@example.com', 'is_active': 'on',
+                'user_type': 'medulab_parent', 'is_approved': 'on', 'real_name': '학부모',
+                'phone_number': '01012345678', 'address': ''}
+        res = self.client.post(url, data)
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, '메듀랩 학부모는 주소를 입력해 주세요.')
+        data['address'] = '서울 어딘가 1'
+        self.assertEqual(self.client.post(url, data).status_code, 302)
