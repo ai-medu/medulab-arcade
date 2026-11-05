@@ -390,16 +390,27 @@
             <label class="section-label">BASIC INFO</label>
             <div class="field-grid">
                 {% for field in form %}
-                    {% if field.name != 'user_type' and field.name != 'children_info' %}
+                    {% if field.name == 'signup_source' %}
+                        <div class="form-group full" id="group_signup_source">
+                            <label class="field-label" for="{{ form.signup_source.id_for_label }}"><span>가입 경로</span><span class="field-badge optional">선택</span></label>
+                            {{ form.signup_source }}
+                            <div id="signupSourceOtherWrap" style="display:{% if form.signup_source.value == 'other' %}block{% else %}none{% endif %}; margin-top:8px;">{{ form.signup_source_other }}</div>
+                            {% if form.signup_source_other.errors %}<span class="error-msg">{{ form.signup_source_other.errors.0 }}</span>{% endif %}
+                        </div>
+                        <div class="form-group full" id="group_signup_reason">
+                            <label class="field-label" for="{{ form.signup_reason.id_for_label }}"><span>가입 사유</span><span class="field-badge optional">선택</span></label>
+                            {{ form.signup_reason }}
+                        </div>
+                    {% elif field.name != 'user_type' and field.name != 'children_info' and field.name != 'signup_source_other' and field.name != 'signup_reason' %}
                         <div class="form-group {% if field.name == 'username' or field.name == 'email' or field.name == 'password1' or field.name == 'password2' or field.name == 'address' %}full{% endif %}" id="group_{{ field.name }}">
                             <label class="field-label" for="{{ field.id_for_label }}">
-                                <span>{{ field.label }}</span>
+                                <span{% if field.name == 'phone_number' %} id="phoneLabel"{% endif %}>{{ field.label }}</span>
                                 {% if field.name == 'real_name' or field.name == 'birth_date' or field.name == 'username' or field.name == 'password1' or field.name == 'password2' %}
                                     <span class="field-badge required">필수</span>
                                 {% elif field.name == 'address' %}
                                     <span class="field-badge optional" id="address-badge">선택</span>
                                 {% else %}
-                                    <span class="field-badge optional">선택</span>
+                                    <span class="field-badge optional"{% if field.name == 'phone_number' %} id="phoneBadge"{% endif %}>선택</span>
                                 {% endif %}
                             </label>
                             {% if field.name == 'address' %}
@@ -418,7 +429,7 @@
                                 <div id="birth-check-msg" class="help-text"></div>
                             {% endif %}
 
-                            {% if field.help_text %}
+                            {% if field.help_text and field.name != 'username' %}
                                 <div class="help-text">{{ field.help_text }}</div>
                             {% endif %}
                             {% if field.errors %}
@@ -488,13 +499,34 @@
 
         function toggleNote() {
             const checked = document.querySelector('input[name="user_type"]:checked');
+            const isMember = !!checked && checked.value === 'medulab_member';
             if (checked && reviewTypes.includes(checked.value)) {
                 note.classList.add('active');
-                usernameInput.placeholder = '아이디(이름+생년월일 추천)';
-                updateGeneratedID();
             } else {
                 note.classList.remove('active');
-                usernameInput.placeholder = '사용할 아이디를 입력해 주세요.';
+            }
+            if (isMember) {
+                usernameInput.readOnly = true;
+                usernameInput.style.background = 'rgba(120,120,140,0.12)';
+                usernameInput.placeholder = '이름과 생년월일을 입력하면 자동으로 만들어져요.';
+                updateGeneratedID();
+            } else {
+                if (usernameInput.readOnly) usernameInput.value = '';
+                usernameInput.readOnly = false;
+                usernameInput.style.background = '';
+                usernameInput.placeholder = '한글, 영문, 숫자, @/./+/-/_ 만 사용할 수 있습니다.';
+                if (checkMsg) checkMsg.textContent = '';
+            }
+
+            // 학부모 / 메듀랩 학부모는 전화번호가 학부모 전화번호이고 필수
+            const phoneLabel = document.getElementById('phoneLabel');
+            const phoneBadge = document.getElementById('phoneBadge');
+            const isParentPhone = !!checked && (checked.value === 'parent' || checked.value === 'medulab_parent');
+            if (phoneLabel) phoneLabel.textContent = isParentPhone ? '학부모 전화번호' : '전화번호';
+            if (phoneBadge) {
+                phoneBadge.textContent = isParentPhone ? '필수' : '선택';
+                phoneBadge.classList.toggle('required', isParentPhone);
+                phoneBadge.classList.toggle('optional', !isParentPhone);
             }
 
             const parentFields = document.getElementById('medulabParentFields');
@@ -529,12 +561,12 @@
 
         function updateGeneratedID() {
             const checked = document.querySelector('input[name="user_type"]:checked');
-            if (!checked || !reviewTypes.includes(checked.value)) return;
+            if (!checked || checked.value !== 'medulab_member') return;
 
             const name = (nameInput?.value || '').trim();
             const birthDigits = digitsOnly(birthInput?.value || '');
             if (name && birthDigits.length === 8) {
-                const generated = `${name}${birthDigits}`;
+                const generated = `${name.replace(/\s+/g, '')}${birthDigits}`;
                 usernameInput.value = generated;
                 validateUsername(generated);
             }
@@ -586,6 +618,15 @@
 
         radios.forEach(radio => radio.addEventListener('change', toggleNote));
         toggleNote();
+
+        // ── 가입 경로: '직접 입력'을 고르면 입력칸 표시 ──
+        const sourceSelect = document.getElementById('id_signup_source');
+        const sourceOtherWrap = document.getElementById('signupSourceOtherWrap');
+        if (sourceSelect && sourceOtherWrap) {
+            sourceSelect.addEventListener('change', function() {
+                sourceOtherWrap.style.display = this.value === 'other' ? 'block' : 'none';
+            });
+        }
 
         // ── 주소 검색 (다음 우편번호 서비스) ──
         const addressSearchBtn = document.getElementById('addressSearchBtn');

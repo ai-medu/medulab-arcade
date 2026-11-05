@@ -59,7 +59,7 @@ label.fl { display:block; color:var(--text-muted); margin-bottom:7px; font-weigh
                 <input type="text" name="birth_date" class="fi" placeholder="예: 1989.01.16" value="{{ form.birth_date.value|default:'' }}">
             </div>
             <div class="fgroup">
-                <label class="fl">전화번호</label>
+                <label class="fl"><span id="phoneLabel">전화번호</span> <span id="phoneRequired" style="color:#ef4444; display:none;">*</span></label>
                 <input type="text" name="phone_number" class="fi" value="{{ form.phone_number.value|default:'' }}">
             </div>
 
@@ -70,6 +70,21 @@ label.fl { display:block; color:var(--text-muted); margin-bottom:7px; font-weigh
                     <button type="button" id="addressSearchBtn" style="flex:0 0 auto; padding:0 18px; border-radius:8px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); color:#fff; font-weight:700; font-size:13px; cursor:pointer; white-space:nowrap;">🔍 주소 검색</button>
                 </div>
                 <input type="text" id="id_address_detail" class="fi" placeholder="상세주소 (동/호수 등)">
+            </div>
+
+            <div class="fgroup">
+                <label class="fl">가입 경로</label>
+                <select name="signup_source" id="signupSource" class="fi">
+                    {% for value, label in form.fields.signup_source.choices %}
+                    <option value="{{ value }}" {% if form.signup_source.value == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <input type="text" name="signup_source_other" id="signupSourceOther" class="fi" placeholder="가입 경로를 직접 입력해 주세요." value="{{ form.signup_source_other.value|default:'' }}" style="display:none; margin-top:8px;">
+                {% if form.signup_source_other.errors %}<div style="color:#ef4444; font-size:12px; margin-top:4px;">{{ form.signup_source_other.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="fgroup">
+                <label class="fl">가입 사유</label>
+                <textarea name="signup_reason" class="fi" rows="3" placeholder="가입하시는 이유를 간단히 적어 주세요.">{{ form.signup_reason.value|default:'' }}</textarea>
             </div>
 
             <div class="fgroup">
@@ -174,6 +189,9 @@ document.getElementById('onboardForm').addEventListener('submit', combineAddress
 
 function toggleParentFields() {
     const checked = document.querySelector('input[name="user_type"]:checked');
+    const isParentPhone = !!checked && (checked.value === 'parent' || checked.value === 'medulab_parent');
+    document.getElementById('phoneLabel').textContent = isParentPhone ? '학부모 전화번호' : '전화번호';
+    document.getElementById('phoneRequired').style.display = isParentPhone ? 'inline' : 'none';
     if (checked && checked.value === 'medulab_parent') {
         parentExtraFields.style.display = 'block';
     } else {
@@ -186,5 +204,11 @@ document.getElementById('onboardForm').addEventListener('submit', syncChildJSON)
 
 loadChildJSON();
 toggleParentFields();
+
+const signupSource = document.getElementById('signupSource');
+const signupSourceOther = document.getElementById('signupSourceOther');
+function toggleSourceOther() { signupSourceOther.style.display = signupSource.value === 'other' ? 'block' : 'none'; }
+signupSource.addEventListener('change', toggleSourceOther);
+toggleSourceOther();
 </script>
 {% endblock %}

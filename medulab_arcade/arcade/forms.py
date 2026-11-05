@@ -181,6 +181,47 @@ class ProjectUploadForm(forms.ModelForm):
             project.tags.add(tag)
 
 
+def signup_extra_fields():
+    """모든 회원 가입 폼이 함께 쓰는 가입 경로/가입 사유 칸"""
+    from .models import SIGNUP_SOURCE_CHOICES
+    choices = [('', '선택해 주세요')] + [(c, c) for c in SIGNUP_SOURCE_CHOICES] + [('other', '직접 입력')]
+    return {
+        'signup_source': forms.ChoiceField(
+            label='가입 경로', required=False, choices=choices,
+            widget=forms.Select(attrs={'class': 'form-input'}),
+        ),
+        'signup_source_other': forms.CharField(
+            label='가입 경로 직접 입력', required=False, max_length=100,
+            widget=forms.TextInput(attrs={'placeholder': '가입 경로를 직접 입력해 주세요.', 'class': 'form-input'}),
+        ),
+        'signup_reason': forms.CharField(
+            label='가입 사유', required=False,
+            widget=forms.Textarea(attrs={'rows': 3, 'placeholder': '가입하시는 이유를 간단히 적어 주세요.', 'class': 'form-input'}),
+        ),
+    }
+
+
+PARENT_PHONE_TYPES = ('parent', 'medulab_parent')
+
+
+def clean_signup_extras(form, cleaned_data):
+    """가입 경로(직접 입력 포함)와 학부모 전화번호 필수 검사"""
+    source = cleaned_data.get('signup_source') or ''
+    if source == 'other':
+        source = (cleaned_data.get('signup_source_other') or '').strip()
+        if not source:
+            form.add_error('signup_source_other', '가입 경로를 직접 입력해 주세요.')
+    cleaned_data['signup_source'] = source
+    if cleaned_data.get('user_type') in PARENT_PHONE_TYPES and 'phone_number' not in form.errors:
+        if not cleaned_data.get('phone_number'):
+            form.add_error('phone_number', '학부모 전화번호를 입력해 주세요.')
+
+
+def apply_signup_extras(profile, cleaned_data):
+    profile.signup_source = (cleaned_data.get('signup_source') or '')[:100]
+    profile.signup_reason = (cleaned_data.get('signup_reason') or '').strip()
+
+
 class SignUpForm(UserCreationForm):
     USER_TYPE_CHOICES = UserProfile.PUBLIC_TYPE_CHOICES
 
@@ -236,9 +277,13 @@ class SignUpForm(UserCreationForm):
         self.fields['username'].label = 'ID'
         self.fields['username'].validators = [UnicodeUsernameValidator()]
         self.fields['username'].help_text = '한글, 영문, 숫자, @/./+/-/_ 만 사용할 수 있습니다.'
+        self.fields.update(signup_extra_fields())
+        # 메듀랩 학생은 아이디가 이름+생년월일로 자동 생성되므로 직접 입력하지 않는다
+        if self.data.get('user_type') == 'medulab_member':
+            self.fields['username'].required = False
         self.fields['username'].widget.attrs.update(
             {
-                'placeholder': '사용할 아이디를 입력해 주세요.',
+                'placeholder': '한글, 영문, 숫자, @/./+/-/_ 만 사용할 수 있습니다.',
                 'class': 'form-input',
                 'id': 'id_username_field',
             }
@@ -258,7 +303,8 @@ class SignUpForm(UserCreationForm):
                 {'class': 'form-input', 'placeholder': '비밀번호 확인'}
             )
         self.order_fields(
-            ['real_name', 'birth_date', 'username', 'phone_number', 'email', 'password1', 'password2', 'user_type']
+            ['real_name', 'birth_date', 'username', 'phone_number', 'email', 'password1', 'password2', 'user_type',
+             'address', 'signup_source', 'signup_source_other', 'signup_reason']
         )
 
     def clean_birth_date(self):
@@ -295,6 +341,19 @@ class SignUpForm(UserCreationForm):
     def clean(self):
         cleaned_data = super().clean()
         user_type = cleaned_data.get('user_type')
+        if user_type == 'medulab_member':
+            birth = cleaned_data.get('birth_date')
+            name = ''.join((cleaned_data.get('real_name') or '').split())
+            if name and birth:
+                generated = f"{name}{birth.strftime('%Y%m%d')}"
+                if User.objects.filter(username__iexact=generated).exists():
+                    self.add_error('username', '이미 가입된 학생입니다. 아이디를 잊으셨다면 학원에 문의해 주세요.')
+                else:
+                    cleaned_data['username'] = generated
+                    self.errors.pop('username', None)
+            elif not self.errors.get('username'):
+                self.add_error('username', '이름과 생년월일을 입력하면 아이디가 자동으로 만들어집니다.')
+        clean_signup_extras(self, cleaned_data)
         if user_type == 'medulab_parent':
             import json
 
@@ -324,6 +383,7 @@ class SignUpForm(UserCreationForm):
             profile.phone_number = self.cleaned_data.get('phone_number', '')
             profile.address = self.cleaned_data.get('address', '')
             profile.children_info = self.cleaned_data.get('children_info') or None
+            apply_signup_extras(profile, self.cleaned_data)
             profile.is_approved = user_type in UserProfile.AUTO_APPROVE_TYPES
             profile.save()
         return user
@@ -667,6 +727,10 @@ class SocialOnboardingForm(forms.Form):
         widget=forms.HiddenInput(),
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields.update(signup_extra_fields())
+
     def clean_birth_date(self):
         birth_date = self.cleaned_data.get('birth_date', '').strip()
         import datetime
@@ -692,6 +756,7 @@ class SocialOnboardingForm(forms.Form):
 
         cleaned_data = super().clean()
         user_type = cleaned_data.get('user_type')
+        clean_signup_extras(self, cleaned_data)
         if user_type == 'medulab_parent':
             if not (cleaned_data.get('address') or '').strip():
                 self.add_error('address', '메듀랩 학부모는 주소를 입력해 주세요.')

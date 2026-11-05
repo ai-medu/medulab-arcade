@@ -29,7 +29,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from .badge_service import get_active_badges_with_user_state, get_recent_user_badges, get_user_badge_count
 from .parent_notify import notify_attendance
 from .models import ClassDiscountType, Badge, Project, Category, Like, Bookmark, Tag, UserProfile, EmailChangeRequest, SignupEmailVerification, ScheduleAttachment, ScheduleEvent, Notice, Award, Certification, CertInfo, CompetitionType, Contest, SchoolClass, ClassEnrollment, ParentChildLink, TuitionInvoice, ClassAttendance, TuitionBatchPayment, InstagramConfig, InstagramPost, InstagramUploadDraft, InstagramUploadDraftItem, FutureCareerSave, ContentFinderSubmission, ContentIdeaThumbnailSubmission, AIPromptCardOrder, ContentFinderDraft, ContentIdeaFinderDraft, ContentPlanDraft, ChannelBrandingDraft
-from .forms import normalize_children_info, ProjectUploadForm, SignUpForm, AdminUserForm, AdminUserProfileForm, BadgeForm, ScheduleEventForm, TimetableForm, UserProfileUpdateForm, MedulabParentUpgradeForm, SocialOnboardingForm, SchoolClassForm
+from .forms import apply_signup_extras, normalize_children_info, ProjectUploadForm, SignUpForm, AdminUserForm, AdminUserProfileForm, BadgeForm, ScheduleEventForm, TimetableForm, UserProfileUpdateForm, MedulabParentUpgradeForm, SocialOnboardingForm, SchoolClassForm
 from .holiday_utils import ensure_holidays
 
 
@@ -5795,6 +5795,7 @@ def consult_inquiry_toggle_handled(request, pk):
 
 def signup(request):
     """회원가입"""
+    preselect = ''
     if request.method == 'POST':
         form = SignUpForm(request.POST)
         if form.is_valid():
@@ -5866,6 +5867,7 @@ def social_onboarding(request):
             profile.user_type = user_type
             profile.address = form.cleaned_data.get('address', '')
             profile.children_info = form.cleaned_data.get('children_info') or None
+            apply_signup_extras(profile, form.cleaned_data)
             profile.is_approved = user_type in UserProfile.AUTO_APPROVE_TYPES
             profile.onboarding_complete = True
             profile.save()

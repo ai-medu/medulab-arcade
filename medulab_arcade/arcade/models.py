@@ -14,6 +14,11 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 
+SIGNUP_SOURCE_CHOICES = [
+    '지인 소개', '네이버 검색', '인스타그램', '블로그', '유튜브', '카카오톡', '현수막/전단지', '학원 방문',
+]
+
+
 class UserProfile(models.Model):
     USER_TYPE_CHOICES = [
         ('student', '학생회원'),
@@ -62,6 +67,10 @@ class UserProfile(models.Model):
     # 메듀랩 학부모 알림 수신 설정 (실제 발송 기능은 추후 구현 예정, 우선 동의값만 저장)
     notify_attendance = models.BooleanField('출석 알림 수신', default=True)
     notify_news = models.BooleanField('소식 알림 수신', default=True)
+
+    # 가입 경로(선택지 또는 직접 입력한 글)와 가입 사유
+    signup_source = models.CharField('가입 경로', max_length=100, blank=True)
+    signup_reason = models.TextField('가입 사유', blank=True)
 
     # 소셜 로그인 최초 가입 시 이름/생년월일/회원유형 등을 아직 입력받지 않은 상태
     onboarding_complete = models.BooleanField('추가정보 입력 완료', default=True)
