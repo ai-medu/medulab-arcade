@@ -3032,6 +3032,20 @@ def member_link_child(request, user_id):
         parent=parent_user, child=child_user, defaults={'linked_by': request.user}
     )
     if created:
+        # 검색으로 연결한 학생도 자녀 정보 표에 같은 이름의 행으로 올려, '그 외 연결된 자녀 계정'이 아니라 매칭된 자녀로 보이게 한다
+        parent_profile, _ = UserProfile.objects.get_or_create(user=parent_user)
+        child_name = (child_user.profile.real_name or child_user.username or '').strip()
+        children = normalize_children_info(parent_profile.children_info)
+        if child_name and not any((c.get('name') or '').strip() == child_name for c in children):
+            birth = child_user.profile.birth_date
+            children.append({
+                'name': child_name[:50],
+                'birth_date': birth.strftime('%Y%m%d') if birth else '',
+                'school': '',
+                'grade': '',
+            })
+            parent_profile.children_info = children
+            parent_profile.save(update_fields=['children_info'])
         messages.success(request, f'"{child_user.profile.real_name or child_user.username}" 계정을 자녀로 연결했습니다.')
     else:
         messages.info(request, '이미 연결된 계정입니다.')

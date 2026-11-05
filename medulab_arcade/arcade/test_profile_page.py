@@ -281,3 +281,28 @@ class ParentChildrenEditTests(TestCase):
         user.profile.refresh_from_db()
         self.assertEqual(user.profile.children_info[0]['name'], '지우')
         self.assertEqual(user.profile.address, '유지될 주소')
+
+
+class AdminLinkChildAddsInfoTests(TestCase):
+    """관리자가 검색해서 학생 계정을 연결하면 자녀 정보 행도 함께 생겨 매칭된 자녀로 보인다"""
+
+    def test_link_adds_child_info_row_and_matches(self):
+        import datetime
+        admin = User.objects.create_user('adm', password='x', is_staff=True)
+        parent = User.objects.create_user('mom3', password='x')
+        parent.profile.user_type = 'parent'
+        parent.profile.save()
+        kid = User.objects.create_user('kid20130903', password='x')
+        kid.profile.real_name = '정해준'
+        kid.profile.birth_date = datetime.date(2013, 9, 3)
+        kid.profile.save()
+        self.client.force_login(admin)
+        url = reverse('member_link_child', args=[parent.id])
+        self.client.post(url, {'child_id': kid.id})
+        self.client.post(url, {'child_id': kid.id})   # 두 번 눌러도 행이 늘지 않는다
+        parent.profile.refresh_from_db()
+        self.assertEqual(len(parent.profile.children_info), 1)
+        self.assertEqual(parent.profile.children_info[0]['name'], '정해준')
+        self.assertEqual(parent.profile.children_info[0]['birth_date'], '20130903')
+        res = self.client.get(reverse('member_edit', args=[parent.id]))
+        self.assertNotContains(res, '그 외 연결된 자녀 계정')
