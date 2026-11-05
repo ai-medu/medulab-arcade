@@ -192,11 +192,11 @@
 
     .form-input {
         width: 100% !important;
-        background: rgba(0, 0, 0, 0.24) !important;
-        border: 1px solid var(--auth-border) !important;
+        background: #fff !important;
+        border: 1px solid #c7cbe0 !important;
         border-radius: 14px !important;
         padding: 14px 16px !important;
-        color: #fff !important;
+        color: #1f2937 !important;
         font-size: 15px !important;
         transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
     }
@@ -283,9 +283,9 @@
             <div style="flex:1; height:1px; background:var(--auth-border);"></div>
         </div>
 
-        <button type="button" id="regularSignupToggle" style="width:100%; padding:13px; border-radius:14px; background:rgba(255,255,255,0.05); border:1px solid var(--auth-border); color:#fff; font-weight:700; font-size:14px; cursor:pointer;">{% if form.errors %}▲ 접기{% else %}✏️ 아이디로 일반 가입하기{% endif %}</button>
+        <button type="button" id="regularSignupToggle" style="width:100%; padding:13px; border-radius:14px; background:rgba(255,255,255,0.05); border:1px solid var(--auth-border); color:#fff; font-weight:700; font-size:14px; cursor:pointer;">{% if form.errors or preselect %}▲ 접기{% else %}✏️ 아이디로 일반 가입하기{% endif %}</button>
 
-        <div id="regularSignupWrap" style="{% if form.errors %}display:block;{% else %}display:none;{% endif %} margin-top:26px;">
+        <div id="regularSignupWrap" style="{% if form.errors or preselect %}display:block;{% else %}display:none;{% endif %} margin-top:26px;">
         <form method="POST">
             {% csrf_token %}
 

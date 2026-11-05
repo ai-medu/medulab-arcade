@@ -115,3 +115,17 @@ class WorksGalleryPageTests(TestCase):
         res = self.client.get(reverse('home'))
         self.assertContains(res, 'id="works"')
         self.assertContains(res, '<section class="lp-hero"')
+
+
+class SignupPreselectTests(TestCase):
+    """/signup/?type=medulab_parent 링크는 메듀랩 학부모가 선택된 채로 가입 폼이 펼쳐진다"""
+
+    def test_preselect_medulab_parent(self):
+        res = self.client.get(reverse('signup') + '?type=medulab_parent')
+        self.assertContains(res, 'value="medulab_parent" checked')
+        self.assertContains(res, 'id="regularSignupWrap" style="display:block;')
+
+    def test_default_and_invalid_type(self):
+        res = self.client.get(reverse('signup') + '?type=hacker')
+        self.assertNotContains(res, 'value="medulab_parent" checked')
+        self.assertContains(res, 'id="regularSignupWrap" style="display:none;')

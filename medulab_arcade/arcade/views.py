@@ -5802,8 +5802,12 @@ def signup(request):
             messages.success(request, '회원가입이 완료되었습니다. 이제 로그인할 수 있습니다.')
             return redirect('home')
     else:
-        form = SignUpForm()
-    return render(request, 'arcade/signup.html', {'form': form})
+        # /signup/?type=medulab_parent 처럼 회원 유형을 미리 선택한 가입 링크
+        preselect = request.GET.get('type', '')
+        if preselect not in dict(SignUpForm.USER_TYPE_CHOICES):
+            preselect = ''
+        form = SignUpForm(initial={'user_type': preselect} if preselect else None)
+    return render(request, 'arcade/signup.html', {'form': form, 'preselect': preselect})
 
 
 @login_required
