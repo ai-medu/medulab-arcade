@@ -1570,7 +1570,7 @@ def student_course_list(request):
                 completed_program_ids.add(program_id)
             recent_learning_map[program_id] = stats.get("recent_learning_at") or enrolled_at
         profile = getattr(viewing_user, 'profile', None)
-        can_apply = bool(profile and profile.is_full_member)
+        can_apply = bool(profile and profile.can_learn)
     else:
         enrolled_ids = set()
         completed_program_ids = set()
@@ -2052,7 +2052,7 @@ def program_finder(request):
 
 # --- (3) 수강 신청 ---
 @login_required
-@require_full_member
+@require_learner
 def student_course_apply(request, program_id):
     program = get_object_or_404(LearningProgram, id=program_id)
     

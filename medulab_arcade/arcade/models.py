@@ -38,7 +38,7 @@ class UserProfile(models.Model):
     ]
 
     AUTO_APPROVE_TYPES = ('student', 'parent', 'general', 'teacher')
-    FULL_ACCESS_TYPES = ('medulab_member', 'medulab_parent', 'medulab_teacher', 'medulab_staff')
+    FULL_ACCESS_TYPES = ('medulab_member', 'medulab_parent', 'medulab_teacher', 'medulab_staff', 'teacher')
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     real_name = models.CharField('이름', max_length=20, blank=True)

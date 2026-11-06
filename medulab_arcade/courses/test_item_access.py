@@ -51,3 +51,18 @@ class ItemPageAccessTests(TestCase):
     def test_course_home_still_public(self):
         res = self.client.get(reverse('course_home', args=[self.item.chapter.program.id]))
         self.assertEqual(res.status_code, 200)
+
+    def test_teacher_can_apply_but_general_cannot(self):
+        from courses.models import LearningEnrollment
+        program = self.item.chapter.program
+        url = reverse('student_course_apply', args=[program.id])
+        self.client.force_login(self._user('tch3', 'teacher'))
+        self.client.post(url)
+        self.assertTrue(LearningEnrollment.objects.filter(user__username='tch3', program=program).exists())
+        self.client.force_login(self._user('gen3', 'general'))
+        self.client.post(url)
+        self.assertFalse(LearningEnrollment.objects.filter(user__username='gen3', program=program).exists())
+
+    def test_teacher_is_full_member_for_homework_too(self):
+        self.assertTrue(self._user('tch4', 'teacher').profile.is_full_member)
+        self.assertFalse(self._user('gen4', 'general').profile.is_full_member)
