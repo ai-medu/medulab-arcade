@@ -857,13 +857,27 @@ def require_full_member_page(view_func):
             response = view_func(request, *args, **kwargs)
         else:
             profile = getattr(user, 'profile', None)
-            if not profile or not profile.is_full_member:
-                messages.warning(request, '메듀랩 정회원(승인 완료)만 문제를 풀 수 있어요.')
+            if not profile or not profile.can_learn:
+                messages.warning(request, '메듀랩 정회원·강사회원만 문제를 풀 수 있어요.')
                 response = redirect('home')
             else:
                 response = view_func(request, *args, **kwargs)
         response['X-Robots-Tag'] = 'noindex, nofollow'
         return response
+    return _wrapped
+
+def require_learner(view_func):
+    """학습 기능용: 메듀랩 정회원·강사회원·관리자만 쓸 수 있다 (수강 신청·숙제처럼 정회원 전용 기능은 require_full_member)"""
+    @wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        user = request.user
+        if user.is_staff or user.is_superuser:
+            return view_func(request, *args, **kwargs)
+        profile = getattr(user, 'profile', None)
+        if not profile or not profile.can_learn:
+            messages.warning(request, '메듀랩 정회원·강사회원만 이용 가능합니다.')
+            return redirect('home')
+        return view_func(request, *args, **kwargs)
     return _wrapped
 
 # --- Python 오류 한글 가이드 매핑 ---
@@ -2513,7 +2527,7 @@ def submit_exam(request, item_id):
 
 
 @login_required
-@require_full_member
+@require_learner
 def submit_olympiad_answer(request, item_id):
     item = get_object_or_404(Item, id=item_id, item_type="olympiad")
     program = item.chapter.program
@@ -2609,7 +2623,7 @@ def sub_question_page(request, item_id, sq_number):
 
 
 @login_required
-@require_full_member
+@require_learner
 @login_required
 def ocr_preview_sub_answer(request, sub_question_id):
     """사진 OCR만 수행하고 결과를 JSON으로 반환 (저장하지 않음)"""

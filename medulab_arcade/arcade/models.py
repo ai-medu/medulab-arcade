@@ -87,6 +87,11 @@ class UserProfile(models.Model):
         return self.user_type in self.FULL_ACCESS_TYPES and self.is_approved
 
     @property
+    def can_learn(self):
+        """교육 프로그램 학습(문제 열람·답안 제출) 가능 여부: 메듀랩 정회원 + 강사회원"""
+        return self.is_full_member or (self.user_type == 'teacher' and self.is_approved)
+
+    @property
     def needs_approval(self):
         return self.user_type in self.FULL_ACCESS_TYPES and not self.is_approved
 

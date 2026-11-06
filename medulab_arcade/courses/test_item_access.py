@@ -42,6 +42,12 @@ class ItemPageAccessTests(TestCase):
         self.client.force_login(self._user('adm2', 'general', staff=True))
         self.assertEqual(self.client.get(self.url).status_code, 200)
 
+    def test_teacher_member_allowed_but_unapproved_teacher_blocked(self):
+        self.client.force_login(self._user('tch', 'teacher'))
+        self.assertEqual(self.client.get(self.url).status_code, 200)
+        self.client.force_login(self._user('tch2', 'teacher', approved=False))
+        self.assertEqual(self.client.get(self.url).status_code, 302)
+
     def test_course_home_still_public(self):
         res = self.client.get(reverse('course_home', args=[self.item.chapter.program.id]))
         self.assertEqual(res.status_code, 200)
