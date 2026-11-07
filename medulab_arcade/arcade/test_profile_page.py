@@ -501,3 +501,18 @@ class AdminMemberEditAddressTests(TestCase):
         self.assertContains(res, '메듀랩 학부모는 주소를 입력해 주세요.')
         data['address'] = '서울 어딘가 1'
         self.assertEqual(self.client.post(url, data).status_code, 302)
+
+
+class PortoneEmailTests(TestCase):
+    """결제창에 넘기는 이메일은 PG가 받는 영문 형식이어야 한다 (한글 아이디로 만든 주소는 거절됨)"""
+
+    def test_email_fallbacks(self):
+        from arcade.views import portone_email
+        ok = User.objects.create_user('okuser', password='x', email='Mom@Example.com')
+        self.assertEqual(portone_email(ok), 'Mom@example.com')
+        empty = User.objects.create_user('김윤재20210616', password='x', email='')
+        self.assertEqual(portone_email(empty), f'user{empty.id}@medulab.kr')
+        korean = User.objects.create_user('kor1', password='x', email='학부모@example.com')
+        self.assertEqual(portone_email(korean), f'user{korean.id}@medulab.kr')
+        broken = User.objects.create_user('brk1', password='x', email='not-an-email')
+        self.assertEqual(portone_email(broken), f'user{broken.id}@medulab.kr')

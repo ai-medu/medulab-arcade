@@ -2843,6 +2843,15 @@ def confirm_signup_email(request, token):
 # 회원 관리 (관리자 전용 CRUD)
 # ────────────────────────────────────────────────
 
+def portone_email(user):
+    """결제창(PG)에 넘길 이메일. PG는 영문 이메일 형식만 받으므로, 비었거나 한글 등이 섞인 주소는
+    아이디(한글 가능)를 쓰지 않고 회원번호 기반의 대체 주소로 바꾼다"""
+    email = (user.email or '').strip()
+    if re.fullmatch(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}", email):
+        return email
+    return f'user{user.id}@medulab.kr'
+
+
 def staff_check(user):
     return user.is_staff
 
@@ -5078,7 +5087,7 @@ def tuition_checkout(request, invoice_id):
         'portone_store_id': settings.PORTONE_STORE_ID,
         'portone_channel_key_card': settings.PORTONE_CHANNEL_KEY_CARD,
         'portone_channel_key_kakaopay': settings.PORTONE_CHANNEL_KEY_KAKAOPAY,
-        'portone_customer_email': invoice.student.email or f'{invoice.student.username}@medulab.kr',
+        'portone_customer_email': portone_email(invoice.student),
         'portone_customer_phone': re.sub(r'\D', '', invoice.student.profile.phone_number or '') or '01000000000',
         'portone_customer_name': invoice.student.profile.real_name or invoice.student.username,
     }
@@ -5156,7 +5165,7 @@ def tuition_pay_public(request, token):
         'portone_store_id': settings.PORTONE_STORE_ID,
         'portone_channel_key_card': settings.PORTONE_CHANNEL_KEY_CARD,
         'portone_channel_key_kakaopay': settings.PORTONE_CHANNEL_KEY_KAKAOPAY,
-        'portone_customer_email': f'{invoice.student.username}@medulab.kr',
+        'portone_customer_email': portone_email(invoice.student),
         'portone_customer_phone': phones[0] if phones else '01000000000',
         'portone_customer_name': invoice.student.profile.real_name or invoice.student.username,
     }
@@ -5236,7 +5245,7 @@ def tuition_batch_checkout(request):
         'portone_store_id': settings.PORTONE_STORE_ID,
         'portone_channel_key_card': settings.PORTONE_CHANNEL_KEY_CARD,
         'portone_channel_key_kakaopay': settings.PORTONE_CHANNEL_KEY_KAKAOPAY,
-        'portone_customer_email': request.user.email or f'{request.user.username}@medulab.kr',
+        'portone_customer_email': portone_email(request.user),
         'portone_customer_phone': re.sub(r'\D', '', request.user.profile.phone_number or '') or '01000000000',
         'portone_customer_name': request.user.profile.real_name or request.user.username,
     }
