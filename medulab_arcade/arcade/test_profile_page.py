@@ -516,3 +516,40 @@ class PortoneEmailTests(TestCase):
         self.assertEqual(portone_email(korean), f'user{korean.id}@medulab.kr')
         broken = User.objects.create_user('brk1', password='x', email='not-an-email')
         self.assertEqual(portone_email(broken), f'user{broken.id}@medulab.kr')
+
+
+class RobotContestTests(TestCase):
+    """대회 및 공모전 화면: 이름 변경과 로봇대회(씽굿) 목록"""
+
+    def test_nav_item_renamed_by_migration_and_page_title(self):
+        from arcade.models import NavItem
+        self.assertFalse(NavItem.objects.filter(url_name='board_contest', name='추천 공모전').exists())
+        res = self.client.get(reverse('board_contest'))
+        self.assertContains(res, '대회 및 공모전')
+        self.assertNotContains(res, '추천 공모전')
+        self.assertContains(res, 'id="btnRobot"')
+
+    def test_api_returns_only_robot_titles_sorted(self):
+        from unittest import mock
+        from django.core.cache import cache
+        cache.delete('robot_contests')
+        rows = [
+            {'id': 1, 'program_nm': '국방 AI 경진대회', 'process_nm': '접수중', 'finish_dt': '2099-01-01 00:00:00.0'},
+            {'id': 2, 'program_nm': '제1회 로봇 경진대회', 'process_nm': '마감', 'finish_dt': '2000-01-01 00:00:00.0'},
+            {'id': 3, 'program_nm': '청소년 로봇대회', 'process_nm': '접수중', 'finish_dt': '2099-06-01 00:00:00.0',
+             'host_company': '재단', 'enter_qualified_nm': '초등학생', 'receive_period': '2099-05-01 ~ 2099-06-01',
+             'prize_money': '30만원', 'contest_field_nm': '과학'},
+        ]
+
+        class Resp:
+            def raise_for_status(self): pass
+            def json(self): return {'listJsonData': rows}
+
+        with mock.patch('requests.post', return_value=Resp()):
+            res = self.client.get(reverse('api_robot_contests'))
+        data = res.json()
+        self.assertTrue(data['success'])
+        names = [i['name'] for i in data['items']]
+        self.assertEqual(names, ['청소년 로봇대회'])   # AI 대회와 오래전 마감 건은 제외
+        self.assertIn('contest_pk=3', data['items'][0]['detailUrl'])
+        cache.delete('robot_contests')

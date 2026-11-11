@@ -1,6 +1,6 @@
 {% extends 'arcade/base.html' %}
 
-{% block title %}추천 공모전 - 메듀랩 아케이드{% endblock %}
+{% block title %}대회 및 공모전 - 메듀랩 아케이드{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -206,6 +206,8 @@
     .nai-status.st-예선 { background:rgba(59,130,246,0.15); color:#60a5fa; }
     .nai-status.st-본선 { background:rgba(168,85,247,0.15); color:#c084fc; }
     .nai-status.st-결선 { background:rgba(245,158,11,0.15); color:#fbbf24; }
+    .nai-status.st-접수예정 { background:rgba(59,130,246,0.15); color:#60a5fa; }
+    .nai-status.st-마감 { background:rgba(255,255,255,0.06); color:var(--text-muted); }
     .nai-status.st-준비중 { background:rgba(255,255,255,0.08); color:var(--text-muted); }
     .nai-type { font-size:11px; font-weight:700; color:#93c5fd; margin-top:4px; display:block; }
     .nai-name-cell a { color:#fff; font-weight:700; text-decoration:none; }
@@ -222,12 +224,15 @@
     <!-- 헤더 영역 -->
     <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 24px; margin-bottom: 28px; gap: 16px; flex-wrap: wrap;">
         <div>
-            <h2 style="color: #fff; font-size: 30px; font-weight: 900; margin: 0 0 8px 0; background: linear-gradient(90deg, #00ffb4, #00b4ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">🏆 추천 공모전</h2>
-            <p style="color: var(--text-muted); font-size: 14.5px; margin: 0; line-height: 1.5;">메듀랩 학생들이 도전하여 소프트웨어적 성장과 성취감을 맛볼 수 있는 IT·SW·AI·로봇·게임 분야 공모전 목록입니다.</p>
+            <h2 style="color: #fff; font-size: 30px; font-weight: 900; margin: 0 0 8px 0; background: linear-gradient(90deg, #00ffb4, #00b4ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">🏆 대회 및 공모전</h2>
+            <p style="color: var(--text-muted); font-size: 14.5px; margin: 0; line-height: 1.5;">메듀랩 학생들이 도전하여 소프트웨어적 성장과 성취감을 맛볼 수 있는 IT·SW·AI·로봇·게임 분야 공모전 목록입니다. 전국민 AI경진대회와 로봇대회는 버튼을 눌러 최신 일정을 확인하세요.</p>
         </div>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
             <button id="btnNationalAi" style="background: linear-gradient(135deg, #0ea5e9, #6366f1); color: white; padding: 10px 20px; border-radius: 10px; border: none; font-weight: bold; font-size: 14.5px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3); cursor: pointer; transition: opacity 0.2s;">
                 🇰🇷 전국민AI경진대회
+            </button>
+            <button id="btnRobot" style="background: linear-gradient(135deg, #f59e0b, #ef4444); color: white; padding: 10px 20px; border-radius: 10px; border: none; font-weight: bold; font-size: 14.5px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3); cursor: pointer; transition: opacity 0.2s;">
+                🤖 로봇대회
             </button>
             {% if user.is_staff %}
             <button id="btnCrawl" style="background: linear-gradient(135deg, #10b981, #047857); color: white; padding: 10px 20px; border-radius: 10px; border: none; font-weight: bold; font-size: 14.5px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); cursor: pointer; transition: opacity 0.2s;">
@@ -247,6 +252,17 @@
             <a href="https://aichallenge4all.or.kr/competitions" target="_blank" rel="noopener noreferrer" style="font-size:12.5px; color:#93c5fd; text-decoration:none;">원본 사이트 열기 →</a>
         </div>
         <div id="nationalAiList" class="national-ai-list">
+            <div style="text-align:center; padding:40px; color: var(--text-muted);">불러오는 중...</div>
+        </div>
+    </div>
+
+    <!-- 로봇대회 (토글) -->
+    <div id="robotPanel" style="display:none; margin-bottom: 32px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
+            <div style="font-size:15px; font-weight:800; color:#fff;">🤖 로봇대회 · 모집·접수 현황 <span style="font-size:12px; font-weight:600; color:var(--text-muted);">(씽굿 기준)</span></div>
+            <a href="https://www.thinkcontest.com/thinkgood/user/contest/index.do" target="_blank" rel="noopener noreferrer" style="font-size:12.5px; color:#93c5fd; text-decoration:none;">원본 사이트 열기 →</a>
+        </div>
+        <div id="robotList" class="national-ai-list">
             <div style="text-align:center; padding:40px; color: var(--text-muted);">불러오는 중...</div>
         </div>
     </div>
@@ -328,7 +344,7 @@
         {% empty %}
             <div style="grid-column: 1 / -1; text-align: center; padding: 80px 20px; color: var(--text-muted); background: rgba(255, 255, 255, 0.02); border-radius: 20px; border: 1px dashed rgba(255, 255, 255, 0.1);">
                 <div style="font-size: 48px; margin-bottom: 16px;">🔍</div>
-                <div style="font-size: 16px; font-weight: 700; color: rgba(255, 255, 255, 0.8); margin-bottom: 6px;">등록된 추천 공모전이 없습니다.</div>
+                <div style="font-size: 16px; font-weight: 700; color: rgba(255, 255, 255, 0.8); margin-bottom: 6px;">등록된 대회·공모전이 없습니다.</div>
                 <p style="font-size: 13.5px; margin: 0; color: rgba(255, 255, 255, 0.4);">메듀랩 관리자가 준비 중입니다. 잠시만 기다려 주세요!</p>
             </div>
         {% endfor %}
@@ -350,9 +366,10 @@ document.addEventListener('DOMContentLoaded', function() {
         return div.innerHTML;
     }
 
-    function renderNationalAiItems(items) {
+    function renderNationalAiItems(items, listEl) {
+        listEl = listEl || nationalAiList;
         if (!items.length) {
-            nationalAiList.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);">표시할 대회 일정이 없습니다.</div>';
+            listEl.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);">표시할 대회 일정이 없습니다.</div>';
             return;
         }
         const rows = items.map(function(item) {
@@ -364,6 +381,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td class="nai-name-cell">
                         <a href="${escapeHtml(item.detailUrl || '#')}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.name)}</a>
                         ${type}
+                        ${item.organizer ? `<span class="nai-type" style="color:rgba(255,255,255,0.45);">${escapeHtml(item.organizer)}</span>` : ''}
                     </td>
                     <td class="nai-target-cell">${escapeHtml(item.target)}</td>
                     <td class="nai-schedule-cell">${escapeHtml(item.displaySchedule)}</td>
@@ -371,7 +389,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 </tr>
             `;
         }).join('');
-        nationalAiList.innerHTML = `
+        listEl.innerHTML = `
             <div class="national-ai-table-wrap">
                 <table class="national-ai-table">
                     <colgroup>
@@ -413,6 +431,35 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    const btnRobot = document.getElementById('btnRobot');
+    const robotPanel = document.getElementById('robotPanel');
+    const robotList = document.getElementById('robotList');
+    let robotLoaded = false;
+    if (btnRobot) {
+        btnRobot.addEventListener('click', function() {
+            const willShow = robotPanel.style.display === 'none';
+            robotPanel.style.display = willShow ? 'block' : 'none';
+            if (willShow && !robotLoaded) {
+                fetch("{% url 'api_robot_contests' %}")
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.success) {
+                            robotLoaded = true;
+                            renderNationalAiItems(data.items || [], robotList);
+                        } else {
+                            robotList.innerHTML = `<div style="text-align:center; padding:40px; color:#fca5a5;">${escapeHtml(data.error || '불러오기에 실패했습니다.')}</div>`;
+                        }
+                    })
+                    .catch(function() {
+                        robotList.innerHTML = '<div style="text-align:center; padding:40px; color:#fca5a5;">불러오기에 실패했습니다. 잠시 후 다시 시도해 주세요.</div>';
+                    });
+            }
+            if (willShow) {
+                robotPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
+    }
+
     const btnCrawl = document.getElementById('btnCrawl');
     if (btnCrawl) {
         btnCrawl.addEventListener('click', function() {
@@ -442,7 +489,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(data => {
                 if (data.status === 'success') {
-                    alert(`수집 완료!\n총 ${data.added_count}개의 새로운 추천 공모전이 정상적으로 데이터베이스에 추가되었습니다.`);
+                    alert(`수집 완료!\n총 ${data.added_count}개의 새로운 대회·공모전이 정상적으로 데이터베이스에 추가되었습니다.`);
                     window.location.reload();
                 } else {
                     alert(`수집 중 오류 발생: ${data.message}`);

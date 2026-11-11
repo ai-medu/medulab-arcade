@@ -6674,6 +6674,86 @@ def api_national_ai_schedule(request):
 
     return JsonResponse({'success': True, 'items': data.get('items', [])})
 
+ROBOT_CONTEST_KEYWORDS = ('로봇', '로보', 'robo', 'wro', 'fll')
+
+
+def _fetch_robot_contests():
+    """씽굿(thinkcontest.com)에서 '로봇' 키워드로 검색한 대회·공모전을 가져와 화면용 항목으로 정리한다.
+    제목에 로봇이 들어간 것만 남기고, 접수중인 것을 먼저, 종료된 것은 최근 1년 이내만 보여 준다."""
+    import datetime
+    import requests
+
+    url = 'https://www.thinkcontest.com/thinkgood/user/contest/subList.do'
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36',
+        'Content-Type': 'application/json;charset=UTF-8',
+        'Referer': 'https://www.thinkcontest.com/thinkgood/user/contest/index.do',
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+    }
+    raw = {}
+    for keyword in ('로봇', '로보', 'WRO'):
+        for page in (1, 2, 3, 4):
+            payload = {
+                'searchStatus': 'Y', 'recordsPerPage': 10, 'currentPageNo': page,
+                'sidx': 'putup_sdt', 'sord': 'DESC', 'pagesite': 'contest', 'searchKeyword': keyword,
+            }
+            resp = requests.post(url, headers=headers, json=payload, timeout=10)
+            resp.raise_for_status()
+            rows = resp.json().get('listJsonData', [])
+            for row in rows:
+                raw[str(row.get('id'))] = row
+            if len(rows) < 10:
+                break
+
+    today = datetime.date.today()
+    status_map = {'접수중': '접수중', '마감임박': '접수중', '접수예정': '접수예정', '마감': '마감'}
+    items = []
+    for cid, row in raw.items():
+        title = (row.get('program_nm') or '').strip()
+        if not any(k in title.lower() for k in ROBOT_CONTEST_KEYWORDS):
+            continue
+        status = status_map.get(row.get('process_nm') or '', row.get('process_nm') or '')
+        end = None
+        try:
+            end = datetime.datetime.strptime((row.get('finish_dt') or '')[:10], '%Y-%m-%d').date()
+        except ValueError:
+            pass
+        if status == '마감' and end and (today - end).days > 365:
+            continue
+        prize = (row.get('prize_money') or '').strip()
+        items.append({
+            'name': title,
+            'organizer': (row.get('host_company') or '').strip(),
+            'displayStatus': status,
+            'displayType': (row.get('contest_field_nm') or '').strip(),
+            'target': (row.get('enter_qualified_nm') or '').strip(),
+            'displaySchedule': (row.get('receive_period') or '').replace(' ~ ', ' ~\n'),
+            'displayPrize': prize,
+            'detailUrl': f'https://www.thinkcontest.com/thinkgood/user/contest/view.do?contest_pk={cid}',
+            '_order': (0 if status == '접수중' else 1 if status == '접수예정' else 2, -(end.toordinal() if end else 0)
+                       if status == '마감' else (end.toordinal() if end else 0)),
+        })
+    items.sort(key=lambda i: i['_order'])
+    for item in items:
+        del item['_order']
+    return items
+
+
+def api_robot_contests(request):
+    """로봇대회 목록: 씽굿에서 가져와 15분간 캐시한다 (브라우저에서 직접 호출하면 CORS로 막혀 서버에서 대신 조회)"""
+    import requests
+    from django.core.cache import cache
+
+    items = cache.get('robot_contests')
+    if items is None:
+        try:
+            items = _fetch_robot_contests()
+        except (requests.RequestException, ValueError):
+            return JsonResponse({'success': False, 'error': '로봇대회 정보를 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.'}, status=502)
+        cache.set('robot_contests', items, 60 * 15)
+    return JsonResponse({'success': True, 'items': items})
+
+
 def board_contest_detail(request, pk):
     contest = get_object_or_404(Contest, pk=pk)
     return render(request, 'arcade/board_contest_detail.html', {'contest': contest})
