@@ -2238,6 +2238,10 @@ def item_page(request, item_id):
     except ValueError:
         prev_item = next_item = None
 
+    # 모의고사 챕터는 각 문항이 긴 독립 퀴즈라 "다음"으로 바로 다른 회차로 넘기지 않고 목록으로 보낸다
+    if item.chapter.title == "모의고사":
+        next_item = None
+
     # 유저 진행 상황 (기존 코드 등 로드)
     if request.user.is_authenticated:
         progress, _ = UserProgress.objects.get_or_create(user=request.user, item=item)
