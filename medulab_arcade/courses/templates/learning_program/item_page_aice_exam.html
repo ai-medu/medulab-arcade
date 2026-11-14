@@ -3,10 +3,16 @@
 {% block extra_css %}
 {{ block.super }}
 <style>
+    html, body { overflow: hidden; height: 100%; }
+    .footer { display: none !important; }
+    .aice-wrap.exam .aice-ide { display: flex; flex-direction: column; }
+    .aice-wrap.exam .aice-ide iframe { flex: 1; height: auto; }
     .aice-wrap.exam .aice-panel { width: 460px; background: #fff; color: #1e293b; border-left: 1px solid #e2e8f0; }
     .ex-head { background: #3b6df0; color: #fff; padding: 14px 18px 16px; flex-shrink: 0; }
     .ex-head-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     .ex-logo { font-weight: 900; font-size: 17px; letter-spacing: .5px; }
+    .ex-head-right { display: flex; align-items: center; gap: 8px; }
+    .ex-back-link { color: #fff; font-size: 12px; font-weight: 700; text-decoration: none; background: rgba(255,255,255,.18); border-radius: 999px; padding: 5px 10px; white-space: nowrap; }
     .ex-timer { background: rgba(255,255,255,.18); border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 700; white-space: nowrap; }
     .ex-timer.warn { background: #ef4444; }
     .ex-name { font-size: 20px; font-weight: 900; margin-top: 8px; }
@@ -28,10 +34,13 @@
     .ex-gen { margin-top: 12px; padding: 12px; border: 1px dashed #3b6df0; border-radius: 12px; background: #f5f8ff; font-size: 13px; line-height: 1.6; }
     .ex-gen a.dl { display: inline-block; margin-top: 6px; padding: 8px 14px; border-radius: 9px; background: #3b6df0; color: #fff; font-weight: 800; text-decoration: none; }
     .ex-gen .none { color: #94a3b8; }
-    .ex-scene-tabs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-    .ex-scene-tab { border: 1.5px solid #cbd5e1; background: #fff; color: #475569; border-radius: 999px; padding: 5px 12px; font-size: 12.5px; font-weight: 700; cursor: pointer; }
-    .ex-scene-tab.active { border-color: #3b6df0; background: #3b6df0; color: #fff; }
-    .ex-scene-tab:disabled { opacity: .5; cursor: default; }
+    .codiny-scene-bar { display: none; align-items: center; gap: 8px; padding: 0 10px; height: 36px; background: #fff; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; }
+    .codiny-scene-bar.show { display: flex; }
+    .csb-icon { color: #64748b; font-size: 15px; }
+    .csb-tabs { display: flex; gap: 6px; overflow-x: auto; }
+    .csb-tab { border: none; background: #f1f5f9; color: #475569; border-radius: 8px; padding: 5px 14px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .csb-tab.active { background: #3b6df0; color: #fff; }
+    .csb-tab:disabled { opacity: .5; cursor: default; }
     .ex-gen label.up { display: inline-block; margin-top: 6px; padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 12px; cursor: pointer; background: #fff; color: #334155; }
     .ex-foot { flex-shrink: 0; padding: 12px 20px 14px; border-top: 1px solid #e2e8f0; background: #fff; }
     .ex-nav { display: flex; gap: 10px; }
@@ -69,6 +78,10 @@
 {% block content %}
 <div class="aice-wrap exam">
     <div class="aice-ide">
+        <div class="codiny-scene-bar" id="codinySceneBar">
+            <span class="csb-icon">☰</span>
+            <div class="csb-tabs" id="codinySceneTabs"></div>
+        </div>
         <iframe id="codinyFrame" src="https://aicodiny.com/aice/codex-iframe" title="AI Codiny" allow="microphone; camera"></iframe>
     </div>
 
@@ -78,7 +91,10 @@
         <div class="ex-head">
             <div class="ex-head-top">
                 <span class="ex-logo">🎓 AICE</span>
-                <span class="ex-timer" id="exTimer">종료 시각 --:-- | 남은 시간 --:--</span>
+                <div class="ex-head-right">
+                    <a href="{% url 'chapter_detail' item.chapter.id %}" class="ex-back-link">← 목록</a>
+                    <span class="ex-timer" id="exTimer">종료 시각 --:-- | 남은 시간 --:--</span>
+                </div>
             </div>
             <div class="ex-name">{{ exam.title }}</div>
         </div>
@@ -119,6 +135,7 @@
     var CSRF = document.querySelector('#aiceCsrfForm input[name=csrfmiddlewaretoken]').value;
     var KEY = 'aiceExam_' + ITEM_ID;
     var qs = EXAM.questions, cur = 0, answers = {}, selfOk = {}, finished = false, timerId = null, endAt = 0;
+    document.body.scrollTop = 0; document.documentElement.scrollTop = 0;
     var body = document.getElementById('exBody'), foot = document.getElementById('exFoot');
     var $ = function (id) { return document.getElementById(id); };
     var CIRC = ['①', '②', '③', '④', '⑤'];
@@ -151,15 +168,20 @@
         canon.scenes = canon.scenes.map(function (s) { return map[s.sceneId] || s; });
         return canon;
     }
+    function hideSceneBar() {
+        var bar = document.getElementById('codinySceneBar'), box = document.getElementById('codinySceneTabs');
+        if (bar) bar.classList.remove('show');
+        if (box) box.innerHTML = '';
+    }
     function renderSceneTabsUI(no) {
-        var box = document.getElementById('exSceneTabs');
-        if (!box) return;
+        var bar = document.getElementById('codinySceneBar'), box = document.getElementById('codinySceneTabs');
+        if (!bar || !box) return;
         var canon = canonCache[no];
-        if (!canon || !canon.scenes || canon.scenes.length <= 1) { box.style.display = 'none'; box.innerHTML = ''; return; }
+        if (!canon || !canon.scenes || canon.scenes.length <= 1) { hideSceneBar(); return; }
         var activeIdx = activeCache[no] || 0;
-        box.style.display = 'flex';
-        box.innerHTML = '🎬 장면:' + canon.scenes.map(function (s, i) {
-            return '<button type="button" class="ex-scene-tab' + (i === activeIdx ? ' active' : '') + '" data-scene-i="' + i + '">' + esc(s.sceneName || ('장면 ' + (i + 1))) + '</button>';
+        bar.classList.add('show');
+        box.innerHTML = canon.scenes.map(function (s, i) {
+            return '<button type="button" class="csb-tab' + (i === activeIdx ? ' active' : '') + '" data-scene-i="' + i + '">' + esc(s.sceneName || ('장면 ' + (i + 1))) + '</button>';
         }).join('');
     }
     function postCanonical(no) {
@@ -215,7 +237,7 @@
             }).catch(function () { setCodinyStatus('문제 파일을 자동으로 열지 못했어요. 아래 "파일 받기"로 받아서 코디니에서 열어 주세요.', false); });
     }
     function openQuestion(q) {
-        if (!q.gen_url) { openedNo = null; return; }
+        if (!q.gen_url) { openedNo = null; hideSceneBar(); return; }
         if (!codinyReady) { setCodinyStatus('코디니를 불러오는 중이에요. 잠시만 기다려 주세요…'); return; }
         var mine = load(workKey(q.no));
         if (mine) {
@@ -287,7 +309,6 @@
         h += '<div class="ex-gen">';
         if (q.gen_url) {
             h += '📂 <b>문제 파일이 왼쪽 코디니에 자동으로 열려요.</b><div id="exCodinyMsg" style="margin-top:4px;font-size:12.5px;"></div>';
-            h += '<div id="exSceneTabs" class="ex-scene-tabs" style="display:none;margin-top:8px;"></div>';
             h += '<div style="margin-top:8px;font-size:12px;color:#64748b;"><a href="#" id="exReset" style="color:#3b6df0;font-weight:700;">처음 문제 파일로 다시 열기</a> · <a href="' + q.gen_url + '" download style="color:#64748b;">파일 받기</a></div>';
         } else {
             h += '<span class="none">📂 이 문항은 코디니 파일이 필요 없어요.</span>';
@@ -313,10 +334,12 @@
     body.addEventListener('click', function (e) {
         var c = e.target.closest('[data-c]');
         if (c && !finished) { answers[qs[cur].no] = parseInt(c.dataset.c, 10); persist(); render(); return; }
-        var st = e.target.closest('.ex-scene-tab');
-        if (st && !finished) { switchScene(qs[cur].no, parseInt(st.dataset.sceneI, 10)); return; }
         var d = e.target.closest('.ex-dot');
         if (d) { goto(parseInt(d.dataset.i, 10)); }
+    });
+    document.getElementById('codinySceneTabs').addEventListener('click', function (e) {
+        var st = e.target.closest('.csb-tab');
+        if (st && !finished) switchScene(qs[cur].no, parseInt(st.dataset.sceneI, 10));
     });
     function goto(i) {
         if (i === cur || i < 0 || i >= qs.length) return;
@@ -398,6 +421,7 @@
             if (d.answer_image) {
                 h += '<img src="' + d.answer_image + '" alt="정답 블록">';
             }
+            if (!d.ok) h += '<button type="button" class="ex-retry" style="margin-top:8px;padding:8px;" data-retryq="' + d.no + '">🔁 이 문제 다시 풀기</button>';
             h += '</div>';
         });
         if (res.guide && res.guide.length) {
@@ -408,12 +432,28 @@
         body.querySelectorAll('[data-agen]').forEach(function (b) {
             b.onclick = function () { loadGenInto(b.dataset.agen, parseInt(b.dataset.ano, 10), '정답 코드를 코디니에 열었어요. (내가 코딩한 내용은 저장돼 있어요)'); openedNo = null; };
         });
+        body.querySelectorAll('[data-retryq]').forEach(function (b) {
+            b.onclick = function () { retryQuestion(parseInt(b.dataset.retryq, 10)); };
+        });
         $('exRetry').onclick = function () {
             finished = false; answers = {}; selfOk = {}; cur = 0; persist(); store('_end', null);
             qs.forEach(function (x) { store(workKey(x.no), null); store(activeIdxKey(x.no), null); });
             canonCache = {}; activeCache = {}; openedNo = null;
             foot.style.display = ''; render(); startTimer(); openQuestion(qs[0]);
         };
+    }
+
+    function retryQuestion(no) {
+        var idx = qs.findIndex(function (q) { return q.no === no; });
+        if (idx < 0) return;
+        finished = false;
+        cur = idx;
+        clearInterval(timerId);
+        $('exTimer').textContent = '복습 모드 (시간 제한 없음)';
+        $('exTimer').classList.remove('warn');
+        foot.style.display = '';
+        render();
+        openQuestion(qs[cur]);
     }
 
     if (SAVED && SAVED.exam) {
