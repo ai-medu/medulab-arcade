@@ -112,6 +112,13 @@
             </div>
         </div>
 
+        <div class="ex-modal" id="exIntro">
+            <div class="ex-modal-box" style="max-width:380px;">
+                <h3>📝 {{ exam.title }}</h3>
+                <p id="exIntroBody"></p>
+                <div class="btns"><button type="button" class="pri" id="exIntroStart" style="width:100%;">시작하기</button></div>
+            </div>
+        </div>
         <div class="ex-modal" id="exConfirm">
             <div class="ex-modal-box">
                 <h3>시험을 종료할까요?</h3>
@@ -466,12 +473,23 @@
         openQuestion(qs[cur]);
     }
 
+    function startExam() {
+        answers = load('_ans') || {}; selfOk = load('_self') || {};
+        render(); startTimer();
+    }
+
     if (SAVED && SAVED.exam) {
         finished = true;
         showResult(SAVED);
+    } else if (load('_end') || load('_ans')) {
+        startExam();
     } else {
-        answers = load('_ans') || {}; selfOk = load('_self') || {};
-        render(); startTimer();
+        $('exIntroBody').innerHTML = '총 <b>' + qs.length + '문항</b> · 제한시간 <b>' + EXAM.minutes + '분</b><br>이론 문항은 선택한 답으로, 실습 문항은 AI Codiny에서 코딩한 블록을 정답과 비교해 자동으로 채점돼요.<br><br>시작을 누르면 타이머가 시작돼요. 준비되면 아래 버튼을 눌러 주세요.';
+        $('exIntro').classList.add('show');
+        $('exIntroStart').onclick = function () {
+            $('exIntro').classList.remove('show');
+            startExam();
+        };
     }
 })();
 </script>
