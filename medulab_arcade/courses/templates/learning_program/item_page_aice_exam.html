@@ -72,6 +72,8 @@
     .ex-res img { width: 100%; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 8px; }
     .ex-res label.chk { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; font-weight: 700; cursor: pointer; }
     .ex-retry { width: 100%; margin-top: 6px; padding: 12px; border: 1.5px solid #3b6df0; border-radius: 10px; background: #fff; color: #3b6df0; font-weight: 800; cursor: pointer; }
+    .ex-res-btns { display: flex; gap: 8px; margin-top: 8px; }
+    .ex-res-btns .ex-retry { width: auto; flex: 1; margin-top: 0; padding: 8px; }
 </style>
 {% endblock %}
 
@@ -151,6 +153,7 @@
     }
     function workKey(no) { return '_work' + no; }
     function activeIdxKey(no) { return '_scnIdx' + no; }
+    function retryCountKey(no) { return '_retryCount' + no; }
     function stripGen(g) { try { g.thumbnailUrl = ''; } catch (e) {} return g; }
 
     // ── 장면(scene) 탭 흉내 (코디니 AICE iframe 모드엔 장면 탭 UI가 없어서, getGEN/postGEN으로 자체 구현) ──
@@ -417,11 +420,17 @@
             else if (d.auto === 'mismatch') h += '<div class="ex" style="margin-top:4px;color:#dc2626;font-weight:700;">🤖 자동 채점: 코딩한 블록이 정답과 달라요</div>';
             else if (d.auto === 'none' && d.kind !== 'mcq') h += '<div class="ex" style="margin-top:4px;color:#94a3b8;">🤖 자동 채점: 코디니에서 코딩한 내용이 없어요</div>';
             if (d.explain) h += '<div class="ex">💡 ' + esc(d.explain) + '</div>';
-            if (d.answer_gen) h += '<button type="button" class="ex-retry" style="margin-top:8px;padding:8px;" data-agen="' + d.answer_gen + '" data-ano="' + d.no + '">🧩 정답 코드를 코디니에서 보기</button>';
-            if (d.answer_image) {
-                h += '<img src="' + d.answer_image + '" alt="정답 블록">';
+            if (d.ok) {
+                if (d.answer_gen) h += '<button type="button" class="ex-retry" style="margin-top:8px;padding:8px;" data-agen="' + d.answer_gen + '" data-ano="' + d.no + '">🧩 정답 코드를 코디니에서 보기</button>';
+                if (d.answer_image) h += '<img src="' + d.answer_image + '" alt="정답 블록">';
+            } else {
+                var tries = load(retryCountKey(d.no)) || 0;
+                h += '<div class="ex-res-btns">';
+                h += '<button type="button" class="ex-retry" data-retryq="' + d.no + '">🔁 다시 풀기</button>';
+                if (tries > 0 && d.answer_gen) h += '<button type="button" class="ex-retry" data-agen="' + d.answer_gen + '" data-ano="' + d.no + '">🧩 정답보기</button>';
+                h += '</div>';
+                if (tries > 0 && d.answer_image) h += '<img src="' + d.answer_image + '" alt="정답 블록">';
             }
-            if (!d.ok) h += '<button type="button" class="ex-retry" style="margin-top:8px;padding:8px;" data-retryq="' + d.no + '">🔁 이 문제 다시 풀기</button>';
             h += '</div>';
         });
         if (res.guide && res.guide.length) {
@@ -437,7 +446,7 @@
         });
         $('exRetry').onclick = function () {
             finished = false; answers = {}; selfOk = {}; cur = 0; persist(); store('_end', null);
-            qs.forEach(function (x) { store(workKey(x.no), null); store(activeIdxKey(x.no), null); });
+            qs.forEach(function (x) { store(workKey(x.no), null); store(activeIdxKey(x.no), null); store(retryCountKey(x.no), null); });
             canonCache = {}; activeCache = {}; openedNo = null;
             foot.style.display = ''; render(); startTimer(); openQuestion(qs[0]);
         };
@@ -446,6 +455,7 @@
     function retryQuestion(no) {
         var idx = qs.findIndex(function (q) { return q.no === no; });
         if (idx < 0) return;
+        store(retryCountKey(no), (load(retryCountKey(no)) || 0) + 1);
         finished = false;
         cur = idx;
         clearInterval(timerId);
