@@ -2886,6 +2886,8 @@ def member_complete_onboarding(request, user_id):
     profile.signup_source = data.get('signup_source', '')
     profile.signup_reason = (data.get('signup_reason') or '').strip()
     profile.onboarding_complete = True
+    from .special_lecture import grant_welcome_coupon
+    grant_welcome_coupon(target)
     profile.is_approved = bool(data['approve']) or user_type in UserProfile.AUTO_APPROVE_TYPES
     if profile.is_approved:
         profile.approved_at = timezone.now()
@@ -5966,6 +5968,8 @@ def social_onboarding(request):
             profile.save()
             request.session.pop('pending_signup_user_type', None)
             request.session.pop('pending_signup_locked_type', None)
+            from .special_lecture import grant_welcome_coupon
+            grant_welcome_coupon(request.user)   # 회원가입 선물: 특강 1회 무료 참여 쿠폰
             messages.success(request, '추가정보 입력이 완료되었습니다.')
             return redirect('home')
     else:

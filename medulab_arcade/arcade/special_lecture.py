@@ -1,0 +1,360 @@
+"""특강 프로그램: 모집 공고, 예약 신청(회원/비회원), 결제, 관리자 화면"""
+import re
+from datetime import timedelta
+
+from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.db import transaction
+from django.http import Http404, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.utils import timezone
+from django.views.decorators.http import require_POST
+
+from .models import (
+    ParentChildLink, SpecialLecture, SpecialLectureCoupon, SpecialLectureParticipant, SpecialLectureReservation,
+)
+
+MAX_PARTICIPANTS = 6
+
+
+# ---------------------------------------------------------------- 쿠폰
+def grant_welcome_coupon(user):
+    """회원가입을 마친 회원에게 특강 1회 무료 참여 쿠폰을 한 장 지급한다 (이미 받았으면 지급하지 않음)"""
+    coupon, created = SpecialLectureCoupon.objects.get_or_create(user=user, kind=SpecialLectureCoupon.KIND_WELCOME)
+    return coupon if created else None
+
+
+def available_coupon(user):
+    """지금 쓸 수 있는 무료 쿠폰 한 장. 결제 대기 중인 신청에 묶여 있어도 30분이 지나면 다시 쓸 수 있다"""
+    if not user.is_authenticated:
+        return None
+    hold_from = timezone.now() - timedelta(minutes=SpecialLecture.PENDING_HOLD_MINUTES)
+    for coupon in user.special_coupons.filter(used_at__isnull=True).select_related('reservation'):
+        res = coupon.reservation
+        if (res is None or res.status == SpecialLectureReservation.STATUS_CANCELED
+                or (res.status == SpecialLectureReservation.STATUS_PENDING and res.created_at < hold_from)):
+            return coupon
+    return None
+
+
+# ---------------------------------------------------------------- 참가자 / 가격
+def is_medulab_parent(user):
+    profile = getattr(user, 'profile', None) if user.is_authenticated else None
+    return bool(profile and profile.user_type == 'medulab_parent' and profile.is_approved)
+
+
+def parent_children_options(user):
+    """메듀랩 학부모가 무료로 신청할 수 있는 자녀 목록 (연결된 학생 계정 + 가입 때 입력한 자녀 정보)"""
+    from .forms import normalize_children_info
+
+    options, seen = [], set()
+    for link in ParentChildLink.objects.filter(parent=user).select_related('child__profile'):
+        name = link.child.profile.real_name or link.child.username
+        options.append({'key': f'u{link.child_id}', 'name': name, 'student_id': link.child_id, 'grade': ''})
+        seen.add(name)
+    for index, child in enumerate(normalize_children_info(user.profile.children_info)):
+        name = (child.get('name') or '').strip()
+        if name and name not in seen:
+            grade = ' '.join(p for p in ((child.get('school') or '').strip(), (child.get('grade') or '').strip()) if p)
+            options.append({'key': f'i{index}', 'name': name, 'student_id': None, 'grade': grade})
+    return options
+
+
+def compute_pricing(lecture, participants, coupon=None):
+    """참가자별 참가비 계산. 2명 이상 함께 신청하면 친구 찬스(1인당 할인), 쿠폰은 첫 유료 참가자 1명을 무료로 한다.
+    participants: [{'name', 'free', 'is_friend', ...}] → (같은 순서의 [{'price','note'}], 총액, 할인합계, 쿠폰사용여부)"""
+    friend_deal = len(participants) >= 2
+    rows = []
+    for p in participants:
+        if p['free']:
+            rows.append({'price': 0, 'note': '메듀랩 수강생 무료'})
+        elif friend_deal:
+            rows.append({'price': max(lecture.base_price - lecture.friend_discount, 0), 'note': '친구 찬스 할인'})
+        else:
+            rows.append({'price': lecture.base_price, 'note': ''})
+
+    coupon_used = False
+    if coupon:
+        paying = [i for i, r in enumerate(rows) if r['price'] > 0]
+        first = next((i for i in paying if not participants[i].get('is_friend')), paying[0] if paying else None)
+        if first is not None:
+            rows[first] = {'price': 0, 'note': '무료 참여 쿠폰'}
+            coupon_used = True
+
+    total = sum(r['price'] for r in rows)
+    list_total = lecture.base_price * sum(1 for p in participants if not p['free'])
+    return rows, total, max(list_total - total, 0), coupon_used
+
+
+def _clean_phone(raw):
+    digits = re.sub(r'\D', '', raw or '')
+    return digits if 9 <= len(digits) <= 11 else ''
+
+
+def _read_participants(request, lecture, user):
+    """신청 폼에서 참가자 목록을 읽는다 → (participants, errors)"""
+    errors, participants = [], []
+    if is_medulab_parent(user):
+        options = {o['key']: o for o in parent_children_options(user)}
+        for key in request.POST.getlist('child'):
+            option = options.get(key)
+            if option:
+                participants.append({'name': option['name'], 'grade': option['grade'], 'student_id': option['student_id'],
+                                     'is_friend': False, 'free': True})
+        if not participants:
+            errors.append('무료로 참여할 자녀를 한 명 이상 선택해 주세요.')
+    else:
+        name = (request.POST.get('p_name') or '').strip()[:50]
+        if not name:
+            errors.append('참가하는 학생 이름을 입력해 주세요.')
+        else:
+            participants.append({'name': name, 'grade': (request.POST.get('p_grade') or '').strip()[:50],
+                                 'student_id': None, 'is_friend': False, 'free': False})
+
+    for name, grade in zip(request.POST.getlist('f_name'), request.POST.getlist('f_grade')):
+        name = name.strip()[:50]
+        if name:
+            participants.append({'name': name, 'grade': grade.strip()[:50], 'student_id': None, 'is_friend': True, 'free': False})
+
+    if len(participants) > MAX_PARTICIPANTS:
+        errors.append(f'한 번에 최대 {MAX_PARTICIPANTS}명까지 신청할 수 있어요.')
+    return participants, errors
+
+
+# ---------------------------------------------------------------- 공개 화면
+def special_lecture_list(request):
+    now = timezone.now()
+    lectures = SpecialLecture.objects.filter(is_active=True)
+    upcoming = [l for l in lectures.filter(lecture_at__gte=now).order_by('lecture_at')]
+    past = list(lectures.filter(lecture_at__lt=now).order_by('-lecture_at')[:6])
+    return render(request, 'arcade/special/list.html', {
+        'upcoming': upcoming, 'past': past,
+        'coupon': available_coupon(request.user),
+    })
+
+
+def _lecture_or_404(pk):
+    lecture = get_object_or_404(SpecialLecture, pk=pk)
+    if not lecture.is_active:
+        raise Http404
+    return lecture
+
+
+def special_lecture_detail(request, pk):
+    lecture = _lecture_or_404(pk)
+    user = request.user
+    profile = getattr(user, 'profile', None) if user.is_authenticated else None
+    medulab_parent = is_medulab_parent(user)
+    context = {
+        'lecture': lecture,
+        'medulab_parent': medulab_parent,
+        'children_options': parent_children_options(user) if medulab_parent else [],
+        'coupon': available_coupon(user),
+        'friend_price': max(lecture.base_price - lecture.friend_discount, 0),
+        'prefill': {
+            'name': (profile.real_name if profile else '') or '',
+            'phone': (profile.phone_number if profile else '') or '',
+            'email': (user.email if user.is_authenticated else '') or '',
+        },
+        'form_data': request.session.pop('special_form_data', None),
+    }
+    return render(request, 'arcade/special/detail.html', context)
+
+
+@require_POST
+def special_lecture_apply(request, pk):
+    lecture = _lecture_or_404(pk)
+    user = request.user
+    back = redirect('special_lecture_detail', pk=lecture.pk)
+
+    if not lecture.is_open:
+        messages.error(request, '지금은 예약 신청을 받지 않는 특강이에요. (마감되었거나 모집 기간이 아니에요)')
+        return back
+
+    participants, errors = _read_participants(request, lecture, user)
+    applicant_name = (request.POST.get('applicant_name') or '').strip()[:50]
+    phone = _clean_phone(request.POST.get('phone'))
+    email = (request.POST.get('email') or '').strip()[:100]
+    if not applicant_name:
+        errors.append('신청자(보호자) 이름을 입력해 주세요.')
+    if not phone:
+        errors.append('연락처를 숫자 9~11자리로 입력해 주세요.')
+    if email and not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email):
+        errors.append('이메일 형식이 올바르지 않아요. 비워 두셔도 돼요.')
+
+    if not errors:
+        left = lecture.seats_left()
+        if left is not None and len(participants) > left:
+            errors.append(f'남은 자리가 {left}자리예요. 인원을 줄여서 다시 신청해 주세요.')
+
+    if errors:
+        for error in errors:
+            messages.error(request, error)
+        request.session['special_form_data'] = {k: request.POST.get(k, '') for k in ('applicant_name', 'phone', 'email', 'p_name', 'p_grade')}
+        return back
+
+    with transaction.atomic():
+        coupon = available_coupon(user) if request.POST.get('use_coupon') else None
+        rows, total, discount, coupon_used = compute_pricing(lecture, participants, coupon)
+        reservation = SpecialLectureReservation.objects.create(
+            lecture=lecture, applicant=user if user.is_authenticated else None,
+            applicant_name=applicant_name, phone=phone, email=email,
+            amount=total, discount=discount,
+            status=SpecialLectureReservation.STATUS_CONFIRMED if total == 0 else SpecialLectureReservation.STATUS_PENDING,
+            paid_at=timezone.now() if total == 0 else None,
+        )
+        for p, row in zip(participants, rows):
+            SpecialLectureParticipant.objects.create(
+                reservation=reservation, name=p['name'], grade=p['grade'], student_id=p['student_id'],
+                is_friend=p['is_friend'], price=row['price'], note=row['note'],
+            )
+        if coupon_used:
+            coupon.reservation = reservation
+            if total == 0:
+                coupon.used_at = timezone.now()
+            coupon.save(update_fields=['reservation', 'used_at'])
+
+    if total == 0:
+        messages.success(request, '예약이 확정되었어요!')
+        return redirect('special_reservation', token=reservation.token)
+    return redirect('special_checkout', token=reservation.token)
+
+
+def _reservation_or_404(token):
+    return get_object_or_404(SpecialLectureReservation.objects.select_related('lecture'), token=token)
+
+
+def special_reservation(request, token):
+    reservation = _reservation_or_404(token)
+    return render(request, 'arcade/special/reservation.html', {
+        'reservation': reservation, 'participants': reservation.participants.all(),
+        'lecture': reservation.lecture,
+    })
+
+
+def _portone_customer(reservation):
+    from .views import portone_email
+
+    if reservation.applicant_id:
+        email = portone_email(reservation.applicant)
+    elif re.fullmatch(r'[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}', reservation.email or ''):
+        email = reservation.email
+    else:
+        email = f'special{reservation.id}@medulab.kr'
+    return {
+        'portone_store_id': settings.PORTONE_STORE_ID,
+        'portone_channel_key_card': settings.PORTONE_CHANNEL_KEY_CARD,
+        'portone_channel_key_kakaopay': settings.PORTONE_CHANNEL_KEY_KAKAOPAY,
+        'portone_customer_email': email,
+        'portone_customer_phone': reservation.phone or '01000000000',
+        'portone_customer_name': reservation.applicant_name,
+    }
+
+
+def special_checkout(request, token):
+    reservation = _reservation_or_404(token)
+    if reservation.status != SpecialLectureReservation.STATUS_PENDING:
+        return redirect('special_reservation', token=reservation.token)
+    return render(request, 'arcade/special/checkout.html', {
+        'reservation': reservation, 'participants': reservation.participants.all(),
+        'lecture': reservation.lecture, 'expired': reservation.is_expired_pending, **_portone_customer(reservation),
+    })
+
+
+@require_POST
+def special_verify(request, token):
+    """결제창 완료 후 서버가 포트원 API로 실제 결제 상태와 금액을 다시 확인하고 예약을 확정한다"""
+    import requests
+
+    from .views import _portone_method_label, _portone_not_paid_response
+
+    reservation = _reservation_or_404(token)
+    if reservation.status == SpecialLectureReservation.STATUS_CONFIRMED:
+        return JsonResponse({'ok': True, 'already_paid': True})
+    if reservation.status == SpecialLectureReservation.STATUS_CANCELED:
+        return JsonResponse({'ok': False, 'error': '취소된 예약입니다.'}, status=400)
+    if not settings.PORTONE_API_SECRET:
+        return JsonResponse({'ok': False, 'error': '결제 연동이 아직 설정되지 않았습니다.'}, status=503)
+
+    try:
+        resp = requests.get(
+            f'https://api.portone.io/payments/{reservation.portone_payment_id}',
+            headers={'Authorization': f'PortOne {settings.PORTONE_API_SECRET}'}, timeout=10,
+        )
+    except requests.RequestException:
+        return JsonResponse({'ok': False, 'error': '결제 확인 중 오류가 발생했습니다.', 'retry': True}, status=502)
+    if resp.status_code != 200:
+        return JsonResponse({'ok': False, 'error': '결제 정보를 확인할 수 없습니다.', 'retry': True}, status=502)
+
+    data = resp.json()
+    if data.get('status') != 'PAID':
+        return _portone_not_paid_response(data.get('status'))
+    if (data.get('amount') or {}).get('total') != reservation.amount:
+        return JsonResponse({'ok': False, 'error': '결제 금액이 신청 금액과 일치하지 않습니다.'}, status=400)
+
+    with transaction.atomic():
+        reservation.status = SpecialLectureReservation.STATUS_CONFIRMED
+        reservation.paid_at = timezone.now()
+        reservation.portone_pay_method = _portone_method_label(data.get('method'))
+        reservation.save(update_fields=['status', 'paid_at', 'portone_pay_method'])
+        reservation.coupons.filter(used_at__isnull=True).update(used_at=timezone.now())
+    return JsonResponse({'ok': True})
+
+
+# ---------------------------------------------------------------- 관리자 화면
+def _staff(user):
+    return user.is_staff
+
+
+@login_required
+@user_passes_test(_staff)
+def special_admin_list(request):
+    lectures = list(SpecialLecture.objects.all())
+    selected = None
+    lecture_id = request.GET.get('lecture')
+    if lecture_id and lecture_id.isdigit():
+        selected = next((l for l in lectures if l.id == int(lecture_id)), None)
+    elif lectures:
+        selected = lectures[0]
+    reservations = []
+    if selected:
+        reservations = list(selected.reservations.prefetch_related('participants').select_related('applicant'))
+    for lecture in lectures:
+        lecture.confirmed_count = SpecialLectureParticipant.objects.filter(
+            reservation__lecture=lecture, reservation__status=SpecialLectureReservation.STATUS_CONFIRMED).count()
+    return render(request, 'arcade/special/admin_list.html', {
+        'lectures': lectures, 'selected': selected, 'reservations': reservations,
+    })
+
+
+@login_required
+@user_passes_test(_staff)
+def special_admin_form(request, pk=None):
+    from .forms import SpecialLectureForm
+
+    lecture = get_object_or_404(SpecialLecture, pk=pk) if pk else None
+    if request.method == 'POST':
+        form = SpecialLectureForm(request.POST, request.FILES, instance=lecture)
+        if form.is_valid():
+            saved = form.save()
+            messages.success(request, '특강을 저장했어요.')
+            return redirect(f"{reverse('special_admin_list')}?lecture={saved.pk}")
+    else:
+        form = SpecialLectureForm(instance=lecture)
+    return render(request, 'arcade/board_form.html', {'form': form, 'title': '특강 수정' if lecture else '특강 등록'})
+
+
+@login_required
+@user_passes_test(_staff)
+@require_POST
+def special_admin_cancel(request, pk):
+    """예약을 취소한다. 이미 결제된 건의 환불은 포트원 관리자 화면에서 따로 처리해야 한다"""
+    reservation = get_object_or_404(SpecialLectureReservation, pk=pk)
+    reservation.status = SpecialLectureReservation.STATUS_CANCELED
+    reservation.save(update_fields=['status'])
+    reservation.coupons.filter(used_at__isnull=False).update(used_at=None)   # 쿠폰 돌려주기
+    note = ' 결제 완료 건이라면 포트원에서 환불을 따로 진행해 주세요.' if reservation.paid_at and reservation.amount else ''
+    messages.success(request, f'{reservation.applicant_name} 님의 예약을 취소했어요.{note}')
+    return redirect(f"{reverse('special_admin_list')}?lecture={reservation.lecture_id}")

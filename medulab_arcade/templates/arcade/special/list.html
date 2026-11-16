@@ -1,0 +1,52 @@
+{% extends 'arcade/base.html' %}
+{% load humanize %}
+
+{% block title %}특강 프로그램 - 메듀랩{% endblock %}
+
+{% block extra_css %}{% include 'arcade/special/_style.html' %}{% endblock %}
+
+{% block content %}
+<div class="sp-wrap">
+    <h1 class="sp-title">🎤 특강 프로그램</h1>
+    <p class="sp-sub">메듀랩에서 열리는 특별한 1회 특강이에요. 마음에 드는 특강을 골라 예약 신청해 보세요.</p>
+
+    {% if user.is_authenticated and coupon %}
+    <div class="sp-notice good">🎟️ <b>특강 1회 무료 참여 쿠폰</b>을 가지고 계세요! 신청할 때 쿠폰을 사용할 수 있어요.</div>
+    {% elif not user.is_authenticated %}
+    <div class="sp-notice info">회원가입 없이도 신청할 수 있어요. 회원가입하시면 <b>특강 1회 무료 참여 쿠폰</b>을 드려요. <a href="{% url 'signup' %}" style="font-weight:800;">회원가입 →</a></div>
+    {% endif %}
+
+    <div class="sp-grid">
+        {% for lecture in upcoming %}
+        <a class="sp-lecture" href="{% url 'special_lecture_detail' lecture.pk %}">
+            {% if lecture.poster %}<img src="{{ lecture.poster.url }}" alt="{{ lecture.title }}">{% endif %}
+            <div class="sp-lecture-body">
+                {% if lecture.is_open %}<span class="sp-badge open">모집중</span>{% else %}<span class="sp-badge closed">{% if lecture.is_full %}마감{% else %}신청 종료{% endif %}</span>{% endif %}
+                {% if lecture.seats_left is not None and lecture.seats_left > 0 and lecture.seats_left <= 5 %}<span class="sp-badge hot">남은 자리 {{ lecture.seats_left }}</span>{% endif %}
+                <h3>{{ lecture.title }}</h3>
+                {% if lecture.summary %}<div class="sp-meta">{{ lecture.summary }}</div>{% endif %}
+                <div class="sp-meta" style="margin-top:8px;">
+                    📅 {{ lecture.lecture_at|date:"Y.m.d (D) H:i" }}<br>
+                    {% if lecture.location %}📍 {{ lecture.location }}<br>{% endif %}
+                    💰 참가비 {{ lecture.base_price|intcomma }}원
+                </div>
+            </div>
+        </a>
+        {% empty %}
+        <div class="sp-card" style="grid-column: 1 / -1; text-align:center; color:var(--text-muted);">지금 모집 중인 특강이 없어요. 새로운 특강이 열리면 이곳에 안내해 드릴게요.</div>
+        {% endfor %}
+    </div>
+
+    {% if past %}
+    <h2 style="margin:36px 0 12px; font-size:16px; color:var(--text-secondary);">지난 특강</h2>
+    <div class="sp-grid">
+        {% for lecture in past %}
+        <div class="sp-card" style="opacity:.7;">
+            <div style="font-weight:800;">{{ lecture.title }}</div>
+            <div class="sp-meta">{{ lecture.lecture_at|date:"Y.m.d" }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

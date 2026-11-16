@@ -1,0 +1,61 @@
+{% extends 'arcade/base.html' %}
+{% load humanize %}
+
+{% block title %}특강 관리 - 메듀랩 관리 서비스{% endblock %}
+
+{% block extra_css %}{% include 'arcade/special/_style.html' %}{% endblock %}
+
+{% block content %}
+<div class="sp-wrap" style="max-width:1100px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
+        <h1 class="sp-title" style="margin:0;">🎤 특강 관리</h1>
+        <a href="{% url 'special_admin_create' %}" class="sp-btn" style="padding:11px 18px; font-size:14px;">+ 특강 등록</a>
+    </div>
+    {% for message in messages %}<div class="sp-notice good">{{ message }}</div>{% endfor %}
+
+    <div class="sp-card" style="padding:0; overflow-x:auto;">
+        <table class="sp-table">
+            <thead><tr><th style="padding-left:20px;">특강</th><th>일시</th><th>참가비</th><th>확정 / 정원</th><th>상태</th><th></th></tr></thead>
+            <tbody>
+            {% for l in lectures %}
+            <tr {% if selected and l.pk == selected.pk %}style="background:rgba(0,200,150,.07);"{% endif %}>
+                <td style="padding-left:20px;"><a href="?lecture={{ l.pk }}" style="font-weight:800; text-decoration:none; color:inherit;">{{ l.title }}</a></td>
+                <td>{{ l.lecture_at|date:"Y.m.d H:i" }}</td>
+                <td>{{ l.base_price|intcomma }}원</td>
+                <td>{{ l.confirmed_count }}명 / {% if l.capacity %}{{ l.capacity }}명{% else %}제한 없음{% endif %}</td>
+                <td>{% if not l.is_active %}<span class="sp-badge closed">숨김</span>{% elif l.is_open %}<span class="sp-badge open">모집중</span>{% else %}<span class="sp-badge closed">종료/마감</span>{% endif %}</td>
+                <td><a href="{% url 'special_admin_edit' l.pk %}" class="sp-btn ghost" style="padding:6px 12px; font-size:12px;">수정</a>
+                    <a href="{% url 'special_lecture_detail' l.pk %}" class="sp-btn ghost" style="padding:6px 12px; font-size:12px;">공개 화면</a></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" style="text-align:center; padding:40px; color:var(--text-muted);">등록된 특강이 없어요. 오른쪽 위 "+ 특강 등록"으로 만들어 보세요.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if selected %}
+    <h2 style="font-size:17px; margin:28px 0 12px;">📋 {{ selected.title }} · 예약 {{ reservations|length }}건</h2>
+    <div class="sp-card" style="padding:0; overflow-x:auto;">
+        <table class="sp-table">
+            <thead><tr><th style="padding-left:20px;">신청자</th><th>참가자</th><th>금액</th><th>상태</th><th>신청일</th><th></th></tr></thead>
+            <tbody>
+            {% for r in reservations %}
+            <tr>
+                <td style="padding-left:20px;">{{ r.applicant_name }}<br><small style="color:var(--text-muted);">{{ r.phone }}{% if r.applicant %} · 회원 {{ r.applicant.username }}{% else %} · 비회원{% endif %}</small></td>
+                <td>{% for p in r.participants.all %}{{ p.name }}{% if p.is_friend %}(친구){% endif %}{% if p.note %} <small style="color:var(--accent-green);">[{{ p.note }}]</small>{% endif %}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
+                <td>{{ r.amount|intcomma }}원{% if r.portone_pay_method %}<br><small style="color:var(--text-muted);">{{ r.portone_pay_method }}</small>{% endif %}</td>
+                <td>{{ r.get_status_display }}</td>
+                <td>{{ r.created_at|date:"m.d H:i" }}</td>
+                <td>{% if r.status != 'canceled' %}
+                    <form method="post" action="{% url 'special_admin_cancel' r.pk %}" onsubmit="return confirm('{{ r.applicant_name }} 님의 예약을 취소할까요?{% if r.paid_at and r.amount %} 결제된 건은 포트원에서 환불을 따로 진행해야 해요.{% endif %}');">{% csrf_token %}<button class="sp-btn ghost" style="padding:6px 12px; font-size:12px;">취소</button></form>{% endif %}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">아직 예약이 없어요.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

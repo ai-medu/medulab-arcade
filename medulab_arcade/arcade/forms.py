@@ -4,7 +4,7 @@ from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth.models import User
 from django.contrib.auth.validators import UnicodeUsernameValidator
 
-from .models import Badge, Project, ScheduleEvent, Tag, UserProfile, Notice, Award, Certification, CertInfo, CompetitionType, Contest, SchoolClass, ConsultInquiry
+from .models import SpecialLecture, Badge, Project, ScheduleEvent, Tag, UserProfile, Notice, Award, Certification, CertInfo, CompetitionType, Contest, SchoolClass, ConsultInquiry
 
 
 BADGE_CRITERIA_HELP = (
@@ -394,6 +394,8 @@ class SignUpForm(UserCreationForm):
             apply_signup_extras(profile, self.cleaned_data)
             profile.is_approved = user_type in UserProfile.AUTO_APPROVE_TYPES
             profile.save()
+            from .special_lecture import grant_welcome_coupon
+            grant_welcome_coupon(user)   # 회원가입 선물: 특강 1회 무료 참여 쿠폰
         return user
 
 
@@ -1307,3 +1309,19 @@ class ContestForm(forms.ModelForm):
             'description': forms.Textarea(attrs={'class': 'form-input', 'rows': 5, 'style': 'width:100%; padding: 10px; margin-bottom: 15px; border-radius:8px; background: rgba(255,255,255,0.05); color:white; border: 1px solid rgba(255,255,255,0.1);'}),
         }
 
+
+class SpecialLectureForm(forms.ModelForm):
+    """관리자용 특강 등록/수정 폼"""
+
+    class Meta:
+        model = SpecialLecture
+        fields = ('title', 'summary', 'description', 'lecture_at', 'location', 'capacity', 'base_price',
+                  'friend_discount', 'registration_open', 'is_active', 'poster')
+        widgets = {
+            'lecture_at': forms.DateTimeInput(attrs={'type': 'datetime-local'}, format='%Y-%m-%dT%H:%M'),
+            'description': forms.Textarea(attrs={'rows': 8}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['lecture_at'].input_formats = ['%Y-%m-%dT%H:%M', '%Y-%m-%d %H:%M']

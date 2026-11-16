@@ -1,0 +1,119 @@
+{% extends 'arcade/base.html' %}
+{% load humanize %}
+
+{% block title %}특강 참가비 결제 - 메듀랩{% endblock %}
+
+{% block extra_css %}
+{% include 'arcade/special/_style.html' %}
+<style>
+.pay-methods { display:flex; flex-direction:column; gap:10px; margin-top:18px; }
+.pay-btn { padding:16px; border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,0.05); color:inherit; font-weight:700; font-size:14px; cursor:pointer; text-align:left; }
+.pay-btn:hover { border-color:var(--accent-green); }
+.pay-btn:disabled { opacity:.5; cursor:not-allowed; }
+.pay-status { margin-top:16px; padding:14px 16px; border-radius:10px; font-size:13px; display:none; }
+.pay-status.error { display:block; background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.3); color:#b91c1c; }
+.pay-status.success { display:block; background:rgba(0,200,150,.1); border:1px solid rgba(0,200,150,.3); color:#047857; }
+.pay-status.info { display:block; background:rgba(59,130,246,.1); border:1px solid rgba(59,130,246,.3); color:#1d4ed8; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sp-wrap" style="max-width:520px;">
+    <h1 class="sp-title">💳 참가비 결제</h1>
+    <div class="sp-card">
+        <h3 style="margin:0 0 6px;">{{ lecture.title }}</h3>
+        <div class="sp-meta">📅 {{ lecture.lecture_at|date:"Y.m.d (D) H:i" }}</div>
+        <table class="sp-table" style="margin-top:12px;">
+            {% for p in participants %}
+            <tr><td>{{ p.name }}{% if p.note %} <small style="color:var(--accent-green);">· {{ p.note }}</small>{% endif %}</td><td style="text-align:right;">{{ p.price|intcomma }}원</td></tr>
+            {% endfor %}
+        </table>
+        <div class="sp-total"><span>결제 금액</span><span>{{ reservation.amount|intcomma }}원</span></div>
+    </div>
+
+    {% if expired %}
+    <div class="sp-notice warn">신청 후 30분이 지나 자리 확보가 풀렸을 수 있어요. 결제하면 남은 자리가 있을 때 예약이 확정돼요. 자리가 없으면 학원에서 안내해 드려요.</div>
+    {% endif %}
+
+    {% if not portone_store_id %}
+    <div class="sp-notice info">결제 연동 설정이 아직 완료되지 않았어요. 학원으로 문의해 주세요.</div>
+    {% else %}
+    <div class="pay-methods">
+        <button type="button" class="pay-btn" data-method="CARD">💳 신용카드</button>
+        <button type="button" class="pay-btn" data-method="TRANSFER">🏦 실시간 계좌이체</button>
+        {% if portone_channel_key_kakaopay %}<button type="button" class="pay-btn" data-method="EASY_PAY">💛 카카오페이</button>{% endif %}
+    </div>
+    <div id="payStatus" class="pay-status"></div>
+    {% endif %}
+    <p class="sp-meta" style="margin-top:20px; font-size:12px;">결제는 전자지급결제대행사(PG) KG이니시스(포트원 연동)를 통해 처리되며, 카드 정보는 메듀랩에 저장되지 않습니다.</p>
+</div>
+
+<script src="https://cdn.portone.io/v2/browser-sdk.js"></script>
+<script>
+(function () {
+    var statusEl = document.getElementById('payStatus');
+    function show(type, msg) { if (statusEl) { statusEl.className = 'pay-status ' + type; statusEl.textContent = msg; } }
+    function enable() { document.querySelectorAll('.pay-btn').forEach(function (b) { b.disabled = false; }); }
+    function verify(attempt) {
+        attempt = attempt || 1;
+        fetch('{% url "special_verify" reservation.token %}', { method: 'POST', headers: { 'X-CSRFToken': '{{ csrf_token }}' } })
+            .then(function (r) { return r.json().catch(function () { return { ok: false, retry: true }; }); })
+            .then(function (data) {
+                if (data.ok) {
+                    show('success', '결제가 완료되었어요. 예약 확인 화면으로 이동합니다.');
+                    setTimeout(function () { window.location.href = '{% url "special_reservation" reservation.token %}'; }, 1000);
+                } else if (data.retry && attempt < 6) {
+                    show('info', '결제 확인 중입니다... (' + attempt + '/5)');
+                    setTimeout(function () { verify(attempt + 1); }, 2000);
+                } else {
+                    show('error', (data.error || '결제 확인에 실패했습니다.') + ' 이미 결제하셨다면 다시 결제하지 마시고 학원으로 문의해 주세요.');
+                    enable();
+                }
+            }).catch(function () {
+                if (attempt < 6) { setTimeout(function () { verify(attempt + 1); }, 2000); }
+                else { show('error', '결제 확인 중 오류가 발생했습니다. 이미 결제하셨다면 학원으로 문의해 주세요.'); enable(); }
+            });
+    }
+
+    (function redirectResult() {
+        var qs = new URLSearchParams(window.location.search);
+        if (!qs.has('paymentId')) return;
+        history.replaceState(null, '', window.location.pathname);
+        if (qs.get('code')) { show('error', qs.get('message') || '결제가 취소되었습니다.'); return; }
+        document.querySelectorAll('.pay-btn').forEach(function (b) { b.disabled = true; });
+        show('info', '결제 확인 중입니다...');
+        verify();
+    })();
+
+    document.querySelectorAll('.pay-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.pay-btn').forEach(function (b) { b.disabled = true; });
+            show('info', '결제창을 여는 중입니다...');
+            var method = btn.dataset.method;
+            var params = {
+                storeId: '{{ portone_store_id }}',
+                channelKey: method === 'EASY_PAY' ? '{{ portone_channel_key_kakaopay }}' : '{{ portone_channel_key_card }}',
+                paymentId: '{{ reservation.portone_payment_id }}',
+                orderName: '{{ lecture.title|escapejs }} 참가비',
+                totalAmount: {{ reservation.amount }},
+                currency: 'CURRENCY_KRW',
+                payMethod: method,
+                customer: { fullName: '{{ portone_customer_name|escapejs }}', email: '{{ portone_customer_email|escapejs }}', phoneNumber: '{{ portone_customer_phone|escapejs }}' },
+                redirectUrl: window.location.origin + window.location.pathname,
+                forceRedirect: true,
+            };
+            if (method === 'EASY_PAY') params.easyPay = { easyPayProvider: 'EASY_PAY_PROVIDER_KAKAOPAY' };
+            PortOne.requestPayment(params).then(function (response) {
+                if (response && response.code && /이미 결제/.test(response.message || '')) { verify(); return; }
+                if (!response || response.code) { show('error', (response && response.message) || '결제가 취소되었습니다.'); enable(); return; }
+                verify();
+            }).catch(function (err) {
+                var detail = (err && (err.message || err.pgMessage || err.errorMsg)) || '';
+                show('error', '결제 중 오류가 발생했습니다.' + (detail ? ' (' + detail + ')' : ''));
+                enable();
+            });
+        });
+    });
+})();
+</script>
+{% endblock %}

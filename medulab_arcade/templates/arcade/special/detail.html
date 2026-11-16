@@ -1,0 +1,129 @@
+{% extends 'arcade/base.html' %}
+{% load humanize %}
+
+{% block title %}{{ lecture.title }} - 특강 프로그램{% endblock %}
+
+{% block extra_css %}{% include 'arcade/special/_style.html' %}{% endblock %}
+
+{% block content %}
+<div class="sp-wrap">
+    <a href="{% url 'special_lecture_list' %}" style="color:var(--text-muted); font-size:13px; text-decoration:none;">← 특강 목록</a>
+    <h1 class="sp-title" style="margin-top:12px;">{{ lecture.title }}</h1>
+    {% if lecture.summary %}<p class="sp-sub">{{ lecture.summary }}</p>{% endif %}
+
+    {% for message in messages %}<div class="sp-notice {% if message.tags == 'error' %}err{% else %}info{% endif %}">{{ message }}</div>{% endfor %}
+
+    <div class="sp-card">
+        {% if lecture.poster %}<img src="{{ lecture.poster.url }}" alt="{{ lecture.title }}" style="width:100%; border-radius:12px; margin-bottom:16px;">{% endif %}
+        <div class="sp-meta" style="font-size:14.5px;">
+            📅 <b>{{ lecture.lecture_at|date:"Y년 n월 j일 (D) H:i" }}</b><br>
+            {% if lecture.location %}📍 {{ lecture.location }}<br>{% endif %}
+            {% if lecture.capacity %}👥 정원 {{ lecture.capacity }}명 · {% if lecture.is_full %}<b>마감</b>{% else %}남은 자리 <b>{{ lecture.seats_left }}</b>{% endif %}{% else %}👥 인원 제한 없음{% endif %}
+        </div>
+        {% if lecture.description %}<div style="margin-top:16px; line-height:1.8; white-space:pre-line; font-size:14.5px;">{{ lecture.description }}</div>{% endif %}
+
+        <div class="sp-price-box">
+            <div class="sp-price-item"><small>기본 참가비</small><b>{{ lecture.base_price|intcomma }}원</b></div>
+            <div class="sp-price-item"><small>⭐ 1회 무료 참여</small><b>회원가입 쿠폰</b></div>
+            <div class="sp-price-item"><small>👬 친구 찬스</small><b>-{{ lecture.friend_discount|intcomma }}원 할인</b></div>
+        </div>
+    </div>
+
+    <div class="sp-card" id="applyBox">
+        <h2 style="margin:0 0 4px; font-size:19px;">📝 예약 신청</h2>
+        {% if not lecture.is_open %}
+            <div class="sp-notice warn" style="margin-top:14px;">{% if lecture.is_full %}정원이 모두 찼어요.{% else %}지금은 예약 신청을 받지 않아요.{% endif %}</div>
+        {% else %}
+        <form method="post" action="{% url 'special_lecture_apply' lecture.pk %}" id="applyForm">
+            {% csrf_token %}
+
+            {% if medulab_parent %}
+            <div class="sp-notice good" style="margin-top:14px;">메듀랩 학부모님은 수강 중인 자녀가 <b>무료</b>로 참여할 수 있어요. 결제 없이 바로 예약됩니다.</div>
+            <span class="sp-label">참여할 자녀 선택</span>
+            {% for option in children_options %}
+            <label class="sp-check"><input type="checkbox" name="child" value="{{ option.key }}" {% if children_options|length == 1 %}checked{% endif %}> <span><b>{{ option.name }}</b>{% if option.grade %} <span style="color:var(--text-muted);">({{ option.grade }})</span>{% endif %}</span></label>
+            {% empty %}
+            <div class="sp-notice warn">등록된 자녀 정보가 없어요. 마이페이지에서 자녀 정보를 먼저 등록해 주세요.</div>
+            {% endfor %}
+            {% else %}
+            {% if user.is_authenticated and coupon %}
+            <div class="sp-notice good" style="margin-top:14px;">🎟️ 특강 1회 무료 참여 쿠폰이 있어요. 아래에서 사용할 수 있어요.</div>
+            {% elif not user.is_authenticated %}
+            <div class="sp-notice info" style="margin-top:14px;">회원가입 없이 신청하실 수 있어요. 정보를 적고 결제하시면 예약이 확정돼요.</div>
+            {% endif %}
+            <span class="sp-label">참가하는 학생</span>
+            <div class="sp-row">
+                <input class="sp-input" name="p_name" placeholder="학생 이름" value="{{ form_data.p_name|default:'' }}" required>
+                <input class="sp-input" name="p_grade" placeholder="학교/학년 (예: 한빛초 4학년)" value="{{ form_data.p_grade|default:'' }}">
+            </div>
+            {% endif %}
+
+            <span class="sp-label">👬 친구 찬스 <small style="font-weight:600; color:var(--text-muted);">— 친구와 함께 신청하면 모두 {{ lecture.friend_discount|intcomma }}원 할인 (1인 {{ friend_price|intcomma }}원)</small></span>
+            <div id="friendRows"></div>
+            <button type="button" class="sp-btn ghost" id="addFriendBtn" style="padding:10px 16px; font-size:13px;">＋ 친구 추가</button>
+
+            <span class="sp-label">신청자(보호자) 정보</span>
+            <div class="sp-row">
+                <input class="sp-input" name="applicant_name" placeholder="신청자 이름" value="{{ form_data.applicant_name|default:prefill.name }}" required>
+                <input class="sp-input" name="phone" placeholder="연락처 (숫자만)" inputmode="numeric" value="{{ form_data.phone|default:prefill.phone }}" required>
+            </div>
+            <input class="sp-input" name="email" type="email" placeholder="이메일 (선택, 결제 영수증용)" value="{{ form_data.email|default:prefill.email }}" style="margin-top:10px;">
+
+            {% if user.is_authenticated and coupon %}
+            <label class="sp-check" style="margin-top:16px;"><input type="checkbox" name="use_coupon" value="1" id="useCoupon" checked> <span>🎟️ <b>특강 1회 무료 참여 쿠폰</b> 사용하기</span></label>
+            {% endif %}
+
+            <div class="sp-total"><span>결제 예상 금액</span><span id="totalPrice">{{ lecture.base_price|intcomma }}원</span></div>
+            <div id="priceNote" class="sp-meta" style="text-align:right; margin-top:4px;"></div>
+
+            <button type="submit" class="sp-btn" style="width:100%; margin-top:18px;" id="submitBtn">예약 신청하기</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+(function () {
+    var base = {{ lecture.base_price }}, discount = {{ lecture.friend_discount }};
+    var medulabParent = {% if medulab_parent %}true{% else %}false{% endif %};
+    var friendRows = document.getElementById('friendRows');
+    var addBtn = document.getElementById('addFriendBtn');
+    if (!friendRows) return;
+
+    function fmt(n) { return n.toLocaleString('ko-KR') + '원'; }
+
+    // 화면에 보이는 예상 금액 (실제 금액은 서버가 다시 계산한다)
+    function recalc() {
+        var friendCount = 0;
+        friendRows.querySelectorAll('input[name="f_name"]').forEach(function (i) { if (i.value.trim()) friendCount++; });
+        var mainCount = medulabParent ? document.querySelectorAll('input[name="child"]:checked').length : 1;
+        var friendDeal = (mainCount + friendCount) >= 2;
+        var each = friendDeal ? Math.max(base - discount, 0) : base;
+        var price = (medulabParent ? 0 : each) + friendCount * each;
+        var note = [];
+        if (friendDeal) note.push('친구 찬스 적용');
+        if (medulabParent && mainCount) note.push('메듀랩 수강생 무료');
+        var coupon = document.getElementById('useCoupon');
+        if (coupon && coupon.checked && price > 0) {
+            price = Math.max(price - each, 0);
+            note.push('무료 쿠폰 적용');
+        }
+        document.getElementById('totalPrice').textContent = fmt(price);
+        document.getElementById('priceNote').textContent = note.join(' · ');
+        document.getElementById('submitBtn').textContent = price === 0 ? '무료로 예약하기' : '신청하고 결제하기';
+    }
+
+    addBtn.addEventListener('click', function () {
+        var row = document.createElement('div');
+        row.className = 'sp-row';
+        row.style.marginBottom = '8px';
+        row.innerHTML = '<input class="sp-input" name="f_name" placeholder="친구 이름"><input class="sp-input" name="f_grade" placeholder="학교/학년">';
+        friendRows.appendChild(row);
+        row.querySelectorAll('input').forEach(function (i) { i.addEventListener('input', recalc); });
+        recalc();
+    });
+    document.querySelectorAll('input[name="child"], #useCoupon').forEach(function (i) { i.addEventListener('change', recalc); });
+    recalc();
+})();
+</script>
+{% endblock %}

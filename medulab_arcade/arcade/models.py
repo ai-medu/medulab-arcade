@@ -1609,3 +1609,151 @@ class ContentIdeaThumbnailSubmission(models.Model):
 
     def __str__(self):
         return f'{self.name} ({self.created_at:%Y-%m-%d %H:%M})'
+
+
+# ----------------------------------------------------------------------
+# 특강 프로그램 (모집 · 예약 신청 · 결제)
+# ----------------------------------------------------------------------
+class SpecialLecture(models.Model):
+    """특강 프로그램(모집 공고). 관리자가 등록하고 학부모/비회원이 예약 신청한다"""
+
+    title = models.CharField('특강명', max_length=120)
+    summary = models.CharField('한 줄 소개', max_length=200, blank=True)
+    description = models.TextField('상세 안내', blank=True)
+    lecture_at = models.DateTimeField('특강 일시')
+    location = models.CharField('장소', max_length=200, blank=True)
+    capacity = models.PositiveIntegerField('모집 정원', default=0, help_text='0이면 인원 제한 없음')
+    base_price = models.PositiveIntegerField('기본 참가비(원)', default=20000)
+    friend_discount = models.PositiveIntegerField('친구 찬스 할인(원)', default=10000,
+                                                  help_text='친구와 2명 이상 함께 신청할 때 1인당 할인 금액')
+    registration_open = models.BooleanField('예약 신청 받기', default=True)
+    is_active = models.BooleanField('목록에 노출', default=True)
+    poster = models.ImageField('포스터', upload_to='special_lectures/', blank=True, null=True)
+    created_at = models.DateTimeField('등록일', auto_now_add=True)
+
+    PENDING_HOLD_MINUTES = 30   # 결제 대기 중인 신청이 자리를 잡고 있는 시간
+
+    class Meta:
+        verbose_name = '특강 프로그램'
+        verbose_name_plural = '특강 프로그램'
+        ordering = ['-lecture_at']
+
+    def __str__(self):
+        return self.title
+
+    def seats_taken(self):
+        """확정된 참가자 + 결제 대기 중(30분 이내)인 참가자 수"""
+        hold_from = timezone.now() - timedelta(minutes=self.PENDING_HOLD_MINUTES)
+        return SpecialLectureParticipant.objects.filter(
+            reservation__lecture=self,
+        ).filter(
+            models.Q(reservation__status=SpecialLectureReservation.STATUS_CONFIRMED)
+            | models.Q(reservation__status=SpecialLectureReservation.STATUS_PENDING, reservation__created_at__gte=hold_from)
+        ).count()
+
+    def seats_left(self):
+        """남은 자리 수. 정원 제한이 없으면 None"""
+        if not self.capacity:
+            return None
+        return max(self.capacity - self.seats_taken(), 0)
+
+    @property
+    def is_full(self):
+        left = self.seats_left()
+        return left is not None and left <= 0
+
+    @property
+    def is_open(self):
+        return self.is_active and self.registration_open and self.lecture_at >= timezone.now() and not self.is_full
+
+
+class SpecialLectureReservation(models.Model):
+    """특강 예약 신청 한 건 (신청자 1명 + 참가자 여러 명)"""
+
+    STATUS_PENDING = 'pending'
+    STATUS_CONFIRMED = 'confirmed'
+    STATUS_CANCELED = 'canceled'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, '결제 대기'),
+        (STATUS_CONFIRMED, '예약 확정'),
+        (STATUS_CANCELED, '취소'),
+    ]
+
+    lecture = models.ForeignKey(SpecialLecture, on_delete=models.CASCADE, related_name='reservations', verbose_name='특강')
+    applicant = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                  related_name='special_reservations', verbose_name='신청 회원')
+    applicant_name = models.CharField('신청자 이름', max_length=50)
+    phone = models.CharField('연락처', max_length=20)
+    email = models.CharField('이메일', max_length=100, blank=True)
+    status = models.CharField('상태', max_length=12, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    amount = models.PositiveIntegerField('결제 금액(원)', default=0)
+    discount = models.PositiveIntegerField('할인 합계(원)', default=0)
+    token = models.CharField('조회 토큰', max_length=64, unique=True, blank=True)
+    portone_payment_id = models.CharField('포트원 결제건 ID', max_length=100, unique=True, blank=True)
+    portone_pay_method = models.CharField('결제 수단', max_length=30, blank=True)
+    paid_at = models.DateTimeField('결제일시', null=True, blank=True)
+    memo = models.CharField('관리자 메모', max_length=200, blank=True)
+    created_at = models.DateTimeField('신청일시', auto_now_add=True)
+
+    class Meta:
+        verbose_name = '특강 예약'
+        verbose_name_plural = '특강 예약'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.lecture.title} - {self.applicant_name}'
+
+    def save(self, *args, **kwargs):
+        if not self.token:
+            self.token = secrets.token_urlsafe(24)
+        if not self.portone_payment_id:
+            self.portone_payment_id = f'special-{uuid.uuid4().hex}'
+        super().save(*args, **kwargs)
+
+    @property
+    def is_expired_pending(self):
+        return (self.status == self.STATUS_PENDING
+                and self.created_at < timezone.now() - timedelta(minutes=SpecialLecture.PENDING_HOLD_MINUTES))
+
+
+class SpecialLectureParticipant(models.Model):
+    """예약에 포함된 참가자(학생) 한 명"""
+
+    reservation = models.ForeignKey(SpecialLectureReservation, on_delete=models.CASCADE,
+                                    related_name='participants', verbose_name='예약')
+    name = models.CharField('참가자 이름', max_length=50)
+    grade = models.CharField('학교/학년', max_length=50, blank=True)
+    student = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                related_name='special_participations', verbose_name='연결된 학생 계정')
+    is_friend = models.BooleanField('친구 참가', default=False)
+    price = models.PositiveIntegerField('참가비(원)', default=0)
+    note = models.CharField('적용 내역', max_length=50, blank=True)
+
+    class Meta:
+        verbose_name = '특강 참가자'
+        verbose_name_plural = '특강 참가자'
+        ordering = ['id']
+
+    def __str__(self):
+        return self.name
+
+
+class SpecialLectureCoupon(models.Model):
+    """특강 1회 무료 참여 쿠폰 (회원가입 시 1장 지급)"""
+
+    KIND_WELCOME = 'welcome'
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='special_coupons', verbose_name='회원')
+    kind = models.CharField('종류', max_length=20, default=KIND_WELCOME)
+    created_at = models.DateTimeField('지급일', auto_now_add=True)
+    used_at = models.DateTimeField('사용일시', null=True, blank=True)
+    reservation = models.ForeignKey(SpecialLectureReservation, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name='coupons', verbose_name='사용한 예약')
+
+    class Meta:
+        verbose_name = '특강 무료 쿠폰'
+        verbose_name_plural = '특강 무료 쿠폰'
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'{self.user.username} 특강 무료 쿠폰'
