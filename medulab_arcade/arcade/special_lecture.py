@@ -358,3 +358,19 @@ def special_admin_cancel(request, pk):
     note = ' 결제 완료 건이라면 포트원에서 환불을 따로 진행해 주세요.' if reservation.paid_at and reservation.amount else ''
     messages.success(request, f'{reservation.applicant_name} 님의 예약을 취소했어요.{note}')
     return redirect(f"{reverse('special_admin_list')}?lecture={reservation.lecture_id}")
+
+
+@login_required
+@user_passes_test(_staff)
+@require_POST
+def special_admin_delete(request, pk):
+    """특강 삭제. 확정·결제 대기 예약이 남아 있으면 기록이 사라지지 않도록 막고, 목록에서 숨기도록 안내한다"""
+    lecture = get_object_or_404(SpecialLecture, pk=pk)
+    live = lecture.reservations.exclude(status=SpecialLectureReservation.STATUS_CANCELED).count()
+    if live:
+        messages.error(request, f'"{lecture.title}"에는 예약이 {live}건 있어 삭제할 수 없어요. 예약을 모두 취소하거나, 수정 화면에서 "목록에 노출"을 꺼서 숨겨 주세요.')
+        return redirect(f"{reverse('special_admin_list')}?lecture={lecture.pk}")
+    title = lecture.title
+    lecture.delete()
+    messages.success(request, f'"{title}" 특강을 삭제했어요.')
+    return redirect('special_admin_list')

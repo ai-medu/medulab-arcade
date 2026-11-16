@@ -25,7 +25,8 @@
                 <td>{{ l.confirmed_count }}명 / {% if l.capacity %}{{ l.capacity }}명{% else %}제한 없음{% endif %}</td>
                 <td>{% if not l.is_active %}<span class="sp-badge closed">숨김</span>{% elif l.is_open %}<span class="sp-badge open">모집중</span>{% else %}<span class="sp-badge closed">종료/마감</span>{% endif %}</td>
                 <td><a href="{% url 'special_admin_edit' l.pk %}" class="sp-btn ghost" style="padding:6px 12px; font-size:12px;">수정</a>
-                    <a href="{% url 'special_lecture_detail' l.pk %}" class="sp-btn ghost" style="padding:6px 12px; font-size:12px;">공개 화면</a></td>
+                    <a href="{% url 'special_lecture_detail' l.pk %}" class="sp-btn ghost" style="padding:6px 12px; font-size:12px;">공개 화면</a>
+                    <form method="post" action="{% url 'special_admin_delete' l.pk %}" style="display:inline;" onsubmit="return confirm('{{ l.title|escapejs }} 특강을 삭제할까요? 되돌릴 수 없어요.');">{% csrf_token %}<button class="sp-btn ghost" style="padding:6px 12px; font-size:12px; color:#dc2626;">삭제</button></form></td>
             </tr>
             {% empty %}
             <tr><td colspan="6" style="text-align:center; padding:40px; color:var(--text-muted);">등록된 특강이 없어요. 오른쪽 위 "+ 특강 등록"으로 만들어 보세요.</td></tr>

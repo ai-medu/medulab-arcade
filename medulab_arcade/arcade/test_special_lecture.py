@@ -260,3 +260,41 @@ class AdminAndNavTests(TestCase):
         self.assertEqual(res.status_code, 302)
         lecture = SpecialLecture.objects.get(title='새 특강')
         self.assertContains(self.client.get(f"{reverse('special_admin_list')}?lecture={lecture.pk}"), '새 특강')
+
+
+
+class AdminDeleteAndSeedTests(TestCase):
+    def _admin(self):
+        admin = make_member('adm30')
+        admin.is_staff = True
+        admin.save()
+        self.client.force_login(admin)
+
+    def test_november_lecture_seeded(self):
+        lecture = SpecialLecture.objects.get(title='AI 활용 나만의 머그컵 만들기')
+        local = timezone.localtime(lecture.lecture_at)
+        self.assertEqual((local.month, local.day, local.hour, local.minute), (11, 21, 13, 0))
+        self.assertIn('화개중앙로 51', lecture.location)
+
+    def test_delete_lecture_without_reservations(self):
+        self._admin()
+        lecture = make_lecture(title='지울 특강')
+        self.client.post(reverse('special_admin_delete', args=[lecture.pk]))
+        self.assertFalse(SpecialLecture.objects.filter(pk=lecture.pk).exists())
+
+    def test_delete_blocked_with_live_reservation_but_allowed_after_cancel(self):
+        self._admin()
+        lecture = make_lecture(title='예약 있는 특강')
+        reservation = SpecialLectureReservation.objects.create(lecture=lecture, applicant_name='a', phone='01012345678', amount=20000)
+        self.client.post(reverse('special_admin_delete', args=[lecture.pk]))
+        self.assertTrue(SpecialLecture.objects.filter(pk=lecture.pk).exists())
+        self.client.post(reverse('special_admin_cancel', args=[reservation.pk]))
+        self.client.post(reverse('special_admin_delete', args=[lecture.pk]))
+        self.assertFalse(SpecialLecture.objects.filter(pk=lecture.pk).exists())
+
+    def test_delete_requires_staff_and_post(self):
+        lecture = make_lecture(title='보호 특강')
+        self.client.post(reverse('special_admin_delete', args=[lecture.pk]))
+        self.assertTrue(SpecialLecture.objects.filter(pk=lecture.pk).exists())
+        self._admin()
+        self.assertEqual(self.client.get(reverse('special_admin_delete', args=[lecture.pk])).status_code, 405)

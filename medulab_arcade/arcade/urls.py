@@ -110,6 +110,7 @@ urlpatterns = [
     path('admin-services/special/', special_lecture.special_admin_list, name='special_admin_list'),
     path('admin-services/special/new/', special_lecture.special_admin_form, name='special_admin_create'),
     path('admin-services/special/<int:pk>/edit/', special_lecture.special_admin_form, name='special_admin_edit'),
+    path('admin-services/special/<int:pk>/delete/', special_lecture.special_admin_delete, name='special_admin_delete'),
     path('admin-services/special/reservation/<int:pk>/cancel/', special_lecture.special_admin_cancel, name='special_admin_cancel'),
     path('board/contests/create/', views.board_contest_create, name='board_contest_create'),
     path('board/contests/<int:pk>/', views.board_contest_detail, name='board_contest_detail'),
