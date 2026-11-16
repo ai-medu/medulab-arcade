@@ -101,7 +101,7 @@ class ApplyFlowTests(TestCase):
         self.addCleanup(patcher.stop)
         self.lecture = make_lecture()
         self.apply_url = reverse('special_lecture_apply', args=[self.lecture.pk])
-        self.guest = {'p_name': '김학생', 'p_grade': '4학년', 'applicant_name': '김보호', 'phone': '010-1234-5678'}
+        self.guest = {'p_name': '김학생', 'p_school': '한빛초', 'p_grade': '4학년', 'p_birth': '2016.03.15', 'applicant_name': '김보호', 'phone': '010-1234-5678'}
 
     def test_pages_render(self):
         self.assertContains(self.client.get(reverse('special_lecture_list')), 'AI 특강')
@@ -118,7 +118,7 @@ class ApplyFlowTests(TestCase):
         self.assertContains(self.client.get(reverse('special_checkout', args=[reservation.token])), '20,000원')
 
     def test_guest_with_friend_pays_10000_each(self):
-        self.client.post(self.apply_url, dict(self.guest, f_name=['친구'], f_grade=['4학년']))
+        self.client.post(self.apply_url, dict(self.guest, f_name=['친구'], f_school=['한빛초'], f_grade=['4학년'], f_birth=['2016.05.05']))
         reservation = SpecialLectureReservation.objects.get()
         self.assertEqual(reservation.amount, 20000)
         self.assertEqual(sorted(reservation.participants.values_list('price', flat=True)), [10000, 10000])
@@ -203,14 +203,14 @@ class MedulabParentTests(TestCase):
         self.assertFalse(SpecialLectureReservation.objects.exists())
 
     def test_friend_pays_discounted_price(self):
-        self.client.post(self.apply_url, dict(self.base, child=[f'u{self.kid.id}'], f_name=['친구'], f_grade=['']))
+        self.client.post(self.apply_url, dict(self.base, child=[f'u{self.kid.id}'], f_name=['친구'], f_school=['한빛초'], f_grade=['3학년'], f_birth=['2017.01.01']))
         reservation = SpecialLectureReservation.objects.get()
         self.assertEqual((reservation.status, reservation.amount), ('pending', 10000))
 
     def test_unapproved_medulab_parent_is_not_free(self):
         self.parent.profile.is_approved = False
         self.parent.profile.save()
-        self.client.post(self.apply_url, dict(self.base, child=[f'u{self.kid.id}'], p_name='아이', p_grade=''))
+        self.client.post(self.apply_url, dict(self.base, child=[f'u{self.kid.id}'], p_name='아이', p_school='한빛초', p_grade='3학년', p_birth='2017.02.02'))
         self.assertEqual(SpecialLectureReservation.objects.get().amount, 20000)
 
 
@@ -324,7 +324,7 @@ class FriendDiscountAndDisplayTests(TestCase):
         self.addCleanup(patcher.stop)
         self.lecture = make_lecture()
         self.url = reverse('special_lecture_apply', args=[self.lecture.pk])
-        self.guest = {'p_name': '김학생', 'applicant_name': '김보호', 'phone': '01012345678'}
+        self.guest = {'p_name': '김학생', 'p_school': '한빛초', 'p_grade': '4학년', 'p_birth': '2016.03.15', 'applicant_name': '김보호', 'phone': '01012345678'}
 
     def test_referral_friend_name_discounts_when_verified(self):
         friend = make_member('friendstudent', 'medulab_member')

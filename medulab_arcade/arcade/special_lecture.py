@@ -123,6 +123,20 @@ def is_medulab_parent(user):
     return bool(profile and profile.user_type == 'medulab_parent' and profile.is_approved)
 
 
+def parse_birth_date(raw):
+    """2016.03.15 / 2016-03-15 / 20160315 형식의 생년월일을 날짜로. 형식이 틀리거나 미래면 None"""
+    import datetime
+
+    raw = (raw or '').strip()
+    for fmt in ('%Y.%m.%d', '%Y-%m-%d', '%Y%m%d', '%Y/%m/%d'):
+        try:
+            value = datetime.datetime.strptime(raw, fmt).date()
+        except ValueError:
+            continue
+        return value if datetime.date(1990, 1, 1) <= value <= datetime.date.today() else None
+    return None
+
+
 def parent_children_options(user):
     """메듀랩 학부모가 무료로 신청할 수 있는 자녀 목록 (연결된 학생 계정 + 가입 때 입력한 자녀 정보)"""
     from .forms import normalize_children_info
@@ -130,13 +144,15 @@ def parent_children_options(user):
     options, seen = [], set()
     for link in ParentChildLink.objects.filter(parent=user).select_related('child__profile'):
         name = link.child.profile.real_name or link.child.username
-        options.append({'key': f'u{link.child_id}', 'name': name, 'student_id': link.child_id, 'grade': ''})
+        options.append({'key': f'u{link.child_id}', 'name': name, 'student_id': link.child_id, 'school': '', 'grade': '',
+                        'birth_date': link.child.profile.birth_date, 'label': ''})
         seen.add(name)
     for index, child in enumerate(normalize_children_info(user.profile.children_info)):
         name = (child.get('name') or '').strip()
         if name and name not in seen:
-            grade = ' '.join(p for p in ((child.get('school') or '').strip(), (child.get('grade') or '').strip()) if p)
-            options.append({'key': f'i{index}', 'name': name, 'student_id': None, 'grade': grade})
+            school, grade = (child.get('school') or '').strip(), (child.get('grade') or '').strip()
+            options.append({'key': f'i{index}', 'name': name, 'student_id': None, 'school': school, 'grade': grade,
+                            'birth_date': parse_birth_date(child.get('birth_date')), 'label': ' '.join(p for p in (school, grade) if p)})
     return options
 
 
@@ -172,6 +188,21 @@ def _clean_phone(raw):
     return digits if 9 <= len(digits) <= 11 else ''
 
 
+def _person_from_fields(label, name, school, grade, birth, errors, is_friend):
+    """이름·학교·학년·생년월일 4칸을 읽어 참가자 정보로. 빠진 칸이 있으면 errors에 안내를 추가하고 None"""
+    name, school, grade, birth = (name or '').strip()[:50], (school or '').strip()[:50], (grade or '').strip()[:50], (birth or '').strip()
+    missing = [t for t, v in (('이름', name), ('학교', school), ('학년', grade), ('생년월일', birth)) if not v]
+    if missing:
+        errors.append(f'{label}의 {", ".join(missing)}을(를) 입력해 주세요.')
+        return None
+    birth_date = parse_birth_date(birth)
+    if not birth_date:
+        errors.append(f'{label}의 생년월일 형식이 올바르지 않아요. (예: 2016.03.15)')
+        return None
+    return {'name': name, 'school': school, 'grade': grade, 'birth_date': birth_date, 'student_id': None,
+            'is_friend': is_friend, 'free': False}
+
+
 def _read_participants(request, lecture, user):
     """신청 폼에서 참가자 목록을 읽는다 → (participants, errors)"""
     errors, participants = [], []
@@ -180,22 +211,25 @@ def _read_participants(request, lecture, user):
         for key in request.POST.getlist('child'):
             option = options.get(key)
             if option:
-                participants.append({'name': option['name'], 'grade': option['grade'], 'student_id': option['student_id'],
+                participants.append({'name': option['name'], 'school': option['school'], 'grade': option['grade'],
+                                     'birth_date': option['birth_date'], 'student_id': option['student_id'],
                                      'is_friend': False, 'free': True})
         if not participants:
             errors.append('무료로 참여할 자녀를 한 명 이상 선택해 주세요.')
     else:
-        name = (request.POST.get('p_name') or '').strip()[:50]
-        if not name:
-            errors.append('참가하는 학생 이름을 입력해 주세요.')
-        else:
-            participants.append({'name': name, 'grade': (request.POST.get('p_grade') or '').strip()[:50],
-                                 'student_id': None, 'is_friend': False, 'free': False})
+        person = _person_from_fields('참가하는 학생', request.POST.get('p_name'), request.POST.get('p_school'),
+                                     request.POST.get('p_grade'), request.POST.get('p_birth'), errors, False)
+        if person:
+            participants.append(person)
 
-    for name, grade in zip(request.POST.getlist('f_name'), request.POST.getlist('f_grade')):
-        name = name.strip()[:50]
-        if name:
-            participants.append({'name': name, 'grade': grade.strip()[:50], 'student_id': None, 'is_friend': True, 'free': False})
+    columns = [request.POST.getlist(k) for k in ('f_name', 'f_school', 'f_grade', 'f_birth')]
+    for index in range(max(len(c) for c in columns)):
+        row = [(c[index] if index < len(c) else '') for c in columns]
+        if not any(v.strip() for v in row):
+            continue   # 비어 있는 친구 칸은 무시
+        person = _person_from_fields(f'친구 {index + 1}', *row, errors, True)
+        if person:
+            participants.append(person)
 
     if len(participants) > MAX_PARTICIPANTS:
         errors.append(f'한 번에 최대 {MAX_PARTICIPANTS}명까지 신청할 수 있어요.')
@@ -275,7 +309,7 @@ def special_lecture_apply(request, pk):
     if errors:
         for error in errors:
             messages.error(request, error)
-        request.session['special_form_data'] = {k: request.POST.get(k, '') for k in ('applicant_name', 'phone', 'email', 'p_name', 'p_grade', 'referral_friend')}
+        request.session['special_form_data'] = {k: request.POST.get(k, '') for k in ('applicant_name', 'phone', 'email', 'p_name', 'p_school', 'p_grade', 'p_birth', 'referral_friend')}
         return back
 
     with transaction.atomic():
@@ -290,7 +324,7 @@ def special_lecture_apply(request, pk):
         )
         for p, row in zip(participants, rows):
             SpecialLectureParticipant.objects.create(
-                reservation=reservation, name=p['name'], grade=p['grade'], student_id=p['student_id'],
+                reservation=reservation, name=p['name'], school=p['school'], grade=p['grade'], birth_date=p['birth_date'], student_id=p['student_id'],
                 is_friend=p['is_friend'], price=row['price'], note=row['note'],
             )
         if coupon_used:

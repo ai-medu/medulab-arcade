@@ -23,10 +23,10 @@
         <h3 style="margin:0 0 10px;">{{ lecture.title }}</h3>
         <div class="sp-meta">📅 {{ lecture.lecture_at|date:"Y년 n월 j일 (D) H:i" }}{% if lecture.location %}<br>📍 {{ lecture.location }}{% endif %}</div>
         <table class="sp-table" style="margin-top:14px;">
-            <thead><tr><th>참가자</th><th>학교/학년</th><th style="text-align:right;">참가비</th></tr></thead>
+            <thead><tr><th>참가자</th><th>학교 · 학년</th><th style="text-align:right;">참가비</th></tr></thead>
             <tbody>
             {% for p in participants %}
-            <tr><td>{{ p.name }}{% if p.is_friend %} <small style="color:var(--text-muted);">(친구)</small>{% endif %}{% if p.note %}<br><small style="color:var(--accent-green);">{{ p.note }}</small>{% endif %}</td><td>{{ p.grade|default:"-" }}</td><td style="text-align:right;">{{ p.price|intcomma }}원</td></tr>
+            <tr><td>{{ p.name }}{% if p.is_friend %} <small style="color:var(--text-muted);">(친구)</small>{% endif %}{% if p.birth_date %}<br><small style="color:var(--text-muted);">{{ p.birth_date|date:"Y.m.d" }}</small>{% endif %}{% if p.note %}<br><small style="color:var(--accent-green);">{{ p.note }}</small>{% endif %}</td><td>{% if p.school or p.grade %}{{ p.school }} {{ p.grade }}{% else %}-{% endif %}</td><td style="text-align:right;">{{ p.price|intcomma }}원</td></tr>
             {% endfor %}
             </tbody>
         </table>

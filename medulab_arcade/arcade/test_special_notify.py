@@ -16,7 +16,7 @@ class NotificationTests(TestCase):
     def setUp(self):
         self.lecture = make_lecture(end_time=datetime.time(14, 30), location='메듀랩 5층')
         self.apply_url = reverse('special_lecture_apply', args=[self.lecture.pk])
-        self.guest = {'p_name': '김학생', 'applicant_name': '김보호', 'phone': '010-1234-5678'}
+        self.guest = {'p_name': '김학생', 'p_school': '한빛초', 'p_grade': '4학년', 'p_birth': '2016.03.15', 'applicant_name': '김보호', 'phone': '010-1234-5678'}
 
     def _inline(self):
         return mock.patch('arcade.special_lecture._spawn', side_effect=lambda fn, *a: fn(*a))

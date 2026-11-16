@@ -1753,7 +1753,9 @@ class SpecialLectureParticipant(models.Model):
     reservation = models.ForeignKey(SpecialLectureReservation, on_delete=models.CASCADE,
                                     related_name='participants', verbose_name='예약')
     name = models.CharField('참가자 이름', max_length=50)
-    grade = models.CharField('학교/학년', max_length=50, blank=True)
+    school = models.CharField('학교', max_length=50, blank=True)
+    grade = models.CharField('학년', max_length=50, blank=True)
+    birth_date = models.DateField('생년월일', null=True, blank=True)
     student = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
                                 related_name='special_participations', verbose_name='연결된 학생 계정')
     is_friend = models.BooleanField('친구 참가', default=False)

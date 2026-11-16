@@ -75,7 +75,7 @@
             <div class="sp-notice good" style="margin-top:14px;">메듀랩 학부모님은 수강 중인 자녀가 <b>무료</b>로 참여할 수 있어요. 결제 없이 바로 예약됩니다.</div>
             <span class="sp-label">참여할 자녀 선택</span>
             {% for option in children_options %}
-            <label class="sp-check"><input type="checkbox" name="child" value="{{ option.key }}" {% if children_options|length == 1 %}checked{% endif %}> <span><b>{{ option.name }}</b>{% if option.grade %} <span style="color:var(--text-muted);">({{ option.grade }})</span>{% endif %}</span></label>
+            <label class="sp-check"><input type="checkbox" name="child" value="{{ option.key }}" {% if children_options|length == 1 %}checked{% endif %}> <span><b>{{ option.name }}</b>{% if option.label %} <span style="color:var(--text-muted);">({{ option.label }})</span>{% endif %}</span></label>
             {% empty %}
             <div class="sp-notice warn">등록된 자녀 정보가 없어요. 마이페이지에서 자녀 정보를 먼저 등록해 주세요.</div>
             {% endfor %}
@@ -86,9 +86,12 @@
             <div class="sp-notice info" style="margin-top:14px;">회원가입 없이 신청하실 수 있어요. 정보를 적고 결제하시면 예약이 확정돼요.</div>
             {% endif %}
             <span class="sp-label">참가하는 학생</span>
-            <div class="sp-row">
-                <input class="sp-input" name="p_name" placeholder="학생 이름" value="{{ form_data.p_name|default:'' }}" required>
-                <input class="sp-input" name="p_grade" placeholder="학교/학년 (예: 한빛초 4학년)" value="{{ form_data.p_grade|default:'' }}">
+            <div class="sp-row4-head"><span>이름</span><span>학교</span><span>학년</span><span>생년월일</span></div>
+            <div class="sp-row4">
+                <input class="sp-input" name="p_name" placeholder="이름" value="{{ form_data.p_name|default:'' }}" required>
+                <input class="sp-input" name="p_school" placeholder="학교 (예: 한빛초)" value="{{ form_data.p_school|default:'' }}" required>
+                <input class="sp-input" name="p_grade" placeholder="학년 (예: 4학년)" value="{{ form_data.p_grade|default:'' }}" required>
+                <input class="sp-input" name="p_birth" placeholder="생년월일 (예: 2016.03.15)" inputmode="numeric" value="{{ form_data.p_birth|default:'' }}" required>
             </div>
             {% endif %}
 
@@ -163,11 +166,17 @@
 
     addBtn.addEventListener('click', function () {
         var row = document.createElement('div');
-        row.className = 'sp-row';
-        row.style.marginBottom = '8px';
-        row.innerHTML = '<input class="sp-input" name="f_name" placeholder="친구 이름"><input class="sp-input" name="f_grade" placeholder="학교/학년">';
+        row.className = 'sp-friend-row';
+        row.innerHTML = '<button type="button" class="sp-friend-del" title="이 친구 빼기">×</button>' +
+            '<div class="sp-row4">' +
+            '<input class="sp-input" name="f_name" placeholder="친구 이름">' +
+            '<input class="sp-input" name="f_school" placeholder="학교">' +
+            '<input class="sp-input" name="f_grade" placeholder="학년">' +
+            '<input class="sp-input" name="f_birth" placeholder="생년월일 (2016.03.15)" inputmode="numeric">' +
+            '</div>';
         friendRows.appendChild(row);
         row.querySelectorAll('input').forEach(function (i) { i.addEventListener('input', recalc); });
+        row.querySelector('.sp-friend-del').addEventListener('click', function () { row.remove(); recalc(); });
         recalc();
     });
     document.querySelectorAll('input[name="child"], #useCoupon').forEach(function (i) { i.addEventListener('change', recalc); });
@@ -199,13 +208,16 @@
         if (refInput.value.trim()) checkFriend();
     }
     var form = document.getElementById('applyForm');
+    var submitBtn = document.getElementById('submitBtn');
     if (form) form.addEventListener('submit', function (e) {
         if (refInput && refInput.value.trim() && !referralVerified) {
             e.preventDefault();
             refMsg.style.color = '#dc2626';
             refMsg.textContent = '❌ 메듀랩 재원생으로 확인되지 않았어요. 확인 후 다시 입력해 주세요. (할인을 받지 않으려면 칸을 비워 주세요)';
             refInput.focus();
+            return;
         }
+        if (submitBtn) { setTimeout(function () { submitBtn.disabled = true; submitBtn.textContent = '신청하는 중...'; }, 0); }   // 두 번 눌러 중복 신청되는 것을 막는다
     });
     recalc();
 })();

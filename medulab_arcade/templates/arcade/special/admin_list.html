@@ -9,7 +9,10 @@
 <div class="sp-wrap" style="max-width:1100px;">
     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
         <h1 class="sp-title" style="margin:0;">🎤 특강 관리</h1>
-        <a href="{% url 'special_admin_create' %}" class="sp-btn" style="padding:11px 18px; font-size:14px;">+ 특강 등록</a>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <a href="{% url 'special_lecture_list' %}" class="sp-btn ghost" style="padding:11px 18px; font-size:14px;">🌐 특강 목록 화면 보기</a>
+            <a href="{% url 'special_admin_create' %}" class="sp-btn" style="padding:11px 18px; font-size:14px;">+ 특강 등록</a>
+        </div>
     </div>
     {% for message in messages %}<div class="sp-notice good">{{ message }}</div>{% endfor %}
 
@@ -44,7 +47,7 @@
             {% for r in reservations %}
             <tr>
                 <td style="padding-left:20px;">{{ r.applicant_name }}<br><small style="color:var(--text-muted);">{{ r.phone }}{% if r.applicant %} · 회원 {{ r.applicant.username }}{% else %} · 비회원{% endif %}</small>{% if r.referral_friend %}<br><small style="color:#d97706;">👬 메듀랩 친구: {{ r.referral_friend }} (재원생 확인됨)</small>{% endif %}</td>
-                <td>{% for p in r.participants.all %}{{ p.name }}{% if p.is_friend %}(친구){% endif %}{% if p.note %} <small style="color:var(--accent-green);">[{{ p.note }}]</small>{% endif %}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
+                <td>{% for p in r.participants.all %}<div style="margin-bottom:4px;">{{ p.name }}{% if p.is_friend %}(친구){% endif %}{% if p.note %} <small style="color:var(--accent-green);">[{{ p.note }}]</small>{% endif %}<br><small style="color:var(--text-muted);">{{ p.school }} {{ p.grade }}{% if p.birth_date %} · {{ p.birth_date|date:"Y.m.d" }}{% endif %}</small></div>{% endfor %}</td>
                 <td>{{ r.amount|intcomma }}원{% if r.portone_pay_method %}<br><small style="color:var(--text-muted);">{{ r.portone_pay_method }}</small>{% endif %}</td>
                 <td>{{ r.get_status_display }}{% if r.status == 'confirmed' %}<br><small style="color:{% if r.notified_at %}#047857{% else %}#d97706{% endif %};">{% if r.notified_at %}💬 알림톡 발송됨{% else %}💬 알림톡 미발송{% endif %}</small>{% if r.notify_detail and not r.notified_at %}<br><small style="color:var(--text-muted);">{{ r.notify_detail }}</small>{% endif %}{% endif %}</td>
                 <td>{{ r.created_at|date:"m.d H:i" }}</td>
