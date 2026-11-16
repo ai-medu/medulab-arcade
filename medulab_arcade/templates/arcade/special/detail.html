@@ -23,9 +23,11 @@
     {% for message in messages %}<div class="sp-notice {% if message.tags == 'error' %}err{% else %}info{% endif %}">{{ message }}</div>{% endfor %}
 
     <div class="sp-card" style="padding:0; overflow:hidden;">
-        <div class="sp-thumb t{{ lecture.pk|divisibleby:2|yesno:'0,1' }}" style="border-radius:0; aspect-ratio:auto; height:180px;">
-            {% if lecture.poster %}<img src="{{ lecture.poster.url }}" alt="{{ lecture.title }}">{% else %}<span class="sp-emoji">{{ lecture.thumb_emoji|default:'🎤' }}</span>{% endif %}
-        </div>
+        {% if lecture.poster %}
+        <a href="{{ lecture.poster.url }}" target="_blank" rel="noopener" class="sp-poster"><img src="{{ lecture.poster.url }}" alt="{{ lecture.title }}"></a>
+        {% else %}
+        <div class="sp-thumb t{{ lecture.pk|divisibleby:2|yesno:'0,1' }}" style="border-radius:0; aspect-ratio:auto; height:180px;"><span class="sp-emoji">{{ lecture.thumb_emoji|default:'🎤' }}</span></div>
+        {% endif %}
         <div style="padding:24px;">
             <div class="sp-info">
                 <div class="sp-info-item">

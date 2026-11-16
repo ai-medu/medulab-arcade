@@ -94,3 +94,19 @@ class CardAndCouponUITests(TestCase):
         from arcade.special_lecture import grant_welcome_coupon
         grant_welcome_coupon(user)
         self.assertContains(self.client.get(url), 'id="useCoupon"')
+
+
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+class DetailPosterTests(TestCase):
+    def test_uploaded_thumbnail_is_shown_whole_not_cropped(self):
+        lecture = make_lecture(title='포스터 특강')
+        lecture.poster.save('p.png', png(), save=True)
+        page = self.client.get(reverse('special_lecture_detail', args=[lecture.pk]))
+        self.assertContains(page, 'class="sp-poster"')
+        self.assertNotContains(page, 'height:180px')   # 이미지가 있으면 고정 높이로 자르지 않는다
+
+    def test_emoji_banner_when_no_image(self):
+        lecture = make_lecture(title='이모지 특강', thumb_emoji='🤖')
+        page = self.client.get(reverse('special_lecture_detail', args=[lecture.pk]))
+        self.assertContains(page, 'height:180px')
+        self.assertContains(page, '🤖')
