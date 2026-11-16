@@ -6,8 +6,16 @@
 {% block extra_css %}{% include 'arcade/special/_style.html' %}{% endblock %}
 
 {% block content %}
-<div class="sp-wrap">
-    <h1 class="sp-title">🎤 특강 프로그램</h1>
+<div class="sp-wrap wide">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:8px;">
+        <h1 class="sp-title" style="margin:0;">🎤 특강 프로그램</h1>
+        {% if user.is_staff %}
+        <div style="display:flex; gap:8px;">
+            <a href="{% url 'special_admin_create' %}" class="sp-btn" style="padding:10px 16px; font-size:13.5px;">+ 특강 추가</a>
+            <a href="{% url 'special_admin_list' %}" class="sp-btn ghost" style="padding:10px 16px; font-size:13.5px;">신청 현황 · 관리</a>
+        </div>
+        {% endif %}
+    </div>
     <p class="sp-sub">메듀랩에서 열리는 특별한 특강이에요. 마음에 드는 특강을 골라 예약 신청해 보세요.</p>
 
     {% if user.is_authenticated and coupon %}
@@ -18,6 +26,7 @@
 
     <div class="sp-grid">
         {% for lecture in upcoming %}
+        <div class="sp-lecture-wrap">
         <a class="sp-lecture" href="{% url 'special_lecture_detail' lecture.pk %}">
             <div class="sp-thumb t{{ lecture.pk|divisibleby:2|yesno:'0,1' }}">
                 {% if lecture.poster %}<img src="{{ lecture.poster.url }}" alt="{{ lecture.title }}">{% else %}<span class="sp-emoji">{{ lecture.thumb_emoji|default:'🎤' }}</span>{% endif %}
@@ -34,6 +43,13 @@
                 </div>
             </div>
         </a>
+        {% if user.is_staff %}
+        <div class="sp-admin-row">
+            <a href="{% url 'special_admin_edit' lecture.pk %}" class="sp-btn ghost" style="padding:7px 14px; font-size:12.5px;">✏️ 수정</a>
+            <form method="post" action="{% url 'special_admin_delete' lecture.pk %}" onsubmit="return confirm('{{ lecture.title|escapejs }} 특강을 삭제할까요? 되돌릴 수 없어요.');">{% csrf_token %}<input type="hidden" name="next" value="public"><button class="sp-btn ghost" style="padding:7px 14px; font-size:12.5px; color:#dc2626;">🗑 삭제</button></form>
+        </div>
+        {% endif %}
+        </div>
         {% empty %}
         <div class="sp-card" style="grid-column: 1 / -1; text-align:center; color:var(--text-muted);">지금 모집 중인 특강이 없어요. 새로운 특강이 열리면 이곳에 안내해 드릴게요.</div>
         {% endfor %}

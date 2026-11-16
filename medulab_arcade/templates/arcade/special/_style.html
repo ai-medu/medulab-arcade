@@ -3,7 +3,11 @@
 .sp-title { font: 900 26px 'Orbitron', sans-serif; background: linear-gradient(90deg, var(--accent-green), var(--accent-blue)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; }
 .sp-sub { color: var(--text-muted); font-size: 14px; margin-bottom: 26px; line-height: 1.6; }
 .sp-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 18px; padding: 24px; margin-bottom: 18px; }
-.sp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px; }
+.sp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.sp-wrap.wide { max-width: 1100px; }
+.sp-admin-row { display: flex; gap: 8px; margin-top: 8px; }
+.sp-lecture-wrap { min-width: 0; }
+@media (max-width: 900px) { .sp-grid { grid-template-columns: repeat(2, 1fr); } }
 .sp-lecture { display: block; text-decoration: none; color: inherit; background: var(--bg-card); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; transition: transform .15s, border-color .15s; }
 .sp-lecture:hover { transform: translateY(-3px); border-color: var(--accent-green); }
 .sp-lecture img { width: 100%; max-height: 200px; object-fit: cover; display: block; }

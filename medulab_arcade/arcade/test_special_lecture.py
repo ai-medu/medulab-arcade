@@ -96,6 +96,9 @@ class CouponTests(TestCase):
 
 class ApplyFlowTests(TestCase):
     def setUp(self):
+        patcher = mock.patch('arcade.special_lecture._spawn')
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.lecture = make_lecture()
         self.apply_url = reverse('special_lecture_apply', args=[self.lecture.pk])
         self.guest = {'p_name': '김학생', 'p_grade': '4학년', 'applicant_name': '김보호', 'phone': '010-1234-5678'}
@@ -168,6 +171,9 @@ class ApplyFlowTests(TestCase):
 
 class MedulabParentTests(TestCase):
     def setUp(self):
+        patcher = mock.patch('arcade.special_lecture._spawn')
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.lecture = make_lecture()
         self.parent = make_member('mparent', 'medulab_parent')
         self.parent.profile.children_info = [{'name': '정해준', 'birth_date': '20130903', 'school': '해솔초', 'grade': '5'}]
@@ -211,6 +217,9 @@ class MedulabParentTests(TestCase):
 @override_settings(PORTONE_API_SECRET='secret', PORTONE_STORE_ID='store')
 class VerifyTests(TestCase):
     def setUp(self):
+        patcher = mock.patch('arcade.special_lecture._spawn')
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.lecture = make_lecture()
         self.reservation = SpecialLectureReservation.objects.create(
             lecture=self.lecture, applicant_name='김보호', phone='01012345678', amount=20000)
@@ -310,11 +319,17 @@ class AdminDeleteAndSeedTests(TestCase):
 
 class FriendDiscountAndDisplayTests(TestCase):
     def setUp(self):
+        patcher = mock.patch('arcade.special_lecture._spawn')
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.lecture = make_lecture()
         self.url = reverse('special_lecture_apply', args=[self.lecture.pk])
         self.guest = {'p_name': '김학생', 'applicant_name': '김보호', 'phone': '01012345678'}
 
-    def test_referral_friend_name_discounts_single_applicant(self):
+    def test_referral_friend_name_discounts_when_verified(self):
+        friend = make_member('friendstudent', 'medulab_member')
+        friend.profile.real_name = '이메듀'
+        friend.profile.save()
         self.client.post(self.url, dict(self.guest, referral_friend='이메듀'))
         reservation = SpecialLectureReservation.objects.get()
         self.assertEqual((reservation.amount, reservation.referral_friend), (10000, '이메듀'))
@@ -323,7 +338,32 @@ class FriendDiscountAndDisplayTests(TestCase):
         admin.save()
         self.client.force_login(admin)
         res = self.client.get(f"{reverse('special_admin_list')}?lecture={self.lecture.pk}")
-        self.assertContains(res, '재원생 확인 필요')
+        self.assertContains(res, '재원생 확인됨')
+
+    def test_unverified_friend_blocks_application_with_message(self):
+        res = self.client.post(self.url, dict(self.guest, referral_friend='없는친구'), follow=True)
+        self.assertFalse(SpecialLectureReservation.objects.exists())
+        self.assertContains(res, '메듀랩 재원생으로 확인되지 않았어요')
+
+    def test_friend_check_only_matches_approved_medulab_students(self):
+        other = make_member('plainperson', 'general')
+        other.profile.real_name = '일반인'
+        other.profile.save()
+        self.assertEqual(self.client.get(reverse('special_check_friend'), {'name': '일반인'}).json(), {'verified': False})
+        student = make_member('realstudent', 'medulab_member')
+        student.profile.real_name = '박 재원'
+        student.profile.save()
+        self.assertTrue(self.client.get(reverse('special_check_friend'), {'name': '박재원'}).json()['verified'])
+        self.assertTrue(self.client.get(reverse('special_check_friend'), {'name': ' 박 재원 '}).json()['verified'])
+        self.assertFalse(self.client.get(reverse('special_check_friend'), {'name': ''}).json()['verified'])
+
+    def test_friend_check_is_throttled(self):
+        from django.core.cache import cache
+        cache.clear()
+        codes = [self.client.get(reverse('special_check_friend'), {'name': f'n{i}'}).status_code for i in range(32)]
+        self.assertEqual(codes[:30], [200] * 30)
+        self.assertEqual(codes[30], 429)
+        cache.clear()
 
     def test_detail_layout_and_wording(self):
         self.lecture.end_time = datetime.time(14, 30)
@@ -342,8 +382,10 @@ class FriendDiscountAndDisplayTests(TestCase):
         self.assertNotContains(res, '특별한 1회 특강')
         self.assertContains(res, 'class="sp-emoji">☕')
 
-    def test_seeded_lecture_has_no_duplicate_description(self):
+    def test_seeded_lecture_has_content_without_duplicate_schedule(self):
         lecture = SpecialLecture.objects.get(title='AI 활용 나만의 머그컵 만들기')
-        self.assertEqual(lecture.description, '')
+        self.assertIn('머그컵', lecture.description)
+        self.assertNotIn('일시', lecture.description)
+        self.assertNotIn('장소', lecture.description)
         self.assertEqual((lecture.end_time.hour, lecture.end_time.minute), (14, 30))
         self.assertEqual(lecture.thumb_emoji, '☕')

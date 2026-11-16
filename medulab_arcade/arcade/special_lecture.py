@@ -1,4 +1,5 @@
 """특강 프로그램: 모집 공고, 예약 신청(회원/비회원), 결제, 관리자 화면"""
+import logging
 import re
 from datetime import timedelta
 
@@ -12,11 +13,88 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from .parent_notify import _is_configured, _normalize_phone, _post_alimtalk, _spawn
 from .models import (
     ParentChildLink, SpecialLecture, SpecialLectureCoupon, SpecialLectureParticipant, SpecialLectureReservation,
 )
 
 MAX_PARTICIPANTS = 6
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------- 카카오 알림톡
+def _send_confirmation_now(reservation_id):
+    """예약 확정 안내 알림톡을 신청자 연락처로 보낸다 (결과는 예약 기록에 남기고, 실패해도 예약에는 영향 없음)"""
+    from django.db import close_old_connections
+
+    try:
+        res = SpecialLectureReservation.objects.select_related('lecture').get(pk=reservation_id)
+        if res.notified_at:
+            return
+        lecture = res.lecture
+        template = settings.SOLAPI_TEMPLATE_SPECIAL
+        phone = _normalize_phone(res.phone)
+        ok = False
+        if not phone:
+            detail = '수신 번호가 올바르지 않아 발송하지 않음'
+        elif not _is_configured(template):
+            detail = '알림톡 설정(특강 템플릿 ID) 미완료로 발송하지 않음'
+        else:
+            when = timezone.localtime(lecture.lecture_at)
+            when_label = f'{when.month}월 {when.day}일({"월화수목금토일"[when.weekday()]}) {when:%H:%M}'
+            if lecture.end_time:
+                when_label += f'~{lecture.end_time:%H:%M}'
+            names = ', '.join(res.participants.values_list('name', flat=True))
+            ok, detail = _post_alimtalk(phone, template, {
+                '#{신청자}': res.applicant_name,
+                '#{특강명}': lecture.title,
+                '#{일시}': when_label,
+                '#{장소}': lecture.location or '메듀랩',
+                '#{참가자}': names,
+                '#{결제금액}': f'{res.amount:,}원' if res.amount else '무료',
+            })
+        res.notify_detail = detail[:300]
+        if ok:
+            res.notified_at = timezone.now()
+        res.save(update_fields=['notified_at', 'notify_detail'])
+    except Exception:
+        logger.exception('특강 예약 알림톡 처리 중 오류')
+    finally:
+        close_old_connections()
+
+
+def notify_confirmed(reservation):
+    """예약이 확정되면 카카오 알림톡을 보낸다. 외부 API 대기가 화면 응답을 늦추지 않도록 별도 스레드에서 처리한다."""
+    _spawn(_send_confirmation_now, reservation.pk)
+
+
+# ---------------------------------------------------------------- 메듀랩 친구 확인
+def is_medulab_student_name(name):
+    """이름이 승인된 메듀랩 학생(재원생)과 일치하는지. 이름 외의 정보는 돌려주지 않는다"""
+    from .models import UserProfile
+
+    name = (name or '').strip()
+    if not name:
+        return False
+    from django.db.models import Value
+    from django.db.models.functions import Replace
+
+    # 띄어쓰기 차이(박 재원 / 박재원)는 같은 이름으로 본다
+    return UserProfile.objects.annotate(name_nospace=Replace('real_name', Value(' '), Value(''))).filter(
+        user_type='medulab_member', is_approved=True, user__is_active=True, name_nospace=name.replace(' ', '')).exists()
+
+
+def special_check_friend(request):
+    """친구 이름 확인용 JSON. 이름 대입으로 재원생을 알아내는 것을 막기 위해 IP별로 횟수를 제한한다"""
+    from django.core.cache import cache
+
+    ip = (request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip() or request.META.get('REMOTE_ADDR', ''))
+    key = f'special_friend_check_{ip}'
+    count = cache.get(key, 0)
+    if count >= 30:
+        return JsonResponse({'verified': False, 'throttled': True}, status=429)
+    cache.set(key, count + 1, 600)
+    return JsonResponse({'verified': is_medulab_student_name(request.GET.get('name'))})
 
 
 # ---------------------------------------------------------------- 쿠폰
@@ -179,6 +257,8 @@ def special_lecture_apply(request, pk):
     phone = _clean_phone(request.POST.get('phone'))
     email = (request.POST.get('email') or '').strip()[:100]
     referral_friend = (request.POST.get('referral_friend') or '').strip()[:50]
+    if referral_friend and not is_medulab_student_name(referral_friend):
+        errors.append('입력하신 친구가 메듀랩 재원생으로 확인되지 않았어요. 확인 후 다시 입력해 주세요. (할인을 받지 않으려면 칸을 비워 주세요)')
     if not applicant_name:
         errors.append('신청자(보호자) 이름을 입력해 주세요.')
     if not phone:
@@ -219,6 +299,7 @@ def special_lecture_apply(request, pk):
             coupon.save(update_fields=['reservation', 'used_at'])
 
     if total == 0:
+        notify_confirmed(reservation)
         messages.success(request, '예약이 확정되었어요!')
         return redirect('special_reservation', token=reservation.token)
     return redirect('special_checkout', token=reservation.token)
@@ -302,6 +383,7 @@ def special_verify(request, token):
         reservation.portone_pay_method = _portone_method_label(data.get('method'))
         reservation.save(update_fields=['status', 'paid_at', 'portone_pay_method'])
         reservation.coupons.filter(used_at__isnull=True).update(used_at=timezone.now())
+    notify_confirmed(reservation)
     return JsonResponse({'ok': True})
 
 
@@ -375,4 +457,4 @@ def special_admin_delete(request, pk):
     title = lecture.title
     lecture.delete()
     messages.success(request, f'"{title}" 특강을 삭제했어요.')
-    return redirect('special_admin_list')
+    return redirect('special_lecture_list' if request.POST.get('next') == 'public' else 'special_admin_list')

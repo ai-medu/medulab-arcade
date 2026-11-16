@@ -36,6 +36,7 @@ SOLAPI_SENDER = os.environ.get('SOLAPI_SENDER', '')  # 등록된 발신번호 (�
 SOLAPI_SMS_FALLBACK = os.environ.get('SOLAPI_SMS_FALLBACK', '1') == '1'
 SOLAPI_TEMPLATE_ATTENDANCE = os.environ.get('SOLAPI_TEMPLATE_ATTENDANCE', '')  # 출석 알림 템플릿 ID
 SOLAPI_TEMPLATE_INVOICE = os.environ.get('SOLAPI_TEMPLATE_INVOICE', '')  # 학원비 청구/미납 안내 템플릿 ID
+SOLAPI_TEMPLATE_SPECIAL = os.environ.get('SOLAPI_TEMPLATE_SPECIAL', '')  # 특강 예약 확정 안내 템플릿 ID
 
 # 학원 출석 체크 - 학생의 GPS 좌표가 학원 좌표 기준 반경 이내면 "학원에서 접속"으로 판정
 ACADEMY_LATITUDE = os.environ.get('ACADEMY_LATITUDE', '')

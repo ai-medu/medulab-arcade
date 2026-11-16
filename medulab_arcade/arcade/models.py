@@ -1699,6 +1699,8 @@ class SpecialLectureReservation(models.Model):
     portone_payment_id = models.CharField('포트원 결제건 ID', max_length=100, unique=True, blank=True)
     portone_pay_method = models.CharField('결제 수단', max_length=30, blank=True)
     paid_at = models.DateTimeField('결제일시', null=True, blank=True)
+    notified_at = models.DateTimeField('알림톡 발송일시', null=True, blank=True)
+    notify_detail = models.CharField('알림톡 발송 결과', max_length=300, blank=True)
     memo = models.CharField('관리자 메모', max_length=200, blank=True)
     created_at = models.DateTimeField('신청일시', auto_now_add=True)
 

@@ -7,7 +7,16 @@
 
 {% block content %}
 <div class="sp-wrap">
-    <a href="{% url 'special_lecture_list' %}" style="color:var(--text-muted); font-size:13px; text-decoration:none;">← 특강 목록</a>
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <a href="{% url 'special_lecture_list' %}" style="color:var(--text-muted); font-size:13px; text-decoration:none;">← 특강 목록</a>
+        {% if user.is_staff %}
+        <div class="sp-admin-row" style="margin:0;">
+            <a href="{% url 'special_admin_edit' lecture.pk %}" class="sp-btn ghost" style="padding:7px 14px; font-size:12.5px;">✏️ 수정</a>
+            <a href="{% url 'special_admin_list' %}?lecture={{ lecture.pk }}" class="sp-btn ghost" style="padding:7px 14px; font-size:12.5px;">📋 신청 현황</a>
+            <form method="post" action="{% url 'special_admin_delete' lecture.pk %}" onsubmit="return confirm('{{ lecture.title|escapejs }} 특강을 삭제할까요? 되돌릴 수 없어요.');">{% csrf_token %}<input type="hidden" name="next" value="public"><button class="sp-btn ghost" style="padding:7px 14px; font-size:12.5px; color:#dc2626;">🗑 삭제</button></form>
+        </div>
+        {% endif %}
+    </div>
     <h1 class="sp-title" style="margin-top:12px;">{{ lecture.title }}</h1>
     {% if lecture.summary %}<p class="sp-sub">{{ lecture.summary }}</p>{% endif %}
 
@@ -34,7 +43,12 @@
                 </div>
                 {% endif %}
             </div>
-            {% if lecture.description %}<div style="margin-top:16px; line-height:1.8; white-space:pre-line; font-size:14.5px;">{{ lecture.description }}</div>{% endif %}
+            {% if lecture.description %}
+            <h3 style="margin:22px 0 8px; font-size:16px;">📖 수업 내용</h3>
+            <div style="line-height:1.9; white-space:pre-line; font-size:14.5px;">{{ lecture.description }}</div>
+            {% elif user.is_staff %}
+            <div class="sp-notice warn" style="margin-top:16px;">수업 내용이 비어 있어요. 위쪽 "✏️ 수정"에서 상세 안내(수업 내용)를 적어 주세요.</div>
+            {% endif %}
 
             <div class="sp-price-box">
                 <div class="sp-price-item"><small>💰 기본 참가비</small><b>{{ lecture.base_price|intcomma }}원</b></div>
@@ -78,7 +92,8 @@
                 ① <b>메듀랩에 다니는 친구</b>가 있다면 이름을 적어 주세요.<br>
                 ② 다른 친구와 <b>함께 참여</b>한다면 친구를 추가해 주세요. (함께 신청한 모두 할인)
             </div>
-            <input class="sp-input" name="referral_friend" id="referralFriend" placeholder="① 메듀랩에 다니는 친구 이름 (선택)" value="{{ form_data.referral_friend|default:'' }}" style="margin-bottom:10px;">
+            <input class="sp-input" name="referral_friend" id="referralFriend" placeholder="① 메듀랩에 다니는 친구 이름 (선택)" value="{{ form_data.referral_friend|default:'' }}" autocomplete="off">
+            <div id="referralMsg" style="font-size:13px; font-weight:700; margin:6px 0 10px; min-height:18px;"></div>
             <div id="friendRows"></div>
             <button type="button" class="sp-btn ghost" id="addFriendBtn" style="padding:10px 16px; font-size:13px;">② ＋ 함께 참여할 친구 추가</button>
 
@@ -106,6 +121,7 @@
 (function () {
     var base = {{ lecture.base_price }}, discount = {{ lecture.friend_discount }};
     var medulabParent = {% if medulab_parent %}true{% else %}false{% endif %};
+    var referralVerified = false;
     var friendRows = document.getElementById('friendRows');
     var addBtn = document.getElementById('addFriendBtn');
     if (!friendRows) return;
@@ -117,7 +133,7 @@
         var friendCount = 0;
         friendRows.querySelectorAll('input[name="f_name"]').forEach(function (i) { if (i.value.trim()) friendCount++; });
         var mainCount = medulabParent ? document.querySelectorAll('input[name="child"]:checked').length : 1;
-        var referral = ((document.getElementById('referralFriend') || {}).value || '').trim() !== '';
+        var referral = referralVerified;
         var friendDeal = (mainCount + friendCount) >= 2 || referral;
         var each = friendDeal ? Math.max(base - discount, 0) : base;
         var price = (medulabParent ? 0 : each) + friendCount * each;
@@ -145,7 +161,41 @@
     });
     document.querySelectorAll('input[name="child"], #useCoupon').forEach(function (i) { i.addEventListener('change', recalc); });
     var refInput = document.getElementById('referralFriend');
-    if (refInput) refInput.addEventListener('input', recalc);
+    var refMsg = document.getElementById('referralMsg');
+    var refTimer = null;
+    function checkFriend() {
+        var name = refInput.value.trim();
+        if (!name) { referralVerified = false; refMsg.textContent = ''; recalc(); return; }
+        refMsg.style.color = 'var(--text-muted)';
+        refMsg.textContent = '확인 중...';
+        fetch('{% url "special_check_friend" %}?name=' + encodeURIComponent(name))
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (refInput.value.trim() !== name) return;   // 그 사이 다시 입력한 경우 무시
+                referralVerified = !!data.verified;
+                if (data.throttled) { refMsg.style.color = '#dc2626'; refMsg.textContent = '확인 요청이 너무 많아요. 잠시 후 다시 시도해 주세요.'; }
+                else if (referralVerified) { refMsg.style.color = '#047857'; refMsg.textContent = '✅ 메듀랩 재원생으로 확인되었어요. 친구 할인이 적용돼요.'; }
+                else { refMsg.style.color = '#dc2626'; refMsg.textContent = '❌ 메듀랩 재원생으로 확인되지 않았어요. 확인 후 다시 입력해 주세요.'; }
+                recalc();
+            })
+            .catch(function () { referralVerified = false; refMsg.style.color = '#dc2626'; refMsg.textContent = '확인하지 못했어요. 잠시 후 다시 시도해 주세요.'; recalc(); });
+    }
+    if (refInput) {
+        refInput.addEventListener('input', function () {
+            referralVerified = false; recalc();
+            clearTimeout(refTimer); refTimer = setTimeout(checkFriend, 500);
+        });
+        if (refInput.value.trim()) checkFriend();
+    }
+    var form = document.getElementById('applyForm');
+    if (form) form.addEventListener('submit', function (e) {
+        if (refInput && refInput.value.trim() && !referralVerified) {
+            e.preventDefault();
+            refMsg.style.color = '#dc2626';
+            refMsg.textContent = '❌ 메듀랩 재원생으로 확인되지 않았어요. 확인 후 다시 입력해 주세요. (할인을 받지 않으려면 칸을 비워 주세요)';
+            refInput.focus();
+        }
+    });
     recalc();
 })();
 </script>

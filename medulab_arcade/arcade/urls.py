@@ -102,6 +102,7 @@ urlpatterns = [
     path('api/robot-contests/', views.api_robot_contests, name='api_robot_contests'),
     # 특강 프로그램
     path('special/', special_lecture.special_lecture_list, name='special_lecture_list'),
+    path('special/check-friend/', special_lecture.special_check_friend, name='special_check_friend'),
     path('special/<int:pk>/', special_lecture.special_lecture_detail, name='special_lecture_detail'),
     path('special/<int:pk>/apply/', special_lecture.special_lecture_apply, name='special_lecture_apply'),
     path('special/r/<str:token>/', special_lecture.special_reservation, name='special_reservation'),
