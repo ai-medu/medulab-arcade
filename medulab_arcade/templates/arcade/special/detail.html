@@ -43,9 +43,14 @@
                 </div>
                 {% endif %}
             </div>
-            {% if lecture.description %}
+            {% if lecture.description or example_images %}
             <h3 style="margin:22px 0 8px; font-size:16px;">📖 수업 내용</h3>
-            <div style="line-height:1.9; white-space:pre-line; font-size:14.5px;">{{ lecture.description }}</div>
+            {% if lecture.description %}<div style="line-height:1.9; white-space:pre-line; font-size:14.5px;">{{ lecture.description }}</div>{% endif %}
+            {% if example_images %}
+            <div class="sp-example-gallery">
+                {% for image in example_images %}<a href="{{ image.image.url }}" target="_blank" rel="noopener"><img src="{{ image.image.url }}" alt="{{ lecture.title }} 예시 사진 {{ forloop.counter }}" loading="lazy"></a>{% endfor %}
+            </div>
+            {% endif %}
             {% elif user.is_staff %}
             <div class="sp-notice warn" style="margin-top:16px;">수업 내용이 비어 있어요. 위쪽 "✏️ 수정"에서 상세 안내(수업 내용)를 적어 주세요.</div>
             {% endif %}
@@ -104,8 +109,14 @@
             </div>
             <input class="sp-input" name="email" type="email" placeholder="이메일 (선택, 결제 영수증용)" value="{{ form_data.email|default:prefill.email }}" style="margin-top:10px;">
 
+            <span class="sp-label">🎟️ 쿠폰</span>
             {% if user.is_authenticated and coupon %}
-            <label class="sp-check" style="margin-top:16px;"><input type="checkbox" name="use_coupon" value="1" id="useCoupon" checked> <span>🎟️ <b>특강 1회 무료 참여 쿠폰</b> 사용하기</span></label>
+            <label class="sp-check"><input type="checkbox" name="use_coupon" value="1" id="useCoupon" checked> <span><b>특강 1회 무료 참여 쿠폰</b> 사용하기 <small style="color:var(--text-muted);">(참가자 1명이 무료)</small></span></label>
+            {% elif user.is_authenticated %}
+            <div class="sp-notice info" style="margin:0;">지금 사용할 수 있는 쿠폰이 없어요. (쿠폰은 회원가입할 때 1장 드려요)</div>
+            {% else %}
+            <div class="sp-notice info" style="margin:0;">무료 참여 쿠폰은 <b>로그인한 회원</b>만 사용할 수 있어요. 회원가입하면 쿠폰을 1장 드려요.<br>
+                <a href="{% url 'login' %}?next={{ request.path|urlencode }}" style="font-weight:800;">로그인</a> · <a href="{% url 'signup' %}" style="font-weight:800;">회원가입</a></div>
             {% endif %}
 
             <div class="sp-total"><span>결제 예상 금액</span><span id="totalPrice">{{ lecture.base_price|intcomma }}원</span></div>

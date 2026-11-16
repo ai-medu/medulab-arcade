@@ -15,7 +15,7 @@ from django.views.decorators.http import require_POST
 
 from .parent_notify import _is_configured, _normalize_phone, _post_alimtalk, _spawn
 from .models import (
-    ParentChildLink, SpecialLecture, SpecialLectureCoupon, SpecialLectureParticipant, SpecialLectureReservation,
+    ParentChildLink, SpecialLecture, SpecialLectureCoupon, SpecialLectureImage, SpecialLectureParticipant, SpecialLectureReservation,
 )
 
 MAX_PARTICIPANTS = 6
@@ -231,6 +231,7 @@ def special_lecture_detail(request, pk):
         'medulab_parent': medulab_parent,
         'children_options': parent_children_options(user) if medulab_parent else [],
         'coupon': available_coupon(user),
+        'example_images': list(lecture.images.all()),
         'friend_price': max(lecture.base_price - lecture.friend_discount, 0),
         'prefill': {
             'name': (profile.real_name if profile else '') or '',
@@ -423,11 +424,45 @@ def special_admin_form(request, pk=None):
         form = SpecialLectureForm(request.POST, request.FILES, instance=lecture)
         if form.is_valid():
             saved = form.save()
+            skipped = _save_example_images(request, saved)
             messages.success(request, '특강을 저장했어요.')
+            if skipped:
+                messages.error(request, f'이미지가 아니거나 8MB가 넘는 파일 {skipped}개는 올리지 못했어요.')
             return redirect(f"{reverse('special_admin_list')}?lecture={saved.pk}")
     else:
         form = SpecialLectureForm(instance=lecture)
-    return render(request, 'arcade/board_form.html', {'form': form, 'title': '특강 수정' if lecture else '특강 등록'})
+    return render(request, 'arcade/special/admin_form.html', {
+        'form': form, 'lecture': lecture, 'title': '특강 수정' if lecture else '특강 등록',
+        'images': lecture.images.all() if lecture else [],
+    })
+
+
+MAX_IMAGE_BYTES = 8 * 1024 * 1024
+
+
+def _save_example_images(request, lecture):
+    """수업 내용 예시 사진: 선택한 사진 삭제 + 새로 올린 사진 추가. 올리지 못한 파일 수를 돌려준다"""
+    from PIL import Image
+
+    delete_ids = [int(i) for i in request.POST.getlist('delete_images') if i.isdigit()]
+    if delete_ids:
+        for image in lecture.images.filter(pk__in=delete_ids):
+            image.image.delete(save=False)
+            image.delete()
+    skipped = 0
+    next_order = (lecture.images.order_by('-order').values_list('order', flat=True).first() or 0) + 1
+    for upload in request.FILES.getlist('example_images'):
+        try:
+            if upload.size > MAX_IMAGE_BYTES:
+                raise ValueError('too large')
+            Image.open(upload).verify()
+            upload.seek(0)
+        except Exception:
+            skipped += 1
+            continue
+        SpecialLectureImage.objects.create(lecture=lecture, image=upload, order=next_order)
+        next_order += 1
+    return skipped
 
 
 @login_required

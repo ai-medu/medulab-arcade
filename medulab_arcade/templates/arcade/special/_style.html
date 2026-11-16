@@ -14,6 +14,12 @@
 .sp-lecture-body { padding: 20px; }
 .sp-lecture h3 { margin: 0 0 6px; font-size: 18px; }
 .sp-meta { font-size: 13px; color: var(--text-muted); line-height: 1.8; }
+.sp-facts { margin-top: 10px; display: grid; gap: 4px; line-height: 1.6; }
+.sp-facts-sub { color: #00a37a; font-weight: 700; font-size: 12.5px; }
+.sp-example-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 14px; }
+.sp-example-gallery a { display: block; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+.sp-example-gallery img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; transition: transform .2s; }
+.sp-example-gallery a:hover img { transform: scale(1.04); }
 .sp-badge { display: inline-block; padding: 3px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 800; margin-right: 6px; }
 .sp-badge.open { background: rgba(0,200,150,.15); color: #00a37a; }
 .sp-badge.closed { background: rgba(120,120,140,.18); color: var(--text-muted); }

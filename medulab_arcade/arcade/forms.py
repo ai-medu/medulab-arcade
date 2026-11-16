@@ -1326,3 +1326,10 @@ class SpecialLectureForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['lecture_at'].input_formats = ['%Y-%m-%dT%H:%M', '%Y-%m-%d %H:%M']
+        self.fields['title'].widget.attrs['placeholder'] = '예: AI 활용 나만의 머그컵 만들기'
+        self.fields['summary'].widget.attrs['placeholder'] = '목록 카드에 보이는 한 줄 소개'
+        self.fields['location'].widget.attrs['placeholder'] = '장소 이름 (주소는 괄호 안에)'
+        self.fields['description'].widget.attrs['placeholder'] = '수업 소개, 진행 순서, 준비물, 대상 등을 적어 주세요.'
+        self.fields['capacity'].widget.attrs.update({'min': 0, 'step': 1})
+        self.fields['base_price'].widget.attrs.update({'min': 0, 'step': 1000})
+        self.fields['friend_discount'].widget.attrs.update({'min': 0, 'step': 1000})

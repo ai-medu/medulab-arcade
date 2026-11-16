@@ -1646,6 +1646,11 @@ class SpecialLecture(models.Model):
     def __str__(self):
         return self.title
 
+    @property
+    def location_short(self):
+        """목록 카드용 장소: 괄호 안의 주소는 빼고 장소 이름만 보여 준다"""
+        return (self.location or '').split('(')[0].strip()
+
     def seats_taken(self):
         """확정된 참가자 + 결제 대기 중(30분 이내)인 참가자 수"""
         hold_from = timezone.now() - timedelta(minutes=self.PENDING_HOLD_MINUTES)
@@ -1670,6 +1675,23 @@ class SpecialLecture(models.Model):
     @property
     def is_open(self):
         return self.is_active and self.registration_open and self.lecture_at >= timezone.now() and not self.is_full
+
+
+class SpecialLectureImage(models.Model):
+    """수업 내용에 보여 줄 예시 사진"""
+
+    lecture = models.ForeignKey(SpecialLecture, on_delete=models.CASCADE, related_name='images', verbose_name='특강')
+    image = models.ImageField('예시 사진', upload_to='special_lectures/examples/')
+    order = models.PositiveIntegerField('순서', default=0)
+    created_at = models.DateTimeField('등록일', auto_now_add=True)
+
+    class Meta:
+        verbose_name = '특강 예시 사진'
+        verbose_name_plural = '특강 예시 사진'
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return f'{self.lecture.title} 예시 사진'
 
 
 class SpecialLectureReservation(models.Model):
