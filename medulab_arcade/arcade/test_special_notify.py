@@ -6,7 +6,7 @@ from django.urls import reverse
 
 from arcade.models import SpecialLectureParticipant, SpecialLectureReservation
 from arcade.special_lecture import grant_welcome_coupon
-from arcade.test_special_lecture import make_lecture, make_member
+from arcade.test_special_lecture import apply_extras, make_lecture, make_member
 
 SOLAPI = dict(SOLAPI_API_KEY='k', SOLAPI_API_SECRET='s', SOLAPI_PF_ID='pf', SOLAPI_SENDER='01000000000',
               SOLAPI_TEMPLATE_SPECIAL='KA01TP-special')
@@ -16,7 +16,7 @@ class NotificationTests(TestCase):
     def setUp(self):
         self.lecture = make_lecture(end_time=datetime.time(14, 30), location='메듀랩 5층')
         self.apply_url = reverse('special_lecture_apply', args=[self.lecture.pk])
-        self.guest = {'p_name': '김학생', 'p_school': '한빛초', 'p_grade': '4학년', 'p_birth': '2016.03.15', 'applicant_name': '김보호', 'phone': '010-1234-5678'}
+        self.guest = {'p_name': '김학생', 'p_school': '한빛초', 'p_grade': '4학년', 'p_birth': '2016.03.15', 'applicant_name': '김보호', 'phone': '010-1234-5678', **apply_extras()}
 
     def _inline(self):
         return mock.patch('arcade.special_lecture._spawn', side_effect=lambda fn, *a: fn(*a))

@@ -1661,6 +1661,9 @@ class SpecialLecture(models.Model):
             | models.Q(reservation__status=SpecialLectureReservation.STATUS_PENDING, reservation__created_at__gte=hold_from)
         ).count()
 
+    def waitlist_count(self):
+        return self.reservations.filter(status=SpecialLectureReservation.STATUS_WAITLIST).count()
+
     def seats_left(self):
         """남은 자리 수. 정원 제한이 없으면 None"""
         if not self.capacity:
@@ -1673,8 +1676,13 @@ class SpecialLecture(models.Model):
         return left is not None and left <= 0
 
     @property
+    def accepts_applications(self):
+        """신청(정원이 찼으면 대기 신청)을 받을 수 있는 상태인지"""
+        return self.is_active and self.registration_open and self.lecture_at >= timezone.now()
+
+    @property
     def is_open(self):
-        return self.is_active and self.registration_open and self.lecture_at >= timezone.now() and not self.is_full
+        return self.accepts_applications and not self.is_full
 
 
 class SpecialLectureImage(models.Model):
@@ -1700,10 +1708,12 @@ class SpecialLectureReservation(models.Model):
     STATUS_PENDING = 'pending'
     STATUS_CONFIRMED = 'confirmed'
     STATUS_CANCELED = 'canceled'
+    STATUS_WAITLIST = 'waitlist'
     STATUS_CHOICES = [
         (STATUS_PENDING, '결제 대기'),
         (STATUS_CONFIRMED, '예약 확정'),
         (STATUS_CANCELED, '취소'),
+        (STATUS_WAITLIST, '대기 신청'),
     ]
 
     lecture = models.ForeignKey(SpecialLecture, on_delete=models.CASCADE, related_name='reservations', verbose_name='특강')
@@ -1721,6 +1731,10 @@ class SpecialLectureReservation(models.Model):
     portone_payment_id = models.CharField('포트원 결제건 ID', max_length=100, unique=True, blank=True)
     portone_pay_method = models.CharField('결제 수단', max_length=30, blank=True)
     paid_at = models.DateTimeField('결제일시', null=True, blank=True)
+    privacy_agreed_at = models.DateTimeField('개인정보 수집·이용 동의 일시', null=True, blank=True)
+    refunded_at = models.DateTimeField('환불 완료일시', null=True, blank=True)
+    refund_detail = models.CharField('환불 결과', max_length=300, blank=True)
+    reminder_sent_at = models.DateTimeField('하루 전 안내 발송일시', null=True, blank=True)
     notified_at = models.DateTimeField('알림톡 발송일시', null=True, blank=True)
     notify_detail = models.CharField('알림톡 발송 결과', max_length=300, blank=True)
     memo = models.CharField('관리자 메모', max_length=200, blank=True)

@@ -10,10 +10,19 @@ from arcade.models import (
     NavItem, ParentChildLink, SpecialLecture, SpecialLectureCoupon, SpecialLectureParticipant,
     SpecialLectureReservation,
 )
+import time
+from django.core import signing
+from django.core.cache import cache
 from arcade.special_lecture import available_coupon, compute_pricing, grant_welcome_coupon
 
 
+def apply_extras():
+    """신청 폼의 개인정보 동의 + 스팸 방지 토큰(10초 전에 열린 화면)"""
+    return {'privacy': '1', 'form_token': signing.dumps(int(time.time()) - 10, salt='special-form')}
+
+
 def make_lecture(**kwargs):
+    cache.clear()   # 신청 횟수 제한이 테스트끼리 영향을 주지 않도록
     defaults = dict(title='AI 특강', lecture_at=timezone.now() + datetime.timedelta(days=7),
                     base_price=20000, friend_discount=10000, capacity=0)
     defaults.update(kwargs)
@@ -101,7 +110,7 @@ class ApplyFlowTests(TestCase):
         self.addCleanup(patcher.stop)
         self.lecture = make_lecture()
         self.apply_url = reverse('special_lecture_apply', args=[self.lecture.pk])
-        self.guest = {'p_name': '김학생', 'p_school': '한빛초', 'p_grade': '4학년', 'p_birth': '2016.03.15', 'applicant_name': '김보호', 'phone': '010-1234-5678'}
+        self.guest = {'p_name': '김학생', 'p_school': '한빛초', 'p_grade': '4학년', 'p_birth': '2016.03.15', 'applicant_name': '김보호', 'phone': '010-1234-5678', **apply_extras()}
 
     def test_pages_render(self):
         self.assertContains(self.client.get(reverse('special_lecture_list')), 'AI 특강')
@@ -160,8 +169,10 @@ class ApplyFlowTests(TestCase):
         url = reverse('special_lecture_apply', args=[limited.pk])
         self.client.post(url, self.guest)
         self.client.post(url, dict(self.guest, p_name='다른학생'))
-        self.assertEqual(SpecialLectureReservation.objects.filter(lecture=limited).count(), 1)
+        statuses = sorted(SpecialLectureReservation.objects.filter(lecture=limited).values_list('status', flat=True))
+        self.assertEqual(statuses, ['pending', 'waitlist'])   # 정원이 차면 두 번째는 대기 신청
         self.assertTrue(limited.is_full)
+        self.assertEqual(limited.seats_taken(), 1)   # 대기 신청은 자리를 차지하지 않는다
 
     def test_closed_lecture_rejects(self):
         closed = make_lecture(title='닫힘', registration_open=False)
@@ -184,7 +195,7 @@ class MedulabParentTests(TestCase):
         ParentChildLink.objects.create(parent=self.parent, child=self.kid)
         self.client.force_login(self.parent)
         self.apply_url = reverse('special_lecture_apply', args=[self.lecture.pk])
-        self.base = {'applicant_name': '학부모', 'phone': '01099998888'}
+        self.base = {'applicant_name': '학부모', 'phone': '01099998888', **apply_extras()}
 
     def test_detail_lists_children(self):
         res = self.client.get(reverse('special_lecture_detail', args=[self.lecture.pk]))
@@ -324,7 +335,7 @@ class FriendDiscountAndDisplayTests(TestCase):
         self.addCleanup(patcher.stop)
         self.lecture = make_lecture()
         self.url = reverse('special_lecture_apply', args=[self.lecture.pk])
-        self.guest = {'p_name': '김학생', 'p_school': '한빛초', 'p_grade': '4학년', 'p_birth': '2016.03.15', 'applicant_name': '김보호', 'phone': '01012345678'}
+        self.guest = {'p_name': '김학생', 'p_school': '한빛초', 'p_grade': '4학년', 'p_birth': '2016.03.15', 'applicant_name': '김보호', 'phone': '01012345678', **apply_extras()}
 
     def test_referral_friend_name_discounts_when_verified(self):
         friend = make_member('friendstudent', 'medulab_member')

@@ -1,0 +1,48 @@
+{% extends 'arcade/base.html' %}
+
+{% block title %}참가자 명단 - {{ lecture.title }}{% endblock %}
+
+{% block extra_css %}
+{% include 'arcade/special/_style.html' %}
+<style>
+.rs-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.rs-table th, .rs-table td { border: 1px solid #9ca3af; padding: 9px 10px; text-align: left; }
+.rs-table th { background: rgba(120,120,140,.12); }
+.rs-check { width: 60px; }
+@media print {
+    header, nav, footer, .no-print, .nav-bar, #mainNav { display: none !important; }
+    body { background: #fff !important; color: #000 !important; }
+    .sp-wrap { margin: 0; max-width: none; }
+    .sp-title { -webkit-text-fill-color: #000; background: none; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sp-wrap" style="max-width:900px;">
+    <div class="no-print" style="display:flex; gap:8px; margin-bottom:16px;">
+        <a href="{% url 'special_admin_list' %}?lecture={{ lecture.pk }}" class="sp-btn ghost" style="padding:9px 16px; font-size:13px;">← 신청 현황</a>
+        <button type="button" class="sp-btn" style="padding:9px 16px; font-size:13px;" onclick="window.print()">🖨 인쇄</button>
+    </div>
+    <h1 class="sp-title">{{ lecture.title }} · 참가자 명단</h1>
+    <p class="sp-sub">{{ lecture.lecture_at|date:"Y년 n월 j일 (D) H:i" }}{% if lecture.end_time %} ~ {{ lecture.end_time|time:"H:i" }}{% endif %}{% if lecture.location_short %} · {{ lecture.location_short }}{% endif %} · 확정 {{ people|length }}명</p>
+    <table class="rs-table">
+        <thead><tr><th style="width:44px;">번호</th><th>이름</th><th>학교 · 학년</th><th>생년월일</th><th>보호자 연락처</th><th>참가비</th><th class="rs-check">출석</th></tr></thead>
+        <tbody>
+        {% for p in people %}
+        <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>{{ p.name }}{% if p.is_friend %} <small>(친구)</small>{% endif %}</td>
+            <td>{{ p.school }} {{ p.grade }}</td>
+            <td>{{ p.birth_date|date:"Y.m.d"|default:"-" }}</td>
+            <td>{{ p.reservation.applicant_name }} {{ p.reservation.phone }}</td>
+            <td>{{ p.price }}원{% if p.note %} <small>({{ p.note }})</small>{% endif %}</td>
+            <td class="rs-check">☐</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" style="text-align:center; padding:30px;">확정된 참가자가 없어요.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

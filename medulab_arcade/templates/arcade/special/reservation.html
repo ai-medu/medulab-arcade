@@ -13,7 +13,9 @@
     {% if reservation.status == 'confirmed' %}
     <div class="sp-notice good"><b>예약이 확정되었어요!</b> 특강 당일 뵙겠습니다.</div>
     {% elif reservation.status == 'canceled' %}
-    <div class="sp-notice err">취소된 예약이에요.</div>
+    <div class="sp-notice err">취소된 예약이에요.{% if reservation.refunded_at %} 결제하신 금액은 환불 처리되었어요. (카드사에 따라 영업일 기준 3~7일 걸릴 수 있어요)</div>{% else %}</div>{% endif %}
+    {% elif reservation.status == 'waitlist' %}
+    <div class="sp-notice warn"><b>대기 신청이 접수되었어요.</b> 자리가 나면 입력하신 연락처로 안내해 드려요. 그때까지는 결제하지 않으셔도 돼요.</div>
     {% else %}
     <div class="sp-notice warn">아직 결제가 완료되지 않았어요. 결제를 마치면 예약이 확정돼요.
         <a href="{% url 'special_checkout' reservation.token %}" style="font-weight:800;">결제하러 가기 →</a></div>

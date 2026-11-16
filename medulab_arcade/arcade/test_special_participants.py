@@ -7,7 +7,7 @@ from django.urls import reverse
 
 from arcade.models import SpecialLectureReservation
 from arcade.special_lecture import parse_birth_date
-from arcade.test_special_lecture import make_lecture, make_member
+from arcade.test_special_lecture import apply_extras, make_lecture, make_member
 
 
 class BirthDateParsingTests(TestCase):
@@ -28,7 +28,7 @@ class ParticipantFieldsTests(TestCase):
         self.lecture = make_lecture()
         self.url = reverse('special_lecture_apply', args=[self.lecture.pk])
         self.base = {'applicant_name': '김보호', 'phone': '01012345678', 'p_name': '김학생', 'p_school': '한빛초',
-                     'p_grade': '4학년', 'p_birth': '2016.03.15'}
+                     'p_grade': '4학년', 'p_birth': '2016.03.15', **apply_extras()}
 
     def test_detail_shows_four_input_fields(self):
         res = self.client.get(reverse('special_lecture_detail', args=[self.lecture.pk]))
@@ -74,7 +74,7 @@ class ParticipantFieldsTests(TestCase):
         self.client.force_login(parent)
         page = self.client.get(reverse('special_lecture_detail', args=[self.lecture.pk]))
         self.assertContains(page, '해솔초 5학년')
-        self.client.post(self.url, {'applicant_name': '학부모', 'phone': '01099998888', 'child': ['i0']})
+        self.client.post(self.url, {'applicant_name': '학부모', 'phone': '01099998888', 'child': ['i0'], **apply_extras()})
         person = SpecialLectureReservation.objects.get().participants.get()
         self.assertEqual((person.school, person.grade, person.birth_date), ('해솔초', '5학년', datetime.date(2013, 9, 3)))
 

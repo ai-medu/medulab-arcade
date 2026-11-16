@@ -14,7 +14,14 @@
             <a href="{% url 'special_admin_create' %}" class="sp-btn" style="padding:11px 18px; font-size:14px;">+ 특강 등록</a>
         </div>
     </div>
-    {% for message in messages %}<div class="sp-notice good">{{ message }}</div>{% endfor %}
+    {% for message in messages %}<div class="sp-notice {% if message.tags == 'error' %}err{% else %}good{% endif %}" style="word-break:break-all;">{{ message }}</div>{% endfor %}
+
+    {% if coupon_eligible_count %}
+    <div class="sp-notice info" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+        <span>🎟️ 가입 선물 쿠폰이 없는 기존 회원이 <b>{{ coupon_eligible_count }}명</b> 있어요.</span>
+        <form method="post" action="{% url 'special_admin_grant_coupons' %}" onsubmit="return confirm('기존 회원 {{ coupon_eligible_count }}명에게 특강 1회 무료 쿠폰을 1장씩 지급할까요? 되돌릴 수 없어요.');">{% csrf_token %}<button class="sp-btn" style="padding:8px 14px; font-size:13px;">기존 회원에게 쿠폰 지급</button></form>
+    </div>
+    {% endif %}
 
     <div class="sp-card" style="padding:0; overflow-x:auto;">
         <table class="sp-table">
@@ -25,8 +32,8 @@
                 <td style="padding-left:20px;"><a href="?lecture={{ l.pk }}" style="font-weight:800; text-decoration:none; color:inherit;">{{ l.title }}</a></td>
                 <td>{{ l.lecture_at|date:"Y.m.d H:i" }}</td>
                 <td>{{ l.base_price|intcomma }}원</td>
-                <td>{{ l.confirmed_count }}명 / {% if l.capacity %}{{ l.capacity }}명{% else %}제한 없음{% endif %}</td>
-                <td>{% if not l.is_active %}<span class="sp-badge closed">숨김</span>{% elif l.is_open %}<span class="sp-badge open">모집중</span>{% else %}<span class="sp-badge closed">종료/마감</span>{% endif %}</td>
+                <td>{{ l.confirmed_count }}명 / {% if l.capacity %}{{ l.capacity }}명{% else %}제한 없음{% endif %}{% if l.waitlist_total %}<br><small style="color:#d97706;">대기 {{ l.waitlist_total }}건</small>{% endif %}</td>
+                <td>{% if not l.is_active %}<span class="sp-badge closed">숨김</span>{% elif l.is_open %}<span class="sp-badge open">모집중</span>{% elif l.is_full and l.accepts_applications %}<span class="sp-badge hot">정원 마감 · 대기 접수</span>{% else %}<span class="sp-badge closed">종료/마감</span>{% endif %}</td>
                 <td><a href="{% url 'special_admin_edit' l.pk %}" class="sp-btn ghost" style="padding:6px 12px; font-size:12px;">수정</a>
                     <a href="{% url 'special_lecture_detail' l.pk %}" class="sp-btn ghost" style="padding:6px 12px; font-size:12px;">공개 화면</a>
                     <form method="post" action="{% url 'special_admin_delete' l.pk %}" style="display:inline;" onsubmit="return confirm('{{ l.title|escapejs }} 특강을 삭제할까요? 되돌릴 수 없어요.');">{% csrf_token %}<button class="sp-btn ghost" style="padding:6px 12px; font-size:12px; color:#dc2626;">삭제</button></form></td>
@@ -39,7 +46,14 @@
     </div>
 
     {% if selected %}
-    <h2 style="font-size:17px; margin:28px 0 12px;">📋 {{ selected.title }} · 예약 {{ reservations|length }}건</h2>
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin:28px 0 12px;">
+        <h2 style="font-size:17px; margin:0;">📋 {{ selected.title }} · 예약 {{ reservations|length }}건</h2>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <a href="{% url 'special_admin_roster' selected.pk %}" class="sp-btn ghost" style="padding:8px 14px; font-size:12.5px;">🖨 참가자 명단(인쇄)</a>
+            <a href="{% url 'special_admin_export' selected.pk %}" class="sp-btn ghost" style="padding:8px 14px; font-size:12.5px;">⬇️ 엑셀(CSV) 내려받기</a>
+            <form method="post" action="{% url 'special_admin_remind' selected.pk %}" onsubmit="return confirm('확정된 예약자에게 참가 안내 알림톡을 보낼까요? (이미 보낸 분은 제외)');">{% csrf_token %}<button class="sp-btn ghost" style="padding:8px 14px; font-size:12.5px;">💬 참가 안내 알림 보내기</button></form>
+        </div>
+    </div>
     <div class="sp-card" style="padding:0; overflow-x:auto;">
         <table class="sp-table">
             <thead><tr><th style="padding-left:20px;">신청자</th><th>참가자</th><th>금액</th><th>상태</th><th>신청일</th><th></th></tr></thead>
@@ -49,10 +63,22 @@
                 <td style="padding-left:20px;">{{ r.applicant_name }}<br><small style="color:var(--text-muted);">{{ r.phone }}{% if r.applicant %} · 회원 {{ r.applicant.username }}{% else %} · 비회원{% endif %}</small>{% if r.referral_friend %}<br><small style="color:#d97706;">👬 메듀랩 친구: {{ r.referral_friend }} (재원생 확인됨)</small>{% endif %}</td>
                 <td>{% for p in r.participants.all %}<div style="margin-bottom:4px;">{{ p.name }}{% if p.is_friend %}(친구){% endif %}{% if p.note %} <small style="color:var(--accent-green);">[{{ p.note }}]</small>{% endif %}<br><small style="color:var(--text-muted);">{{ p.school }} {{ p.grade }}{% if p.birth_date %} · {{ p.birth_date|date:"Y.m.d" }}{% endif %}</small></div>{% endfor %}</td>
                 <td>{{ r.amount|intcomma }}원{% if r.portone_pay_method %}<br><small style="color:var(--text-muted);">{{ r.portone_pay_method }}</small>{% endif %}</td>
-                <td>{{ r.get_status_display }}{% if r.status == 'confirmed' %}<br><small style="color:{% if r.notified_at %}#047857{% else %}#d97706{% endif %};">{% if r.notified_at %}💬 알림톡 발송됨{% else %}💬 알림톡 미발송{% endif %}</small>{% if r.notify_detail and not r.notified_at %}<br><small style="color:var(--text-muted);">{{ r.notify_detail }}</small>{% endif %}{% endif %}</td>
+                <td>{{ r.get_status_display }}{% if r.refunded_at %}<br><small style="color:#047857;">💸 환불됨</small>{% endif %}{% if r.memo %}<br><small style="color:#dc2626;">{{ r.memo }}</small>{% endif %}{% if r.status == 'confirmed' %}<br><small style="color:{% if r.notified_at %}#047857{% else %}#d97706{% endif %};">{% if r.notified_at %}💬 알림톡 발송됨{% else %}💬 알림톡 미발송{% endif %}</small>{% if r.notify_detail and not r.notified_at %}<br><small style="color:var(--text-muted);">{{ r.notify_detail }}</small>{% endif %}{% endif %}</td>
                 <td>{{ r.created_at|date:"m.d H:i" }}</td>
-                <td>{% if r.status != 'canceled' %}
-                    <form method="post" action="{% url 'special_admin_cancel' r.pk %}" onsubmit="return confirm('{{ r.applicant_name }} 님의 예약을 취소할까요?{% if r.paid_at and r.amount %} 결제된 건은 포트원에서 환불을 따로 진행해야 해요.{% endif %}');">{% csrf_token %}<button class="sp-btn ghost" style="padding:6px 12px; font-size:12px;">취소</button></form>{% endif %}</td>
+                <td style="white-space:nowrap;">
+                    {% if r.status == 'waitlist' %}
+                    <form method="post" action="{% url 'special_admin_promote' r.pk %}" style="display:inline;" onsubmit="return confirm('{{ r.applicant_name }} 님의 대기 신청을 승인할까요?{% if r.amount %} 결제 대기로 바뀌고 30분간 자리를 잡아 둬요.{% endif %}');">{% csrf_token %}<button class="sp-btn" style="padding:6px 12px; font-size:12px;">대기 승인</button></form>
+                    {% endif %}
+                    {% if r.status == 'pending' %}
+                    <button type="button" class="sp-btn ghost" style="padding:6px 12px; font-size:12px;" onclick="navigator.clipboard.writeText('{{ r.pay_url }}').then(function(){ alert('결제 링크를 복사했어요. 신청자에게 보내 주세요.'); });">결제 링크 복사</button>
+                    {% endif %}
+                    {% if r.status != 'canceled' %}
+                    <form method="post" action="{% url 'special_admin_cancel' r.pk %}" style="display:inline;" onsubmit="return confirm('{{ r.applicant_name }} 님의 예약을 취소할까요?{% if r.paid_at and r.amount %} 결제된 {{ r.amount }}원은 포트원으로 환불 요청해요.{% endif %}');">{% csrf_token %}<button class="sp-btn ghost" style="padding:6px 12px; font-size:12px;">{% if r.paid_at and r.amount %}취소·환불{% else %}취소{% endif %}</button></form>
+                    {% if r.paid_at and r.amount and not r.refunded_at %}
+                    <form method="post" action="{% url 'special_admin_cancel' r.pk %}" style="display:inline;" onsubmit="return confirm('포트원에서 직접 환불하셨나요? 환불 요청 없이 예약만 취소해요.');">{% csrf_token %}<input type="hidden" name="skip_refund" value="1"><button class="sp-btn ghost" style="padding:6px 10px; font-size:11px; color:var(--text-muted);">환불 없이 취소</button></form>
+                    {% endif %}
+                    {% endif %}
+                </td>
             </tr>
             {% empty %}
             <tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">아직 예약이 없어요.</td></tr>
