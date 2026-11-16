@@ -1315,10 +1315,11 @@ class SpecialLectureForm(forms.ModelForm):
 
     class Meta:
         model = SpecialLecture
-        fields = ('title', 'summary', 'description', 'lecture_at', 'location', 'capacity', 'base_price',
-                  'friend_discount', 'registration_open', 'is_active', 'poster')
+        fields = ('title', 'summary', 'description', 'lecture_at', 'end_time', 'location', 'capacity', 'base_price',
+                  'friend_discount', 'registration_open', 'is_active', 'poster', 'thumb_emoji')
         widgets = {
             'lecture_at': forms.DateTimeInput(attrs={'type': 'datetime-local'}, format='%Y-%m-%dT%H:%M'),
+            'end_time': forms.TimeInput(attrs={'type': 'time'}, format='%H:%M'),
             'description': forms.Textarea(attrs={'rows': 8}),
         }
 

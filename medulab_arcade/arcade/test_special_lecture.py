@@ -53,6 +53,14 @@ class PricingTests(TestCase):
         _, total, _, used = compute_pricing(self.lecture, self._p(1), coupon=object())
         self.assertEqual((total, used), (0, True))
 
+    def test_referral_friend_alone_gets_discount(self):
+        rows, total, discount, _ = compute_pricing(self.lecture, self._p(1), referral=True)
+        self.assertEqual((rows[0]['price'], rows[0]['note'], total), (10000, '친구 할인', 10000))
+
+    def test_referral_and_togetherness_do_not_stack(self):
+        rows, total, _, _ = compute_pricing(self.lecture, self._p(2), referral=True)
+        self.assertEqual([r['price'] for r in rows], [10000, 10000])
+
     def test_free_member_child_with_friend(self):
         people = [{'name': '아이', 'free': True, 'is_friend': False}, {'name': '친구', 'free': False, 'is_friend': True}]
         rows, total, _, _ = compute_pricing(self.lecture, people)
@@ -96,7 +104,7 @@ class ApplyFlowTests(TestCase):
         self.assertContains(self.client.get(reverse('special_lecture_list')), 'AI 특강')
         res = self.client.get(reverse('special_lecture_detail', args=[self.lecture.pk]))
         self.assertContains(res, '20,000원')
-        self.assertContains(res, '친구 찬스')
+        self.assertContains(res, '친구 할인')
 
     def test_guest_applies_and_goes_to_checkout(self):
         res = self.client.post(self.apply_url, self.guest)
@@ -298,3 +306,44 @@ class AdminDeleteAndSeedTests(TestCase):
         self.assertTrue(SpecialLecture.objects.filter(pk=lecture.pk).exists())
         self._admin()
         self.assertEqual(self.client.get(reverse('special_admin_delete', args=[lecture.pk])).status_code, 405)
+
+
+class FriendDiscountAndDisplayTests(TestCase):
+    def setUp(self):
+        self.lecture = make_lecture()
+        self.url = reverse('special_lecture_apply', args=[self.lecture.pk])
+        self.guest = {'p_name': '김학생', 'applicant_name': '김보호', 'phone': '01012345678'}
+
+    def test_referral_friend_name_discounts_single_applicant(self):
+        self.client.post(self.url, dict(self.guest, referral_friend='이메듀'))
+        reservation = SpecialLectureReservation.objects.get()
+        self.assertEqual((reservation.amount, reservation.referral_friend), (10000, '이메듀'))
+        admin = make_member('adm40')
+        admin.is_staff = True
+        admin.save()
+        self.client.force_login(admin)
+        res = self.client.get(f"{reverse('special_admin_list')}?lecture={self.lecture.pk}")
+        self.assertContains(res, '재원생 확인 필요')
+
+    def test_detail_layout_and_wording(self):
+        self.lecture.end_time = datetime.time(14, 30)
+        self.lecture.location = '메듀랩 5층'
+        self.lecture.save()
+        res = self.client.get(reverse('special_lecture_detail', args=[self.lecture.pk]))
+        for text in ('📅 일시', '👥 모집 인원', '📍 장소', '14:30', '회원가입 시', '쿠폰 증정', '친구 할인'):
+            self.assertContains(res, text)
+        self.assertNotContains(res, '친구 찬스')
+
+    def test_list_wording_and_emoji_thumbnail(self):
+        self.lecture.thumb_emoji = '☕'
+        self.lecture.save()
+        res = self.client.get(reverse('special_lecture_list'))
+        self.assertContains(res, '특별한 특강이에요')
+        self.assertNotContains(res, '특별한 1회 특강')
+        self.assertContains(res, 'class="sp-emoji">☕')
+
+    def test_seeded_lecture_has_no_duplicate_description(self):
+        lecture = SpecialLecture.objects.get(title='AI 활용 나만의 머그컵 만들기')
+        self.assertEqual(lecture.description, '')
+        self.assertEqual((lecture.end_time.hour, lecture.end_time.minute), (14, 30))
+        self.assertEqual(lecture.thumb_emoji, '☕')

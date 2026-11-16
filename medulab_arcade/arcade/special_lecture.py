@@ -62,16 +62,17 @@ def parent_children_options(user):
     return options
 
 
-def compute_pricing(lecture, participants, coupon=None):
-    """참가자별 참가비 계산. 2명 이상 함께 신청하면 친구 찬스(1인당 할인), 쿠폰은 첫 유료 참가자 1명을 무료로 한다.
+def compute_pricing(lecture, participants, coupon=None, referral=False):
+    """참가자별 참가비 계산. 친구 할인은 '2명 이상 함께 신청'하거나 '메듀랩에 다니는 친구를 적은 경우'에 1인당 적용되고,
+    쿠폰은 첫 유료 참가자 1명을 무료로 한다.
     participants: [{'name', 'free', 'is_friend', ...}] → (같은 순서의 [{'price','note'}], 총액, 할인합계, 쿠폰사용여부)"""
-    friend_deal = len(participants) >= 2
+    friend_deal = len(participants) >= 2 or bool(referral)
     rows = []
     for p in participants:
         if p['free']:
             rows.append({'price': 0, 'note': '메듀랩 수강생 무료'})
         elif friend_deal:
-            rows.append({'price': max(lecture.base_price - lecture.friend_discount, 0), 'note': '친구 찬스 할인'})
+            rows.append({'price': max(lecture.base_price - lecture.friend_discount, 0), 'note': '친구 할인'})
         else:
             rows.append({'price': lecture.base_price, 'note': ''})
 
@@ -177,6 +178,7 @@ def special_lecture_apply(request, pk):
     applicant_name = (request.POST.get('applicant_name') or '').strip()[:50]
     phone = _clean_phone(request.POST.get('phone'))
     email = (request.POST.get('email') or '').strip()[:100]
+    referral_friend = (request.POST.get('referral_friend') or '').strip()[:50]
     if not applicant_name:
         errors.append('신청자(보호자) 이름을 입력해 주세요.')
     if not phone:
@@ -192,15 +194,15 @@ def special_lecture_apply(request, pk):
     if errors:
         for error in errors:
             messages.error(request, error)
-        request.session['special_form_data'] = {k: request.POST.get(k, '') for k in ('applicant_name', 'phone', 'email', 'p_name', 'p_grade')}
+        request.session['special_form_data'] = {k: request.POST.get(k, '') for k in ('applicant_name', 'phone', 'email', 'p_name', 'p_grade', 'referral_friend')}
         return back
 
     with transaction.atomic():
         coupon = available_coupon(user) if request.POST.get('use_coupon') else None
-        rows, total, discount, coupon_used = compute_pricing(lecture, participants, coupon)
+        rows, total, discount, coupon_used = compute_pricing(lecture, participants, coupon, referral=bool(referral_friend))
         reservation = SpecialLectureReservation.objects.create(
             lecture=lecture, applicant=user if user.is_authenticated else None,
-            applicant_name=applicant_name, phone=phone, email=email,
+            applicant_name=applicant_name, phone=phone, email=email, referral_friend=referral_friend,
             amount=total, discount=discount,
             status=SpecialLectureReservation.STATUS_CONFIRMED if total == 0 else SpecialLectureReservation.STATUS_PENDING,
             paid_at=timezone.now() if total == 0 else None,

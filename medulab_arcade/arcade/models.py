@@ -1619,16 +1619,21 @@ class SpecialLecture(models.Model):
 
     title = models.CharField('특강명', max_length=120)
     summary = models.CharField('한 줄 소개', max_length=200, blank=True)
-    description = models.TextField('상세 안내', blank=True)
-    lecture_at = models.DateTimeField('특강 일시')
+    description = models.TextField('상세 안내', blank=True,
+                                   help_text='일시·장소·정원·참가비는 위쪽에 자동으로 표시돼요. 여기에는 준비물, 대상, 진행 내용 등을 적어 주세요.')
+    lecture_at = models.DateTimeField('특강 시작 일시')
+    end_time = models.TimeField('종료 시각', null=True, blank=True, help_text='예: 14:30 (비워 두면 시작 시각만 표시)')
     location = models.CharField('장소', max_length=200, blank=True)
     capacity = models.PositiveIntegerField('모집 정원', default=0, help_text='0이면 인원 제한 없음')
     base_price = models.PositiveIntegerField('기본 참가비(원)', default=20000)
-    friend_discount = models.PositiveIntegerField('친구 찬스 할인(원)', default=10000,
-                                                  help_text='친구와 2명 이상 함께 신청할 때 1인당 할인 금액')
+    friend_discount = models.PositiveIntegerField('친구 할인(원)', default=10000,
+                                                  help_text='메듀랩에 다니는 친구를 적거나 친구와 함께 신청할 때 1인당 할인 금액')
     registration_open = models.BooleanField('예약 신청 받기', default=True)
     is_active = models.BooleanField('목록에 노출', default=True)
-    poster = models.ImageField('포스터', upload_to='special_lectures/', blank=True, null=True)
+    poster = models.ImageField('썸네일 이미지', upload_to='special_lectures/', blank=True, null=True,
+                               help_text='목록과 상세 화면 위쪽에 보여요. 없으면 아래 이모지로 대신해요.')
+    thumb_emoji = models.CharField('썸네일 이모지', max_length=8, default='🎤', blank=True,
+                                   help_text='이미지가 없을 때 썸네일에 크게 보여 줄 이모지 (예: ☕ 🤖 🎨)')
     created_at = models.DateTimeField('등록일', auto_now_add=True)
 
     PENDING_HOLD_MINUTES = 30   # 결제 대기 중인 신청이 자리를 잡고 있는 시간
@@ -1685,6 +1690,8 @@ class SpecialLectureReservation(models.Model):
     applicant_name = models.CharField('신청자 이름', max_length=50)
     phone = models.CharField('연락처', max_length=20)
     email = models.CharField('이메일', max_length=100, blank=True)
+    referral_friend = models.CharField('메듀랩 다니는 친구', max_length=50, blank=True,
+                                       help_text='친구 할인 근거로 신청자가 적은 메듀랩 재원생 친구 이름 (관리자 확인용)')
     status = models.CharField('상태', max_length=12, choices=STATUS_CHOICES, default=STATUS_PENDING)
     amount = models.PositiveIntegerField('결제 금액(원)', default=0)
     discount = models.PositiveIntegerField('할인 합계(원)', default=0)

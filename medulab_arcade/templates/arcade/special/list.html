@@ -8,7 +8,7 @@
 {% block content %}
 <div class="sp-wrap">
     <h1 class="sp-title">🎤 특강 프로그램</h1>
-    <p class="sp-sub">메듀랩에서 열리는 특별한 1회 특강이에요. 마음에 드는 특강을 골라 예약 신청해 보세요.</p>
+    <p class="sp-sub">메듀랩에서 열리는 특별한 특강이에요. 마음에 드는 특강을 골라 예약 신청해 보세요.</p>
 
     {% if user.is_authenticated and coupon %}
     <div class="sp-notice good">🎟️ <b>특강 1회 무료 참여 쿠폰</b>을 가지고 계세요! 신청할 때 쿠폰을 사용할 수 있어요.</div>
@@ -19,14 +19,16 @@
     <div class="sp-grid">
         {% for lecture in upcoming %}
         <a class="sp-lecture" href="{% url 'special_lecture_detail' lecture.pk %}">
-            {% if lecture.poster %}<img src="{{ lecture.poster.url }}" alt="{{ lecture.title }}">{% endif %}
+            <div class="sp-thumb t{{ lecture.pk|divisibleby:2|yesno:'0,1' }}">
+                {% if lecture.poster %}<img src="{{ lecture.poster.url }}" alt="{{ lecture.title }}">{% else %}<span class="sp-emoji">{{ lecture.thumb_emoji|default:'🎤' }}</span>{% endif %}
+                <span class="sp-thumb-badge">{% if lecture.is_open %}<span class="sp-badge open" style="background:#fff;">모집중</span>{% else %}<span class="sp-badge closed" style="background:#fff;">{% if lecture.is_full %}마감{% else %}신청 종료{% endif %}</span>{% endif %}</span>
+            </div>
             <div class="sp-lecture-body">
-                {% if lecture.is_open %}<span class="sp-badge open">모집중</span>{% else %}<span class="sp-badge closed">{% if lecture.is_full %}마감{% else %}신청 종료{% endif %}</span>{% endif %}
                 {% if lecture.seats_left is not None and lecture.seats_left > 0 and lecture.seats_left <= 5 %}<span class="sp-badge hot">남은 자리 {{ lecture.seats_left }}</span>{% endif %}
                 <h3>{{ lecture.title }}</h3>
                 {% if lecture.summary %}<div class="sp-meta">{{ lecture.summary }}</div>{% endif %}
                 <div class="sp-meta" style="margin-top:8px;">
-                    📅 {{ lecture.lecture_at|date:"Y.m.d (D) H:i" }}<br>
+                    📅 {{ lecture.lecture_at|date:"Y.m.d (D) H:i" }}{% if lecture.end_time %} ~ {{ lecture.end_time|time:"H:i" }}{% endif %}<br>
                     {% if lecture.location %}📍 {{ lecture.location }}<br>{% endif %}
                     💰 참가비 {{ lecture.base_price|intcomma }}원
                 </div>

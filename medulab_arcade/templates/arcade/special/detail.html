@@ -13,19 +13,34 @@
 
     {% for message in messages %}<div class="sp-notice {% if message.tags == 'error' %}err{% else %}info{% endif %}">{{ message }}</div>{% endfor %}
 
-    <div class="sp-card">
-        {% if lecture.poster %}<img src="{{ lecture.poster.url }}" alt="{{ lecture.title }}" style="width:100%; border-radius:12px; margin-bottom:16px;">{% endif %}
-        <div class="sp-meta" style="font-size:14.5px;">
-            📅 <b>{{ lecture.lecture_at|date:"Y년 n월 j일 (D) H:i" }}</b><br>
-            {% if lecture.location %}📍 {{ lecture.location }}<br>{% endif %}
-            {% if lecture.capacity %}👥 정원 {{ lecture.capacity }}명 · {% if lecture.is_full %}<b>마감</b>{% else %}남은 자리 <b>{{ lecture.seats_left }}</b>{% endif %}{% else %}👥 인원 제한 없음{% endif %}
+    <div class="sp-card" style="padding:0; overflow:hidden;">
+        <div class="sp-thumb t{{ lecture.pk|divisibleby:2|yesno:'0,1' }}" style="border-radius:0; aspect-ratio:auto; height:180px;">
+            {% if lecture.poster %}<img src="{{ lecture.poster.url }}" alt="{{ lecture.title }}">{% else %}<span class="sp-emoji">{{ lecture.thumb_emoji|default:'🎤' }}</span>{% endif %}
         </div>
-        {% if lecture.description %}<div style="margin-top:16px; line-height:1.8; white-space:pre-line; font-size:14.5px;">{{ lecture.description }}</div>{% endif %}
+        <div style="padding:24px;">
+            <div class="sp-info">
+                <div class="sp-info-item">
+                    <span class="sp-info-label">📅 일시</span>
+                    <span class="sp-info-value">{{ lecture.lecture_at|date:"Y년 n월 j일 (D)" }}<small>{{ lecture.lecture_at|date:"H:i" }}{% if lecture.end_time %} ~ {{ lecture.end_time|time:"H:i" }}{% endif %}</small></span>
+                </div>
+                <div class="sp-info-item">
+                    <span class="sp-info-label">👥 모집 인원</span>
+                    <span class="sp-info-value">{% if lecture.capacity %}{{ lecture.capacity }}명{% if lecture.is_full %}<small>마감되었어요</small>{% else %}<small>남은 자리 {{ lecture.seats_left }}자리</small>{% endif %}{% else %}제한 없음{% endif %}</span>
+                </div>
+                {% if lecture.location %}
+                <div class="sp-info-item wide">
+                    <span class="sp-info-label">📍 장소</span>
+                    <span class="sp-info-value">{{ lecture.location }}</span>
+                </div>
+                {% endif %}
+            </div>
+            {% if lecture.description %}<div style="margin-top:16px; line-height:1.8; white-space:pre-line; font-size:14.5px;">{{ lecture.description }}</div>{% endif %}
 
-        <div class="sp-price-box">
-            <div class="sp-price-item"><small>기본 참가비</small><b>{{ lecture.base_price|intcomma }}원</b></div>
-            <div class="sp-price-item"><small>⭐ 1회 무료 참여</small><b>회원가입 쿠폰</b></div>
-            <div class="sp-price-item"><small>👬 친구 찬스</small><b>-{{ lecture.friend_discount|intcomma }}원 할인</b></div>
+            <div class="sp-price-box">
+                <div class="sp-price-item"><small>💰 기본 참가비</small><b>{{ lecture.base_price|intcomma }}원</b></div>
+                <div class="sp-price-item"><small>⭐ 1회 무료 참여</small><b>회원가입 시<br>쿠폰 증정</b></div>
+                <div class="sp-price-item"><small>👬 친구 할인</small><b>-{{ lecture.friend_discount|intcomma }}원</b><em>메듀랩 다니는 친구 추천<br>또는 친구와 함께 참여</em></div>
+            </div>
         </div>
     </div>
 
@@ -58,9 +73,14 @@
             </div>
             {% endif %}
 
-            <span class="sp-label">👬 친구 찬스 <small style="font-weight:600; color:var(--text-muted);">— 친구와 함께 신청하면 모두 {{ lecture.friend_discount|intcomma }}원 할인 (1인 {{ friend_price|intcomma }}원)</small></span>
+            <span class="sp-label">👬 친구 할인 <small style="font-weight:600; color:var(--text-muted);">— 아래 중 하나만 해당돼도 1인 {{ lecture.friend_discount|intcomma }}원 할인 (1인 {{ friend_price|intcomma }}원)</small></span>
+            <div class="sp-notice info" style="margin-bottom:10px; font-size:13px;">
+                ① <b>메듀랩에 다니는 친구</b>가 있다면 이름을 적어 주세요.<br>
+                ② 다른 친구와 <b>함께 참여</b>한다면 친구를 추가해 주세요. (함께 신청한 모두 할인)
+            </div>
+            <input class="sp-input" name="referral_friend" id="referralFriend" placeholder="① 메듀랩에 다니는 친구 이름 (선택)" value="{{ form_data.referral_friend|default:'' }}" style="margin-bottom:10px;">
             <div id="friendRows"></div>
-            <button type="button" class="sp-btn ghost" id="addFriendBtn" style="padding:10px 16px; font-size:13px;">＋ 친구 추가</button>
+            <button type="button" class="sp-btn ghost" id="addFriendBtn" style="padding:10px 16px; font-size:13px;">② ＋ 함께 참여할 친구 추가</button>
 
             <span class="sp-label">신청자(보호자) 정보</span>
             <div class="sp-row">
@@ -97,11 +117,12 @@
         var friendCount = 0;
         friendRows.querySelectorAll('input[name="f_name"]').forEach(function (i) { if (i.value.trim()) friendCount++; });
         var mainCount = medulabParent ? document.querySelectorAll('input[name="child"]:checked').length : 1;
-        var friendDeal = (mainCount + friendCount) >= 2;
+        var referral = ((document.getElementById('referralFriend') || {}).value || '').trim() !== '';
+        var friendDeal = (mainCount + friendCount) >= 2 || referral;
         var each = friendDeal ? Math.max(base - discount, 0) : base;
         var price = (medulabParent ? 0 : each) + friendCount * each;
         var note = [];
-        if (friendDeal) note.push('친구 찬스 적용');
+        if (friendDeal) note.push('친구 할인 적용');
         if (medulabParent && mainCount) note.push('메듀랩 수강생 무료');
         var coupon = document.getElementById('useCoupon');
         if (coupon && coupon.checked && price > 0) {
@@ -123,6 +144,8 @@
         recalc();
     });
     document.querySelectorAll('input[name="child"], #useCoupon').forEach(function (i) { i.addEventListener('change', recalc); });
+    var refInput = document.getElementById('referralFriend');
+    if (refInput) refInput.addEventListener('input', recalc);
     recalc();
 })();
 </script>

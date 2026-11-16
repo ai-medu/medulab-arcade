@@ -31,7 +31,7 @@
             </tbody>
         </table>
         <div class="sp-total"><span>결제 금액</span><span>{{ reservation.amount|intcomma }}원</span></div>
-        <div class="sp-meta" style="margin-top:14px;">신청자 {{ reservation.applicant_name }} · {{ reservation.phone }}<br>신청 {{ reservation.created_at|date:"Y.m.d H:i" }}</div>
+        <div class="sp-meta" style="margin-top:14px;">신청자 {{ reservation.applicant_name }} · {{ reservation.phone }}{% if reservation.referral_friend %}<br>메듀랩 다니는 친구: {{ reservation.referral_friend }}{% endif %}<br>신청 {{ reservation.created_at|date:"Y.m.d H:i" }}</div>
     </div>
     <p class="sp-meta">이 주소를 저장해 두시면 언제든 예약 내용을 다시 확인할 수 있어요. 변경·취소는 학원으로 문의해 주세요.</p>
     <a href="{% url 'special_lecture_list' %}" class="sp-btn ghost">다른 특강 보기</a>
