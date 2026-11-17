@@ -42,6 +42,8 @@ def _alimtalk_variables(res, with_amount=True):
     }
     if with_amount:
         variables['#{결제금액}'] = f'{res.amount:,}원' if res.amount else '무료'
+    if settings.SOLAPI_SPECIAL_BUTTON_CODE:
+        variables['#{예약코드}'] = res.token   # 버튼 주소 끝에 붙는 값
     if settings.SOLAPI_SPECIAL_INCLUDE_URL:
         variables['#{확인주소}'] = settings.SITE_BASE_URL.rstrip('/') + reverse('special_reservation', args=[res.token])
     return variables

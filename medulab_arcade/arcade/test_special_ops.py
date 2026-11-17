@@ -306,6 +306,13 @@ class ReminderTests(Base):
         with override_settings(SOLAPI_SPECIAL_INCLUDE_URL=False):
             self.assertNotIn('#{확인주소}', _alimtalk_variables(res))
 
+    def test_button_code_variable_only_when_enabled(self):
+        res = self.reservation()
+        self.assertNotIn('#{예약코드}', _alimtalk_variables(res))
+        with override_settings(SOLAPI_SPECIAL_BUTTON_CODE=True):
+            self.assertEqual(_alimtalk_variables(res)['#{예약코드}'], res.token)
+            self.assertEqual(_alimtalk_variables(res, with_amount=False)['#{예약코드}'], res.token)
+
 
 class ExportRosterCouponAndMailTests(Base):
     def test_csv_export_has_bom_and_participant_rows(self):

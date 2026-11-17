@@ -40,6 +40,8 @@ SOLAPI_TEMPLATE_SPECIAL = os.environ.get('SOLAPI_TEMPLATE_SPECIAL', '')  # 특�
 SOLAPI_TEMPLATE_SPECIAL_REMINDER = os.environ.get('SOLAPI_TEMPLATE_SPECIAL_REMINDER', '')  # 특강 하루 전 안내 템플릿 ID
 # 알림톡 템플릿에 #{확인주소} 변수를 만들었을 때만 1로 (템플릿에 없는 변수를 보내면 발송이 실패할 수 있다)
 SOLAPI_SPECIAL_INCLUDE_URL = os.environ.get('SOLAPI_SPECIAL_INCLUDE_URL', '0') == '1'
+# 알림톡 '예약 확인' 버튼 주소(https://medulab.kr/special/r/#{예약코드}/)를 템플릿에 등록했을 때만 1로
+SOLAPI_SPECIAL_BUTTON_CODE = os.environ.get('SOLAPI_SPECIAL_BUTTON_CODE', '0') == '1'
 # 특강 신청이 들어오면 알려 줄 이메일(쉼표로 여러 개). 비워 두면 관리자(superuser) 이메일로 보낸다
 SPECIAL_NOTIFY_EMAILS = [e.strip() for e in os.environ.get('SPECIAL_NOTIFY_EMAILS', '').split(',') if e.strip()]
 
