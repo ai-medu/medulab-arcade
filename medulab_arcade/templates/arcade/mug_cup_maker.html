@@ -12,33 +12,72 @@
   .tp-back { display:inline-flex; align-items:center; gap:6px; color:var(--c2); font-weight:700; font-size:14px; text-decoration:none; margin-bottom:20px; }
   .tp-back:hover { text-decoration:underline; }
 
-  .tp-hero { text-align:center; padding:8px 20px 28px; margin-bottom:8px; }
+  .tp-hero { text-align:center; padding:8px 20px 20px; margin-bottom:4px; }
   .tp-hero .badge { display:inline-block; background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; font-size:13px; font-weight:bold; letter-spacing:1px; padding:5px 16px; border-radius:999px; margin-bottom:16px; }
   .tp-hero h1 { font-size:30px; font-weight:900; margin:0 0 10px; background:linear-gradient(120deg,var(--c),var(--c2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
   .tp-hero p { font-size:15px; color:#6a6486; margin:0; line-height:1.7; }
   .tp-hero .tp-size-note { display:inline-block; margin-top:12px; background:#fff; border:1.5px solid rgba(255,154,90,.35); color:#c2672a; font-size:13px; font-weight:800; padding:6px 16px; border-radius:999px; }
 
-  .tp-section { background:#fff; border-radius:20px; padding:26px 28px; margin-bottom:18px; box-shadow:0 4px 20px rgba(140,107,250,.08); }
-  .tp-step-label { font-size:16px; font-weight:800; color:var(--ink); margin-bottom:14px; display:flex; align-items:center; gap:8px; }
-  .tp-section-note { font-size:12.5px; color:#9d96bc; margin-top:-6px; margin-bottom:14px; }
+  /* progress bar */
+  .tp-progress { display:flex; align-items:center; justify-content:center; gap:6px; margin:20px 0 26px; }
+  .tp-progress .dot { width:30px; height:30px; border-radius:50%; background:#fff; border:2px solid #FFE4CE; color:#c0bbd8; font-size:13px; font-weight:800; display:flex; align-items:center; justify-content:center; transition:all .2s; }
+  .tp-progress .dot.active { background:linear-gradient(120deg,var(--c),var(--c2)); border-color:transparent; color:#fff; transform:scale(1.12); }
+  .tp-progress .dot.done { background:#fff; border-color:var(--c); color:var(--c); }
+  .tp-progress .bar { width:28px; height:3px; background:#FFE4CE; border-radius:2px; }
+  .tp-progress .bar.done { background:var(--c); }
 
+  .tp-step { display:none; }
+  .tp-step.show { display:block; animation:tpFadeIn .25s ease; }
+  @keyframes tpFadeIn { from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:translateY(0); } }
+
+  .tp-section { background:#fff; border-radius:20px; padding:26px 28px; margin-bottom:18px; box-shadow:0 4px 20px rgba(140,107,250,.08); }
+  .tp-step-label { font-size:17px; font-weight:800; color:var(--ink); margin-bottom:6px; display:flex; align-items:center; gap:8px; }
+  .tp-step-sub { font-size:13px; color:#9d96bc; margin:0 0 16px; }
+
+  .tp-input-row { display:flex; gap:8px; align-items:center; }
   .tp-input { width:100%; box-sizing:border-box; padding:12px 16px; border:2px solid #FFE4CE; border-radius:12px; font-size:14.5px; color:var(--ink); transition:border-color .2s; }
   .tp-input:focus { outline:none; border-color:var(--c); }
   .tp-input::placeholder { color:#c0bbd8; }
+
+  .tp-mic-btn { flex:0 0 auto; width:48px; height:48px; border-radius:50%; border:2px solid #FFE4CE; background:#fff; font-size:19px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s; }
+  .tp-mic-btn:hover { border-color:var(--c); }
+  .tp-mic-btn.listening { background:linear-gradient(120deg,#ff5a5a,#ff9a5a); border-color:transparent; color:#fff; animation:tpPulse 1s infinite; }
+  @keyframes tpPulse { 0%{ box-shadow:0 0 0 0 rgba(255,90,90,.45); } 70%{ box-shadow:0 0 0 12px rgba(255,90,90,0); } 100%{ box-shadow:0 0 0 0 rgba(255,90,90,0); } }
+  .tp-mic-hint { font-size:12px; color:#b5afce; margin-top:8px; }
 
   .tp-btn-group { display:flex; gap:10px; flex-wrap:wrap; }
   .tp-choice-btn { padding:10px 22px; border:2px solid #FFE4CE; border-radius:999px; background:#fff; color:var(--ink); font-size:14.5px; font-weight:700; cursor:pointer; transition:all .18s; }
   .tp-choice-btn:hover { border-color:var(--c); color:var(--c); }
   .tp-choice-btn.active { background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; border-color:transparent; }
 
-  .tp-quick-group { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
-  .tp-quick-btn { padding:8px 16px; border:1.5px dashed #FFCBA4; border-radius:999px; background:#FFF8F1; color:#c2672a; font-size:13.5px; font-weight:700; cursor:pointer; transition:all .15s; }
-  .tp-quick-btn:hover { background:#FFEBD9; border-style:solid; }
+  /* example gallery with picture-like tiles */
+  .tp-example-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(118px,1fr)); gap:10px; margin-top:14px; }
+  .tp-example-tile { border:2px solid #FFE4CE; border-radius:14px; background:#FFF8F1; cursor:pointer; padding:12px 8px 10px; text-align:center; transition:all .15s; }
+  .tp-example-tile:hover { border-color:var(--c); background:#FFEBD9; transform:translateY(-2px); }
+  .tp-example-tile .emoji { font-size:34px; line-height:1; display:block; margin-bottom:6px; }
+  .tp-example-tile .label { font-size:12.5px; font-weight:700; color:#8a5a2a; }
 
   .tp-custom-input { margin-top:12px; display:none; }
   .tp-custom-input.show { display:block; }
 
-  .tp-generate-wrap { text-align:center; margin:28px 0; }
+  /* style / mood visual cards */
+  .tp-visual-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; }
+  .tp-visual-card { border:2px solid #FFE4CE; border-radius:16px; background:#fff; cursor:pointer; overflow:hidden; transition:all .18s; text-align:left; }
+  .tp-visual-card:hover { border-color:var(--c); transform:translateY(-2px); }
+  .tp-visual-card.active { border-color:var(--c2); box-shadow:0 0 0 3px rgba(140,107,250,.18); }
+  .tp-visual-card .swatch { height:72px; display:flex; align-items:center; justify-content:center; font-size:30px; }
+  .tp-visual-card .cap { padding:10px 12px 12px; }
+  .tp-visual-card .cap .t { font-size:13.5px; font-weight:800; color:var(--ink); display:block; }
+  .tp-visual-card .cap .d { font-size:11.5px; color:#9d96bc; display:block; margin-top:2px; line-height:1.4; }
+
+  .tp-nav-row { display:flex; justify-content:space-between; align-items:center; margin-top:24px; gap:12px; }
+  .tp-nav-btn { padding:13px 30px; font-size:15px; font-weight:800; border-radius:999px; cursor:pointer; border:none; transition:all .18s; }
+  .tp-nav-btn.next { background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; box-shadow:0 6px 22px rgba(255,154,90,.3); }
+  .tp-nav-btn.next:hover { transform:translateY(-2px); }
+  .tp-nav-btn.prev { background:#fff; color:#9d96bc; border:2px solid #FFE4CE; }
+  .tp-nav-btn.prev:hover { color:var(--c2); border-color:var(--c2); }
+  .tp-nav-btn.spacer { visibility:hidden; }
+
   .tp-generate-btn { padding:16px 60px; font-size:19px; font-weight:900; background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; border:none; border-radius:999px; cursor:pointer; box-shadow:0 6px 28px rgba(255,154,90,.35); transition:transform .2s, box-shadow .2s; letter-spacing:.5px; }
   .tp-generate-btn:hover { transform:translateY(-3px); box-shadow:0 12px 36px rgba(255,154,90,.45); }
   .tp-generate-btn:active { transform:translateY(0); }
@@ -50,6 +89,8 @@
   .tp-prompt-box { background:#FFF6EE; border-radius:12px; padding:16px; font-size:13px; line-height:1.8; color:#5a5475; white-space:pre-wrap; margin:14px 0 16px; border:1px solid #FFE4CE; word-break:break-word; max-height:400px; overflow-y:auto; }
   .tp-copy-btn { padding:12px 32px; background:linear-gradient(120deg,var(--c2),var(--c)); color:#fff; border:none; border-radius:999px; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 4px 16px rgba(255,154,90,.3); transition:transform .2s; }
   .tp-copy-btn:hover { transform:translateY(-2px); }
+  .tp-restart-btn { padding:12px 24px; background:#fff; color:#9d96bc; border:2px solid #FFE4CE; border-radius:999px; font-size:14px; font-weight:700; cursor:pointer; margin-left:10px; }
+  .tp-restart-btn:hover { color:var(--c2); border-color:var(--c2); }
 
   .tp-mug-preview { display:flex; align-items:center; justify-content:center; gap:10px; margin-top:14px; padding:14px; background:#FFF8F1; border-radius:12px; border:1px dashed #FFCBA4; }
   .tp-mug-preview .shape { width:200px; max-width:70%; aspect-ratio:200/90; background:repeating-linear-gradient(135deg, rgba(255,154,90,.18) 0 10px, rgba(140,107,250,.12) 10px 20px); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:12px; color:#9d7a4a; font-weight:700; border:2px solid #FFCBA4; }
@@ -60,6 +101,7 @@
   @media (max-width:600px) {
     .tp-hero h1 { font-size:24px; }
     .tp-section, .tp-prompt-section { padding:20px; }
+    .tp-nav-btn { padding:12px 20px; font-size:14px; }
   }
 </style>
 {% endblock %}
@@ -71,61 +113,83 @@
   <div class="tp-hero">
     <div class="badge">☕ 굿즈 제작</div>
     <h1>AI 활용 머그컵 만들기</h1>
-    <p>나만의 머그컵에 들어갈 그림을 AI와 함께 만들어요! 대상에 맞게 몇 가지만 고르면 완성돼요.</p>
+    <p>나만의 머그컵에 들어갈 그림을 AI와 함께 만들어요! 한 단계씩 차근차근 골라 볼까요?</p>
     <div class="tp-size-note">📏 머그컵 인쇄 규격: 가로 200mm × 세로 90mm</div>
   </div>
 
-  <!-- ① 대상 -->
-  <div class="tp-section">
-    <div class="tp-step-label">① 누가 만드나요? (대상을 선택해 주세요)</div>
-    <div class="tp-btn-group" id="audienceBtns">
-      <button type="button" class="tp-choice-btn active" data-value="유아">🧸 유아</button>
-      <button type="button" class="tp-choice-btn" data-value="초등">🎒 초등학생</button>
-      <button type="button" class="tp-choice-btn" data-value="중고등">📚 중고등학생</button>
-      <button type="button" class="tp-choice-btn" data-value="대학일반">🎓 대학·일반</button>
+  <div class="tp-progress" id="tpProgress">
+    <div class="dot" data-step="1">1</div><div class="bar"></div>
+    <div class="dot" data-step="2">2</div><div class="bar"></div>
+    <div class="dot" data-step="3">3</div><div class="bar"></div>
+    <div class="dot" data-step="4">4</div>
+  </div>
+
+  <!-- STEP 1: 대상 -->
+  <div class="tp-step show" data-step="1">
+    <div class="tp-section">
+      <div class="tp-step-label">① 누가 만드나요?</div>
+      <p class="tp-step-sub">대상을 선택하면 그 대상에 딱 맞는 그림과 문구 스타일로 만들어 드려요.</p>
+      <div class="tp-btn-group" id="audienceBtns">
+        <button type="button" class="tp-choice-btn active" data-value="유아">🧸 유아</button>
+        <button type="button" class="tp-choice-btn" data-value="초등">🎒 초등학생</button>
+        <button type="button" class="tp-choice-btn" data-value="중고등">📚 중고등학생</button>
+        <button type="button" class="tp-choice-btn" data-value="대학일반">🎓 대학·일반</button>
+      </div>
+    </div>
+    <div class="tp-nav-row">
+      <button type="button" class="tp-nav-btn prev spacer">← 이전</button>
+      <button type="button" class="tp-nav-btn next" onclick="tpGoto(2)">다음 →</button>
     </div>
   </div>
 
-  <!-- ② 무엇을 그릴까요 -->
-  <div class="tp-section">
-    <div class="tp-step-label">② 머그컵에 무엇을 그리고 싶나요?</div>
-    <input type="text" id="subjectInput" class="tp-input" placeholder="예: 귀여운 강아지, 우리 학교 마스코트, 좋아하는 문구와 그림">
-    <div class="tp-quick-group" id="quickSubjects"></div>
-  </div>
-
-  <!-- ③ 스타일 -->
-  <div class="tp-section">
-    <div class="tp-step-label">③ 어떤 그림 스타일이 좋을까요?</div>
-    <div class="tp-btn-group" id="styleBtns">
-      <button type="button" class="tp-choice-btn active" data-value="귀엽고 단순한 카툰 스타일, 두꺼운 외곽선">🧸 귀여운 카툰</button>
-      <button type="button" class="tp-choice-btn" data-value="따뜻한 수채화 느낌">🖌️ 수채화</button>
-      <button type="button" class="tp-choice-btn" data-value="깔끔한 미니멀 라인아트">✏️ 미니멀 라인아트</button>
-      <button type="button" class="tp-choice-btn" data-value="3D 픽사 애니메이션 스타일">🎞️ 3D 애니메이션</button>
-      <button type="button" class="tp-choice-btn" data-value="세련된 플랫 디자인, 로고처럼 깔끔하게">💼 플랫 디자인</button>
-      <button type="button" class="tp-choice-btn" data-value="__custom__">✏️ 직접입력</button>
+  <!-- STEP 2: 무엇을 그릴까요 -->
+  <div class="tp-step" data-step="2">
+    <div class="tp-section">
+      <div class="tp-step-label">② 머그컵에 무엇을 그리고 싶나요?</div>
+      <p class="tp-step-sub">직접 입력하거나, 마이크 버튼을 눌러 말로 입력하거나, 아래 그림을 눌러서 골라보세요.</p>
+      <div class="tp-input-row">
+        <input type="text" id="subjectInput" class="tp-input" placeholder="예: 귀여운 강아지, 우리 학교 마스코트, 좋아하는 문구와 그림">
+        <button type="button" class="tp-mic-btn" id="micBtn" onclick="tpToggleMic()" title="말로 입력하기">🎤</button>
+      </div>
+      <div class="tp-mic-hint" id="micHint">🎤 버튼을 누르고 말하면 글자로 바뀌어요.</div>
+      <div class="tp-example-grid" id="quickSubjects"></div>
     </div>
-    <div class="tp-custom-input" id="styleCustomWrap">
-      <input type="text" id="styleCustom" class="tp-input" placeholder="원하는 스타일을 입력해 주세요">
+    <div class="tp-nav-row">
+      <button type="button" class="tp-nav-btn prev" onclick="tpGoto(1)">← 이전</button>
+      <button type="button" class="tp-nav-btn next" onclick="tpValidateSubjectAndGoto(3)">다음 →</button>
     </div>
   </div>
 
-  <!-- ④ 색감/분위기 -->
-  <div class="tp-section">
-    <div class="tp-step-label">④ 어떤 색감/분위기로 할까요?</div>
-    <div class="tp-btn-group" id="moodBtns">
-      <button type="button" class="tp-choice-btn active" data-value="밝고 따뜻한 파스텔 컬러">🌈 밝은 파스텔</button>
-      <button type="button" class="tp-choice-btn" data-value="깔끔한 화이트&베이지 톤, 포인트 컬러 1~2가지">☕ 심플한 베이지 톤</button>
-      <button type="button" class="tp-choice-btn" data-value="상큼한 원색 조합">🎨 상큼한 원색</button>
-      <button type="button" class="tp-choice-btn" data-value="차분한 파스텔 블루&그린 톤">🌿 차분한 블루그린</button>
-      <button type="button" class="tp-choice-btn" data-value="__custom__">✏️ 직접입력</button>
+  <!-- STEP 3: 스타일 -->
+  <div class="tp-step" data-step="3">
+    <div class="tp-section">
+      <div class="tp-step-label">③ 어떤 그림 스타일이 좋을까요?</div>
+      <p class="tp-step-sub">카드 안의 그림 느낌을 보고 마음에 드는 스타일을 골라보세요.</p>
+      <div class="tp-visual-grid" id="styleBtns"></div>
+      <div class="tp-custom-input" id="styleCustomWrap">
+        <input type="text" id="styleCustom" class="tp-input" placeholder="원하는 스타일을 입력해 주세요">
+      </div>
     </div>
-    <div class="tp-custom-input" id="moodCustomWrap">
-      <input type="text" id="moodCustom" class="tp-input" placeholder="원하는 색감/분위기를 입력해 주세요">
+    <div class="tp-nav-row">
+      <button type="button" class="tp-nav-btn prev" onclick="tpGoto(2)">← 이전</button>
+      <button type="button" class="tp-nav-btn next" onclick="tpGoto(4)">다음 →</button>
     </div>
   </div>
 
-  <div class="tp-generate-wrap">
-    <button type="button" class="tp-generate-btn" onclick="tpGenerate()">☕ 머그컵 이미지 프롬프트 만들기</button>
+  <!-- STEP 4: 색감/분위기 -->
+  <div class="tp-step" data-step="4">
+    <div class="tp-section">
+      <div class="tp-step-label">④ 어떤 색감·분위기로 할까요?</div>
+      <p class="tp-step-sub">색상 카드를 보고 마음에 드는 분위기를 골라보세요.</p>
+      <div class="tp-visual-grid" id="moodBtns"></div>
+      <div class="tp-custom-input" id="moodCustomWrap">
+        <input type="text" id="moodCustom" class="tp-input" placeholder="원하는 색감/분위기를 입력해 주세요">
+      </div>
+    </div>
+    <div class="tp-nav-row">
+      <button type="button" class="tp-nav-btn prev" onclick="tpGoto(3)">← 이전</button>
+      <button type="button" class="tp-generate-btn" onclick="tpGenerate()">☕ 머그컵 이미지 프롬프트 만들기</button>
+    </div>
   </div>
 
   <div id="tpPromptSection" class="tp-prompt-section hidden">
@@ -138,6 +202,7 @@
       <div class="shape">200mm × 90mm<br>인쇄 영역</div>
     </div>
     <button type="button" class="tp-copy-btn" onclick="tpCopyPrompt()">📋 프롬프트 복사하기</button>
+    <button type="button" class="tp-restart-btn" onclick="tpRestart()">🔄 처음부터 다시 만들기</button>
   </div>
 </div>
 <div id="tpToast" class="tp-toast"></div>
@@ -148,66 +213,171 @@
 let tpAudience = '유아';
 let tpStyle = '귀엽고 단순한 카툰 스타일, 두꺼운 외곽선';
 let tpMood = '밝고 따뜻한 파스텔 컬러';
+let tpCurrentStep = 1;
 
 const QUICK_SUBJECTS = {
-  '유아': ['강아지', '고양이', '공룡', '자동차', '과일', '무지개'],
-  '초등': ['우리 학교 마스코트', '좋아하는 동물', '우주와 행성', '축구공과 스포츠', '내가 좋아하는 캐릭터'],
-  '중고등': ['나만의 캐릭터 로고', '동아리 상징 그림', '좋아하는 문구 + 그림', '우리 반 단체 캐릭터'],
-  '대학일반': ['심플한 브랜드 로고풍 그림', '좋아하는 취미(커피, 책, 여행)', '미니멀한 패턴 디자인', '응원 문구 + 아이콘'],
+  '유아': [
+    {emoji:'🐶', label:'강아지'}, {emoji:'🐱', label:'고양이'}, {emoji:'🦕', label:'공룡'},
+    {emoji:'🚗', label:'자동차'}, {emoji:'🍓', label:'과일'}, {emoji:'🌈', label:'무지개'},
+    {emoji:'🐻', label:'귀여운 곰돌이'}, {emoji:'⭐', label:'반짝이는 별'}, {emoji:'🦋', label:'나비'},
+  ],
+  '초등': [
+    {emoji:'🏫', label:'우리 학교 마스코트'}, {emoji:'🐼', label:'좋아하는 동물'}, {emoji:'🪐', label:'우주와 행성'},
+    {emoji:'⚽', label:'축구공과 스포츠'}, {emoji:'🦸', label:'내가 좋아하는 캐릭터'}, {emoji:'🎮', label:'게임 캐릭터'},
+    {emoji:'🍦', label:'아이스크림'}, {emoji:'🐠', label:'바닷속 물고기'},
+  ],
+  '중고등': [
+    {emoji:'😎', label:'나만의 캐릭터 로고'}, {emoji:'🎵', label:'동아리 상징 그림'}, {emoji:'💬', label:'좋아하는 문구 + 그림'},
+    {emoji:'👯', label:'우리 반 단체 캐릭터'}, {emoji:'🏀', label:'좋아하는 스포츠'}, {emoji:'🎧', label:'음악/힙합 느낌'},
+    {emoji:'🐉', label:'멋진 상상 속 동물'}, {emoji:'✨', label:'별자리/타로 느낌'},
+  ],
+  '대학일반': [
+    {emoji:'🏷️', label:'심플한 브랜드 로고풍 그림'}, {emoji:'☕', label:'좋아하는 취미(커피, 책, 여행)'}, {emoji:'🔷', label:'미니멀한 패턴 디자인'},
+    {emoji:'📣', label:'응원 문구 + 아이콘'}, {emoji:'🌿', label:'식물/보태니컬 일러스트'}, {emoji:'🏙️', label:'도시 풍경'},
+    {emoji:'🐾', label:'우리집 반려동물'}, {emoji:'📐', label:'기하학적 패턴'},
+  ],
 };
+
+const STYLE_OPTIONS = [
+  { value:'귀엽고 단순한 카툰 스타일, 두꺼운 외곽선', emoji:'🧸', swatchBg:'linear-gradient(135deg,#FFE29A,#FFA99F)', title:'귀여운 카툰', desc:'동글동글하고 선이 굵은 만화 느낌' },
+  { value:'따뜻한 수채화 느낌, 번지는 색감', emoji:'🖌️', swatchBg:'linear-gradient(135deg,#BEE3F8,#9FD8C8)', title:'수채화', desc:'물감이 번지듯 부드럽고 포근한 느낌' },
+  { value:'깔끔한 미니멀 라인아트, 가는 선 위주', emoji:'✏️', swatchBg:'linear-gradient(135deg,#F5F5F5,#D9D9E8)', title:'미니멀 라인아트', desc:'색은 거의 없이 가는 선으로만 그린 느낌' },
+  { value:'3D 픽사 애니메이션 스타일, 입체적인 느낌', emoji:'🎞️', swatchBg:'linear-gradient(135deg,#C9D6FF,#E2E2FF)', title:'3D 애니메이션', desc:'픽사 영화처럼 통통하고 입체적인 느낌' },
+  { value:'세련된 플랫 디자인, 로고처럼 깔끔하게', emoji:'💼', swatchBg:'linear-gradient(135deg,#D1F2EB,#A3E4D7)', title:'플랫 디자인', desc:'그림자 없이 납작하고 깔끔한 로고 느낌' },
+  { value:'__custom__', emoji:'✏️', swatchBg:'#fff', title:'직접입력', desc:'원하는 스타일을 직접 써 볼게요' },
+];
+
+const MOOD_OPTIONS = [
+  { value:'밝고 따뜻한 파스텔 컬러', emoji:'🌈', swatchBg:'linear-gradient(135deg,#FFD6E8,#FFF3B0,#C7F0D8)', title:'밝은 파스텔', desc:'분홍·노랑·민트가 섞인 환하고 포근한 색' },
+  { value:'깔끔한 화이트&베이지 톤, 포인트 컬러 1~2가지', emoji:'☕', swatchBg:'linear-gradient(135deg,#FFF8F0,#E8D9C5)', title:'심플한 베이지 톤', desc:'카페 감성의 흰색·베이지 위주 차분한 색' },
+  { value:'상큼한 원색 조합', emoji:'🎨', swatchBg:'linear-gradient(135deg,#FF4D6D,#FFD400,#2EC4B6)', title:'상큼한 원색', desc:'빨강·노랑·청록 등 진하고 선명한 색' },
+  { value:'차분한 파스텔 블루&그린 톤', emoji:'🌿', swatchBg:'linear-gradient(135deg,#AEE2E8,#CDEAC0)', title:'차분한 블루그린', desc:'하늘색·연두색이 섞인 잔잔하고 편안한 색' },
+  { value:'__custom__', emoji:'✏️', swatchBg:'#fff', title:'직접입력', desc:'원하는 색감·분위기를 직접 써 볼게요' },
+];
+
+function tpGoto(step) {
+  document.querySelectorAll('.tp-step').forEach(el => el.classList.toggle('show', Number(el.dataset.step) === step));
+  document.querySelectorAll('.tp-progress .dot').forEach(el => {
+    const n = Number(el.dataset.step);
+    el.classList.toggle('active', n === step);
+    el.classList.toggle('done', n < step);
+  });
+  document.querySelectorAll('.tp-progress .bar').forEach((el, i) => el.classList.toggle('done', (i + 1) < step));
+  tpCurrentStep = step;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function tpValidateSubjectAndGoto(step) {
+  const subject = document.getElementById('subjectInput').value.trim();
+  if (!subject) { tpShowToast('머그컵에 그릴 그림을 입력하거나 골라주세요!'); document.getElementById('subjectInput').focus(); return; }
+  tpGoto(step);
+}
 
 function tpRenderQuickSubjects() {
   const wrap = document.getElementById('quickSubjects');
   wrap.innerHTML = '';
-  (QUICK_SUBJECTS[tpAudience] || []).forEach(label => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'tp-quick-btn';
-    btn.textContent = label;
-    btn.addEventListener('click', () => {
-      document.getElementById('subjectInput').value = label;
+  (QUICK_SUBJECTS[tpAudience] || []).forEach(item => {
+    const tile = document.createElement('button');
+    tile.type = 'button';
+    tile.className = 'tp-example-tile';
+    tile.innerHTML = `<span class="emoji">${item.emoji}</span><span class="label">${item.label}</span>`;
+    tile.addEventListener('click', () => {
+      document.getElementById('subjectInput').value = item.label;
       document.getElementById('subjectInput').focus();
     });
-    wrap.appendChild(btn);
+    wrap.appendChild(tile);
   });
 }
 
-function tpSetupChoice(containerId, onSelect, customWrapId, customInputId) {
-  document.querySelectorAll(`#${containerId} .tp-choice-btn`).forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll(`#${containerId} .tp-choice-btn`).forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      if (btn.dataset.value === '__custom__' && customWrapId) {
+function tpRenderVisualGroup(containerId, options, currentValue, onSelect, customWrapId, customInputId) {
+  const wrap = document.getElementById(containerId);
+  wrap.innerHTML = '';
+  options.forEach(opt => {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'tp-visual-card' + (opt.value === currentValue ? ' active' : '');
+    card.dataset.value = opt.value;
+    card.innerHTML = `<div class="swatch" style="background:${opt.swatchBg}">${opt.emoji}</div>
+      <div class="cap"><span class="t">${opt.title}</span><span class="d">${opt.desc}</span></div>`;
+    card.addEventListener('click', () => {
+      wrap.querySelectorAll('.tp-visual-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+      if (opt.value === '__custom__' && customWrapId) {
         document.getElementById(customWrapId).classList.add('show');
         document.getElementById(customInputId).focus();
       } else {
         if (customWrapId) document.getElementById(customWrapId).classList.remove('show');
-        onSelect(btn.dataset.value);
+        onSelect(opt.value);
       }
+    });
+    wrap.appendChild(card);
+  });
+}
+
+function tpSetupChoice(containerId, onSelect) {
+  document.querySelectorAll(`#${containerId} .tp-choice-btn`).forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll(`#${containerId} .tp-choice-btn`).forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      onSelect(btn.dataset.value);
     });
   });
 }
 
 tpSetupChoice('audienceBtns', v => { tpAudience = v; tpRenderQuickSubjects(); });
-tpSetupChoice('styleBtns', v => tpStyle = v, 'styleCustomWrap', 'styleCustom');
-tpSetupChoice('moodBtns', v => tpMood = v, 'moodCustomWrap', 'moodCustom');
-
 tpRenderQuickSubjects();
+tpRenderVisualGroup('styleBtns', STYLE_OPTIONS, tpStyle, v => tpStyle = v, 'styleCustomWrap', 'styleCustom');
+tpRenderVisualGroup('moodBtns', MOOD_OPTIONS, tpMood, v => tpMood = v, 'moodCustomWrap', 'moodCustom');
 
-function tpResolve(containerId, fallback, customInputId) {
-  const activeBtn = document.querySelector(`#${containerId} .tp-choice-btn.active`);
-  if (activeBtn && activeBtn.dataset.value === '__custom__') {
+function tpResolveVisual(containerId, fallback, customInputId) {
+  const activeCard = document.querySelector(`#${containerId} .tp-visual-card.active`);
+  if (activeCard && activeCard.dataset.value === '__custom__') {
     return document.getElementById(customInputId).value.trim();
   }
-  return activeBtn ? activeBtn.dataset.value : fallback;
+  return activeCard ? activeCard.dataset.value : fallback;
+}
+
+/* ---- 음성 입력 (마이크) ---- */
+let tpRecognition = null;
+let tpListening = false;
+function tpToggleMic() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { tpShowToast('이 브라우저에서는 음성 입력을 지원하지 않아요. 크롬을 사용해 보세요.'); return; }
+  const micBtn = document.getElementById('micBtn');
+  if (tpListening) {
+    tpRecognition && tpRecognition.stop();
+    return;
+  }
+  tpRecognition = new SR();
+  tpRecognition.lang = 'ko-KR';
+  tpRecognition.interimResults = false;
+  tpRecognition.maxAlternatives = 1;
+  tpRecognition.onstart = () => {
+    tpListening = true;
+    micBtn.classList.add('listening');
+    document.getElementById('micHint').textContent = '🎙️ 듣고 있어요... 말해보세요!';
+  };
+  tpRecognition.onresult = (e) => {
+    const text = e.results[0][0].transcript;
+    document.getElementById('subjectInput').value = text;
+  };
+  tpRecognition.onerror = () => {
+    tpShowToast('음성을 잘 듣지 못했어요. 다시 눌러서 말해주세요!');
+  };
+  tpRecognition.onend = () => {
+    tpListening = false;
+    micBtn.classList.remove('listening');
+    document.getElementById('micHint').textContent = '🎤 버튼을 누르고 말하면 글자로 바뀌어요.';
+  };
+  tpRecognition.start();
 }
 
 function tpGenerate() {
   const subject = document.getElementById('subjectInput').value.trim();
-  if (!subject) { tpShowToast('머그컵에 그릴 그림을 입력해 주세요!'); document.getElementById('subjectInput').focus(); return; }
+  if (!subject) { tpShowToast('머그컵에 그릴 그림을 입력해 주세요!'); tpGoto(2); return; }
 
-  const style = tpResolve('styleBtns', tpStyle, 'styleCustom');
-  const mood = tpResolve('moodBtns', tpMood, 'moodCustom');
+  const style = tpResolveVisual('styleBtns', tpStyle, 'styleCustom');
+  const mood = tpResolveVisual('moodBtns', tpMood, 'moodCustom');
 
   const sizeLine = '머그컵 랩어라운드(wrap-around) 인쇄용 디자인 — 가로 200mm × 세로 90mm (약 2.2:1 가로형 비율), 배경은 흰색 또는 투명, 중요한 그림/글자는 좌우 끝에서 15mm 이상 안쪽에 배치(이음새에서 잘리지 않도록), 고해상도.';
 
@@ -262,9 +432,16 @@ function tpGenerate() {
   }
 
   document.getElementById('tpPromptBox').textContent = prompt;
+  document.querySelectorAll('.tp-step').forEach(el => el.classList.remove('show'));
   const section = document.getElementById('tpPromptSection');
   section.classList.remove('hidden');
   setTimeout(() => section.scrollIntoView({ behavior:'smooth', block:'start' }), 50);
+}
+
+function tpRestart() {
+  document.getElementById('tpPromptSection').classList.add('hidden');
+  document.getElementById('subjectInput').value = '';
+  tpGoto(1);
 }
 
 function tpCopyPrompt() {
