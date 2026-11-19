@@ -659,12 +659,12 @@ def is_staff_check(user):
     return user.is_staff
 
 def mouse_practice(request):
-    """매일연습 — 마우스연습"""
+    """플레이 — 마우스연습"""
     return render(request, 'typing_practice/mouse_practice.html')
 
 
 def typing_game(request):
-    """매일연습 — 타자게임 (떨어지는 낱말 맞추기)"""
+    """플레이 — 타자게임 (떨어지는 낱말 맞추기)"""
     return render(request, 'typing_practice/typing_game.html')
 
 
