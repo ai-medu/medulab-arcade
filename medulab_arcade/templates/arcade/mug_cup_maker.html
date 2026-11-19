@@ -31,8 +31,22 @@
   @keyframes tpFadeIn { from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:translateY(0); } }
 
   .tp-section { background:#fff; border-radius:20px; padding:26px 28px; margin-bottom:18px; box-shadow:0 4px 20px rgba(140,107,250,.08); }
-  .tp-step-label { font-size:17px; font-weight:800; color:var(--ink); margin-bottom:6px; display:flex; align-items:center; gap:8px; }
+  .tp-step-label { font-size:17px; font-weight:800; color:var(--ink); margin-bottom:6px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
   .tp-step-sub { font-size:13px; color:#9d96bc; margin:0 0 16px; }
+
+  .tp-listen-btn { flex:0 0 auto; padding:7px 14px; border-radius:999px; border:1.5px solid #FFE4CE; background:#FFF8F1; color:#c2672a; font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap; transition:all .15s; }
+  .tp-listen-btn:hover { border-color:var(--c); background:#FFEBD9; }
+  .tp-listen-btn.speaking { background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; border-color:transparent; }
+
+  /* audience cards: big 1:1 tiles */
+  .tp-audience-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  .tp-audience-card { aspect-ratio:1/1; border:2px solid #FFE4CE; border-radius:20px; background:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; cursor:pointer; transition:all .18s; }
+  .tp-audience-card:hover { border-color:var(--c); transform:translateY(-3px); }
+  .tp-audience-card.active { background:linear-gradient(120deg,var(--c),var(--c2)); border-color:transparent; box-shadow:0 8px 24px rgba(255,154,90,.3); }
+  .tp-audience-card .ic { font-size:44px; line-height:1; }
+  .tp-audience-card .lb { font-size:16px; font-weight:800; color:var(--ink); }
+  .tp-audience-card.active .lb { color:#fff; }
+  @media (max-width:560px) { .tp-audience-grid { grid-template-columns:repeat(2,1fr); } }
 
   .tp-input-row { display:flex; gap:8px; align-items:center; }
   .tp-input { width:100%; box-sizing:border-box; padding:12px 16px; border:2px solid #FFE4CE; border-radius:12px; font-size:14.5px; color:var(--ink); transition:border-color .2s; }
@@ -65,7 +79,8 @@
   .tp-visual-card { border:2px solid #FFE4CE; border-radius:16px; background:#fff; cursor:pointer; overflow:hidden; transition:all .18s; text-align:left; }
   .tp-visual-card:hover { border-color:var(--c); transform:translateY(-2px); }
   .tp-visual-card.active { border-color:var(--c2); box-shadow:0 0 0 3px rgba(140,107,250,.18); }
-  .tp-visual-card .swatch { height:72px; display:flex; align-items:center; justify-content:center; font-size:30px; }
+  .tp-visual-card .swatch { height:90px; display:flex; align-items:center; justify-content:center; font-size:30px; }
+  .tp-visual-card .swatch svg { width:68px; height:68px; }
   .tp-visual-card .cap { padding:10px 12px 12px; }
   .tp-visual-card .cap .t { font-size:13.5px; font-weight:800; color:var(--ink); display:block; }
   .tp-visual-card .cap .d { font-size:11.5px; color:#9d96bc; display:block; margin-top:2px; line-height:1.4; }
@@ -127,13 +142,13 @@
   <!-- STEP 1: 대상 -->
   <div class="tp-step show" data-step="1">
     <div class="tp-section">
-      <div class="tp-step-label">① 누가 만드나요?</div>
+      <div class="tp-step-label"><span>① 누가 만드나요?</span><button type="button" class="tp-listen-btn" onclick="tpSpeak('누가 만드나요? 대상을 선택하면 그 대상에 딱 맞는 그림과 문구 스타일로 만들어 드려요.', this)">🔊 들어보기</button></div>
       <p class="tp-step-sub">대상을 선택하면 그 대상에 딱 맞는 그림과 문구 스타일로 만들어 드려요.</p>
-      <div class="tp-btn-group" id="audienceBtns">
-        <button type="button" class="tp-choice-btn active" data-value="유아">🧸 유아</button>
-        <button type="button" class="tp-choice-btn" data-value="초등">🎒 초등학생</button>
-        <button type="button" class="tp-choice-btn" data-value="중고등">📚 중고등학생</button>
-        <button type="button" class="tp-choice-btn" data-value="대학일반">🎓 대학·일반</button>
+      <div class="tp-audience-grid" id="audienceBtns">
+        <button type="button" class="tp-audience-card active" data-value="유아"><span class="ic">🧸</span><span class="lb">유아</span></button>
+        <button type="button" class="tp-audience-card" data-value="초등"><span class="ic">🎒</span><span class="lb">초등학생</span></button>
+        <button type="button" class="tp-audience-card" data-value="중고등"><span class="ic">📚</span><span class="lb">중고등학생</span></button>
+        <button type="button" class="tp-audience-card" data-value="대학일반"><span class="ic">🎓</span><span class="lb">대학·일반</span></button>
       </div>
     </div>
     <div class="tp-nav-row">
@@ -145,11 +160,11 @@
   <!-- STEP 2: 무엇을 그릴까요 -->
   <div class="tp-step" data-step="2">
     <div class="tp-section">
-      <div class="tp-step-label">② 머그컵에 무엇을 그리고 싶나요?</div>
+      <div class="tp-step-label"><span>② 머그컵에 무엇을 그리고 싶나요?</span><button type="button" class="tp-listen-btn" onclick="tpSpeak('머그컵에 무엇을 그리고 싶나요? 직접 입력하거나, 마이크 버튼을 눌러 말로 입력하거나, 아래 그림을 눌러서 골라보세요.', this)">🔊 들어보기</button></div>
       <p class="tp-step-sub">직접 입력하거나, 마이크 버튼을 눌러 말로 입력하거나, 아래 그림을 눌러서 골라보세요.</p>
       <div class="tp-input-row">
         <input type="text" id="subjectInput" class="tp-input" placeholder="예: 귀여운 강아지, 우리 학교 마스코트, 좋아하는 문구와 그림">
-        <button type="button" class="tp-mic-btn" id="micBtn" onclick="tpToggleMic()" title="말로 입력하기">🎤</button>
+        <button type="button" class="tp-mic-btn" id="micBtn" onclick="tpStartMic('subjectInput', this)" title="말로 입력하기">🎤</button>
       </div>
       <div class="tp-mic-hint" id="micHint">🎤 버튼을 누르고 말하면 글자로 바뀌어요.</div>
       <div class="tp-example-grid" id="quickSubjects"></div>
@@ -163,11 +178,14 @@
   <!-- STEP 3: 스타일 -->
   <div class="tp-step" data-step="3">
     <div class="tp-section">
-      <div class="tp-step-label">③ 어떤 그림 스타일이 좋을까요?</div>
+      <div class="tp-step-label"><span>③ 어떤 그림 스타일이 좋을까요?</span><button type="button" class="tp-listen-btn" onclick="tpSpeak('어떤 그림 스타일이 좋을까요? 카드 안의 그림 느낌을 보고 마음에 드는 스타일을 골라보세요.', this)">🔊 들어보기</button></div>
       <p class="tp-step-sub">카드 안의 그림 느낌을 보고 마음에 드는 스타일을 골라보세요.</p>
       <div class="tp-visual-grid" id="styleBtns"></div>
       <div class="tp-custom-input" id="styleCustomWrap">
-        <input type="text" id="styleCustom" class="tp-input" placeholder="원하는 스타일을 입력해 주세요">
+        <div class="tp-input-row">
+          <input type="text" id="styleCustom" class="tp-input" placeholder="원하는 스타일을 입력해 주세요">
+          <button type="button" class="tp-mic-btn" onclick="tpStartMic('styleCustom', this)" title="말로 입력하기">🎤</button>
+        </div>
       </div>
     </div>
     <div class="tp-nav-row">
@@ -179,11 +197,14 @@
   <!-- STEP 4: 색감/분위기 -->
   <div class="tp-step" data-step="4">
     <div class="tp-section">
-      <div class="tp-step-label">④ 어떤 색감·분위기로 할까요?</div>
+      <div class="tp-step-label"><span>④ 어떤 색감·분위기로 할까요?</span><button type="button" class="tp-listen-btn" onclick="tpSpeak('어떤 색감 분위기로 할까요? 색상 카드를 보고 마음에 드는 분위기를 골라보세요.', this)">🔊 들어보기</button></div>
       <p class="tp-step-sub">색상 카드를 보고 마음에 드는 분위기를 골라보세요.</p>
       <div class="tp-visual-grid" id="moodBtns"></div>
       <div class="tp-custom-input" id="moodCustomWrap">
-        <input type="text" id="moodCustom" class="tp-input" placeholder="원하는 색감/분위기를 입력해 주세요">
+        <div class="tp-input-row">
+          <input type="text" id="moodCustom" class="tp-input" placeholder="원하는 색감/분위기를 입력해 주세요">
+          <button type="button" class="tp-mic-btn" onclick="tpStartMic('moodCustom', this)" title="말로 입력하기">🎤</button>
+        </div>
       </div>
     </div>
     <div class="tp-nav-row">
@@ -220,38 +241,49 @@ const QUICK_SUBJECTS = {
     {emoji:'🐶', label:'강아지'}, {emoji:'🐱', label:'고양이'}, {emoji:'🦕', label:'공룡'},
     {emoji:'🚗', label:'자동차'}, {emoji:'🍓', label:'과일'}, {emoji:'🌈', label:'무지개'},
     {emoji:'🐻', label:'귀여운 곰돌이'}, {emoji:'⭐', label:'반짝이는 별'}, {emoji:'🦋', label:'나비'},
+    {emoji:'🐣', label:'병아리'}, {emoji:'🚀', label:'우주선'}, {emoji:'🐘', label:'코끼리'},
+    {emoji:'🧁', label:'컵케이크'}, {emoji:'🌻', label:'해바라기'}, {emoji:'🐢', label:'거북이'},
   ],
   '초등': [
     {emoji:'🏫', label:'우리 학교 마스코트'}, {emoji:'🐼', label:'좋아하는 동물'}, {emoji:'🪐', label:'우주와 행성'},
     {emoji:'⚽', label:'축구공과 스포츠'}, {emoji:'🦸', label:'내가 좋아하는 캐릭터'}, {emoji:'🎮', label:'게임 캐릭터'},
-    {emoji:'🍦', label:'아이스크림'}, {emoji:'🐠', label:'바닷속 물고기'},
+    {emoji:'🍦', label:'아이스크림'}, {emoji:'🐠', label:'바닷속 물고기'}, {emoji:'🦖', label:'공룡 탐험'},
+    {emoji:'🎸', label:'악기와 음악'}, {emoji:'🧙', label:'마법사/판타지'}, {emoji:'🚴', label:'자전거 타기'},
   ],
   '중고등': [
     {emoji:'😎', label:'나만의 캐릭터 로고'}, {emoji:'🎵', label:'동아리 상징 그림'}, {emoji:'💬', label:'좋아하는 문구 + 그림'},
     {emoji:'👯', label:'우리 반 단체 캐릭터'}, {emoji:'🏀', label:'좋아하는 스포츠'}, {emoji:'🎧', label:'음악/힙합 느낌'},
-    {emoji:'🐉', label:'멋진 상상 속 동물'}, {emoji:'✨', label:'별자리/타로 느낌'},
+    {emoji:'🐉', label:'멋진 상상 속 동물'}, {emoji:'✨', label:'별자리/타로 느낌'}, {emoji:'🛹', label:'스트릿/스케이트 감성'},
+    {emoji:'📸', label:'필름 카메라 감성'}, {emoji:'🎹', label:'좋아하는 아티스트 느낌'}, {emoji:'🧩', label:'추상적인 패턴'},
   ],
   '대학일반': [
     {emoji:'🏷️', label:'심플한 브랜드 로고풍 그림'}, {emoji:'☕', label:'좋아하는 취미(커피, 책, 여행)'}, {emoji:'🔷', label:'미니멀한 패턴 디자인'},
     {emoji:'📣', label:'응원 문구 + 아이콘'}, {emoji:'🌿', label:'식물/보태니컬 일러스트'}, {emoji:'🏙️', label:'도시 풍경'},
-    {emoji:'🐾', label:'우리집 반려동물'}, {emoji:'📐', label:'기하학적 패턴'},
+    {emoji:'🐾', label:'우리집 반려동물'}, {emoji:'📐', label:'기하학적 패턴'}, {emoji:'🗓️', label:'팀/부서 단체 굿즈'},
+    {emoji:'🏃', label:'러닝/운동 취미'}, {emoji:'🍷', label:'와인·카페 무드'}, {emoji:'🌅', label:'여행지 풍경'},
   ],
 };
 
+const SVG_CARTOON = `<svg viewBox="0 0 100 100"><circle cx="50" cy="55" r="32" fill="#FFB199" stroke="#2E2A4A" stroke-width="5"/><circle cx="35" cy="45" r="7" fill="#2E2A4A"/><circle cx="65" cy="45" r="7" fill="#2E2A4A"/><path d="M38 68 Q50 78 62 68" stroke="#2E2A4A" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M25 30 L35 20" stroke="#2E2A4A" stroke-width="5" stroke-linecap="round"/><path d="M75 30 L65 20" stroke="#2E2A4A" stroke-width="5" stroke-linecap="round"/></svg>`;
+const SVG_WATERCOLOR = `<svg viewBox="0 0 100 100"><defs><filter id="wc1"><feGaussianBlur stdDeviation="2.4"/></filter></defs><circle cx="42" cy="42" r="28" fill="#F7B5C8" opacity="0.75" filter="url(#wc1)"/><circle cx="62" cy="55" r="24" fill="#A7D8E8" opacity="0.65" filter="url(#wc1)"/><circle cx="50" cy="62" r="20" fill="#FBE29A" opacity="0.6" filter="url(#wc1)"/></svg>`;
+const SVG_LINEART = `<svg viewBox="0 0 100 100"><circle cx="50" cy="55" r="30" fill="none" stroke="#6a6486" stroke-width="2"/><circle cx="38" cy="48" r="2.2" fill="#6a6486"/><circle cx="62" cy="48" r="2.2" fill="#6a6486"/><path d="M40 66 Q50 72 60 66" stroke="#6a6486" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M28 32 L37 24" stroke="#6a6486" stroke-width="2" stroke-linecap="round"/><path d="M72 32 L63 24" stroke="#6a6486" stroke-width="2" stroke-linecap="round"/></svg>`;
+const SVG_3D = `<svg viewBox="0 0 100 100"><defs><radialGradient id="g3d" cx="38%" cy="32%" r="70%"><stop offset="0%" stop-color="#fff"/><stop offset="35%" stop-color="#C9D6FF"/><stop offset="100%" stop-color="#6E7FD8"/></radialGradient></defs><circle cx="50" cy="55" r="30" fill="url(#g3d)"/><ellipse cx="40" cy="40" rx="8" ry="5" fill="#fff" opacity="0.6"/><circle cx="38" cy="50" r="4" fill="#2E2A4A"/><circle cx="62" cy="50" r="4" fill="#2E2A4A"/><path d="M40 66 Q50 72 60 66" stroke="#2E2A4A" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`;
+const SVG_FLAT = `<svg viewBox="0 0 100 100"><circle cx="50" cy="55" r="30" fill="#2EC4B6"/><circle cx="38" cy="48" r="4" fill="#fff"/><circle cx="62" cy="48" r="4" fill="#fff"/><rect x="42" y="66" width="16" height="4" rx="2" fill="#fff"/></svg>`;
+
 const STYLE_OPTIONS = [
-  { value:'귀엽고 단순한 카툰 스타일, 두꺼운 외곽선', emoji:'🧸', swatchBg:'linear-gradient(135deg,#FFE29A,#FFA99F)', title:'귀여운 카툰', desc:'동글동글하고 선이 굵은 만화 느낌' },
-  { value:'따뜻한 수채화 느낌, 번지는 색감', emoji:'🖌️', swatchBg:'linear-gradient(135deg,#BEE3F8,#9FD8C8)', title:'수채화', desc:'물감이 번지듯 부드럽고 포근한 느낌' },
-  { value:'깔끔한 미니멀 라인아트, 가는 선 위주', emoji:'✏️', swatchBg:'linear-gradient(135deg,#F5F5F5,#D9D9E8)', title:'미니멀 라인아트', desc:'색은 거의 없이 가는 선으로만 그린 느낌' },
-  { value:'3D 픽사 애니메이션 스타일, 입체적인 느낌', emoji:'🎞️', swatchBg:'linear-gradient(135deg,#C9D6FF,#E2E2FF)', title:'3D 애니메이션', desc:'픽사 영화처럼 통통하고 입체적인 느낌' },
-  { value:'세련된 플랫 디자인, 로고처럼 깔끔하게', emoji:'💼', swatchBg:'linear-gradient(135deg,#D1F2EB,#A3E4D7)', title:'플랫 디자인', desc:'그림자 없이 납작하고 깔끔한 로고 느낌' },
+  { value:'귀엽고 단순한 카툰 스타일, 두꺼운 외곽선', art:SVG_CARTOON, swatchBg:'linear-gradient(135deg,#FFF3E0,#FFE2D4)', title:'귀여운 카툰', desc:'동글동글하고 선이 굵은 만화 느낌' },
+  { value:'따뜻한 수채화 느낌, 번지는 색감', art:SVG_WATERCOLOR, swatchBg:'linear-gradient(135deg,#F2FAFF,#EFF8F3)', title:'수채화', desc:'물감이 번지듯 부드럽고 포근한 느낌' },
+  { value:'깔끔한 미니멀 라인아트, 가는 선 위주', art:SVG_LINEART, swatchBg:'#FAFAFC', title:'미니멀 라인아트', desc:'색은 거의 없이 가는 선으로만 그린 느낌' },
+  { value:'3D 픽사 애니메이션 스타일, 입체적인 느낌', art:SVG_3D, swatchBg:'linear-gradient(135deg,#F0F2FF,#E4E8FF)', title:'3D 애니메이션', desc:'픽사 영화처럼 통통하고 입체적인 느낌' },
+  { value:'세련된 플랫 디자인, 로고처럼 깔끔하게', art:SVG_FLAT, swatchBg:'linear-gradient(135deg,#EAFBF7,#DEF5EE)', title:'플랫 디자인', desc:'그림자 없이 납작하고 깔끔한 로고 느낌' },
   { value:'__custom__', emoji:'✏️', swatchBg:'#fff', title:'직접입력', desc:'원하는 스타일을 직접 써 볼게요' },
 ];
 
 const MOOD_OPTIONS = [
-  { value:'밝고 따뜻한 파스텔 컬러', emoji:'🌈', swatchBg:'linear-gradient(135deg,#FFD6E8,#FFF3B0,#C7F0D8)', title:'밝은 파스텔', desc:'분홍·노랑·민트가 섞인 환하고 포근한 색' },
-  { value:'깔끔한 화이트&베이지 톤, 포인트 컬러 1~2가지', emoji:'☕', swatchBg:'linear-gradient(135deg,#FFF8F0,#E8D9C5)', title:'심플한 베이지 톤', desc:'카페 감성의 흰색·베이지 위주 차분한 색' },
-  { value:'상큼한 원색 조합', emoji:'🎨', swatchBg:'linear-gradient(135deg,#FF4D6D,#FFD400,#2EC4B6)', title:'상큼한 원색', desc:'빨강·노랑·청록 등 진하고 선명한 색' },
-  { value:'차분한 파스텔 블루&그린 톤', emoji:'🌿', swatchBg:'linear-gradient(135deg,#AEE2E8,#CDEAC0)', title:'차분한 블루그린', desc:'하늘색·연두색이 섞인 잔잔하고 편안한 색' },
+  { value:'밝고 따뜻한 파스텔 컬러', swatchBg:'linear-gradient(135deg,#FFD6E8,#FFF3B0,#C7F0D8)', title:'밝은 파스텔', desc:'분홍·노랑·민트가 섞인 환하고 포근한 색' },
+  { value:'깔끔한 화이트&베이지 톤, 포인트 컬러 1~2가지', swatchBg:'linear-gradient(135deg,#FFF8F0,#E8D9C5)', title:'심플한 베이지 톤', desc:'카페 감성의 흰색·베이지 위주 차분한 색' },
+  { value:'상큼한 원색 조합', swatchBg:'linear-gradient(135deg,#FF4D6D,#FFD400,#2EC4B6)', title:'상큼한 원색', desc:'빨강·노랑·청록 등 진하고 선명한 색' },
+  { value:'차분한 파스텔 블루&그린 톤', swatchBg:'linear-gradient(135deg,#AEE2E8,#CDEAC0)', title:'차분한 블루그린', desc:'하늘색·연두색이 섞인 잔잔하고 편안한 색' },
   { value:'__custom__', emoji:'✏️', swatchBg:'#fff', title:'직접입력', desc:'원하는 색감·분위기를 직접 써 볼게요' },
 ];
 
@@ -297,7 +329,8 @@ function tpRenderVisualGroup(containerId, options, currentValue, onSelect, custo
     card.type = 'button';
     card.className = 'tp-visual-card' + (opt.value === currentValue ? ' active' : '');
     card.dataset.value = opt.value;
-    card.innerHTML = `<div class="swatch" style="background:${opt.swatchBg}">${opt.emoji}</div>
+    const swatchInner = opt.art ? opt.art : (opt.emoji || '');
+    card.innerHTML = `<div class="swatch" style="background:${opt.swatchBg}">${swatchInner}</div>
       <div class="cap"><span class="t">${opt.title}</span><span class="d">${opt.desc}</span></div>`;
     card.addEventListener('click', () => {
       wrap.querySelectorAll('.tp-visual-card').forEach(c => c.classList.remove('active'));
@@ -314,17 +347,18 @@ function tpRenderVisualGroup(containerId, options, currentValue, onSelect, custo
   });
 }
 
-function tpSetupChoice(containerId, onSelect) {
-  document.querySelectorAll(`#${containerId} .tp-choice-btn`).forEach(btn => {
+function tpSetupChoice(containerId, onSelect, itemClass) {
+  const cls = itemClass || 'tp-choice-btn';
+  document.querySelectorAll(`#${containerId} .${cls}`).forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll(`#${containerId} .tp-choice-btn`).forEach(b => b.classList.remove('active'));
+      document.querySelectorAll(`#${containerId} .${cls}`).forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       onSelect(btn.dataset.value);
     });
   });
 }
 
-tpSetupChoice('audienceBtns', v => { tpAudience = v; tpRenderQuickSubjects(); });
+tpSetupChoice('audienceBtns', v => { tpAudience = v; tpRenderQuickSubjects(); }, 'tp-audience-card');
 tpRenderQuickSubjects();
 tpRenderVisualGroup('styleBtns', STYLE_OPTIONS, tpStyle, v => tpStyle = v, 'styleCustomWrap', 'styleCustom');
 tpRenderVisualGroup('moodBtns', MOOD_OPTIONS, tpMood, v => tpMood = v, 'moodCustomWrap', 'moodCustom');
@@ -340,36 +374,51 @@ function tpResolveVisual(containerId, fallback, customInputId) {
 /* ---- 음성 입력 (마이크) ---- */
 let tpRecognition = null;
 let tpListening = false;
-function tpToggleMic() {
+function tpStartMic(inputId, btnEl) {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { tpShowToast('이 브라우저에서는 음성 입력을 지원하지 않아요. 크롬을 사용해 보세요.'); return; }
-  const micBtn = document.getElementById('micBtn');
   if (tpListening) {
     tpRecognition && tpRecognition.stop();
     return;
   }
+  const targetInput = document.getElementById(inputId);
+  const micHint = document.getElementById('micHint');
   tpRecognition = new SR();
   tpRecognition.lang = 'ko-KR';
   tpRecognition.interimResults = false;
   tpRecognition.maxAlternatives = 1;
   tpRecognition.onstart = () => {
     tpListening = true;
-    micBtn.classList.add('listening');
-    document.getElementById('micHint').textContent = '🎙️ 듣고 있어요... 말해보세요!';
+    btnEl.classList.add('listening');
+    if (micHint && inputId === 'subjectInput') micHint.textContent = '🎙️ 듣고 있어요... 말해보세요!';
   };
   tpRecognition.onresult = (e) => {
-    const text = e.results[0][0].transcript;
-    document.getElementById('subjectInput').value = text;
+    targetInput.value = e.results[0][0].transcript;
   };
   tpRecognition.onerror = () => {
     tpShowToast('음성을 잘 듣지 못했어요. 다시 눌러서 말해주세요!');
   };
   tpRecognition.onend = () => {
     tpListening = false;
-    micBtn.classList.remove('listening');
-    document.getElementById('micHint').textContent = '🎤 버튼을 누르고 말하면 글자로 바뀌어요.';
+    btnEl.classList.remove('listening');
+    if (micHint && inputId === 'subjectInput') micHint.textContent = '🎤 버튼을 누르고 말하면 글자로 바뀌어요.';
   };
   tpRecognition.start();
+}
+
+/* ---- 읽어주기 (TTS) ---- */
+function tpSpeak(text, btnEl) {
+  if (!window.speechSynthesis) { tpShowToast('이 브라우저에서는 읽어주기를 지원하지 않아요.'); return; }
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'ko-KR';
+  u.rate = 0.95;
+  if (btnEl) {
+    u.onstart = () => btnEl.classList.add('speaking');
+    u.onend = () => btnEl.classList.remove('speaking');
+    u.onerror = () => btnEl.classList.remove('speaking');
+  }
+  window.speechSynthesis.speak(u);
 }
 
 function tpGenerate() {
