@@ -59,4 +59,7 @@ AI_PROGRAMS = [
      'desc': '희망 직업을 선정하고 AI 면접관과 모의 면접을 진행하여 자기소개와 피드백을 받아봅니다.', 'tools': ['ai_career_interview']},
     {'no': 20, 'title': 'AI 로봇 프로젝트', 'tag': '로봇·융합', 'icon': '🤖', 'grades': '초·중·고', 'duration': '2~6시간',
      'desc': '로봇의 구조와 센서를 이해하고 AI와 결합된 로봇 프로젝트를 직접 체험합니다.', 'tools': ['ai_robot_project']},
+    {'no': 21, 'title': 'AI 활용 머그컵 만들기', 'tag': '굿즈 제작', 'icon': '☕', 'grades': '유아~성인', 'duration': '60분~90분',
+     'desc': '대상에 맞게 그리고 싶은 그림을 정하면 AI가 머그컵(200×90mm) 인쇄용 이미지 생성 프롬프트를 만들어 줍니다.',
+     'tools': ['mug_cup_maker']},
 ]

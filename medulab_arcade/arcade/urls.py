@@ -42,6 +42,7 @@ urlpatterns = [
     path('tools/ai-scientist/', views.ai_scientist, name='ai_scientist'),
     path('tools/ai-career-interview/', views.ai_career_interview, name='ai_career_interview'),
     path('tools/ai-robot-project/', views.ai_robot_project, name='ai_robot_project'),
+    path('tools/mug-cup-maker/', views.mug_cup_maker, name='mug_cup_maker'),
     path('tools/content-idea-finder/', views.content_idea_finder, name='content_idea_finder'),
     path('tools/content-idea-finder/thumbnail/submit/', views.content_idea_thumbnail_submit, name='content_idea_thumbnail_submit'),
     path('tools/content-idea-finder/thumbnail/list/', views.content_idea_thumbnail_list, name='content_idea_thumbnail_list'),

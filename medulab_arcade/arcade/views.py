@@ -260,6 +260,11 @@ AI_PROMPT_CARDS = [
         'title': 'AI 로봇 설계 프롬프트',
         'desc': '로봇 종류와 센서, 임무를 정하면 로봇을 설계하고 동작 코드를 만드는 프롬프트를 만들어 줘요.',
     },
+    {
+        'key': 'mug_cup_maker', 'url_name': 'mug_cup_maker', 'icon_class': 'icon-mug', 'icon': '☕',
+        'title': 'AI 활용 머그컵 만들기',
+        'desc': '대상(유아~대학일반)을 고르고 그리고 싶은 그림을 정하면, 머그컵 인쇄(200×90mm)에 바로 쓸 이미지 생성 프롬프트를 만들어 줘요.',
+    },
 ]
 
 
@@ -709,6 +714,10 @@ def ai_career_interview(request):
 
 def ai_robot_project(request):
     return render(request, 'arcade/ai_robot_project.html')
+
+
+def mug_cup_maker(request):
+    return render(request, 'arcade/mug_cup_maker.html')
 
 
 def content_idea_finder(request):
