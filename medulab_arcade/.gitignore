@@ -21,6 +21,7 @@ env/
 local_settings.py
 media/
 staticfiles/
+meducode_dist/
 
 # Environment variables
 .env

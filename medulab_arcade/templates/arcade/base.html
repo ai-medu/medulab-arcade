@@ -945,14 +945,15 @@
                             <a href="{% url 'mouse_practice' %}">🖱️ 마우스연습</a>
                             <a href="{% url 'typing_home' %}">⌨️ 타자연습</a>
                             <a href="{% url 'typing_game' %}">🎮 타자게임</a>
+                            <a href="{% url 'meducode' %}">🧩 메듀코드</a>
                         </div>
                     </div>
 
-                    <!-- 3. 러닝센터 -->
+                    <!-- 3. 클래스 -->
                     <div class="nav-dropdown">
                         <button class="nav-link dropdown-toggle"
                             style="background: rgba(168, 85, 247, 0.15); color: var(--accent-purple); border: 1px solid rgba(168, 85, 247, 0.3); white-space: nowrap; cursor: pointer; display: flex; align-items: center; gap: 4px;">
-                            🏫 러닝센터 <span style="font-size: 10px;">▼</span>
+                            🏫 클래스 <span style="font-size: 10px;">▼</span>
                         </button>
                         <div class="dropdown-content">
                             {% for item in nav_learning %}
@@ -979,10 +980,10 @@
                     </a>
                     {% endif %}
 
-                    <!-- 5. 홈플레이 -->
+                    <!-- 5. 숙제 -->
                     <a href="{% url 'student_homework_list' %}" class="nav-link restriction-check"
                         style="background: rgba(249, 115, 22, 0.15); color: #fb923c; border: 1px solid rgba(249, 115, 22, 0.3); white-space: nowrap;">
-                        🏠 홈플레이
+                        📝 숙제
                     </a>
                 </div>
 

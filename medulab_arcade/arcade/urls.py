@@ -1,9 +1,11 @@
 from django.urls import path, re_path
-from . import views, special_lecture
+from . import views, special_lecture, meducode
 
 urlpatterns = [
     path('', views.home, name='home'),
     path('works/', views.works_gallery, name='works_gallery'),
+    path('meducode/', meducode.meducode_app, name='meducode'),
+    path('meducode/<path:path>', meducode.meducode_app, name='meducode_file'),
     path('tools/ai-prompts/', views.ai_prompts, name='ai_prompts'),
     path('tools/ai-prompts/reorder/', views.ai_prompts_reorder, name='ai_prompts_reorder'),
     path('tools/ai-prompts/program-reorder/', views.ai_prompts_program_reorder, name='ai_prompts_program_reorder'),

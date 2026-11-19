@@ -1117,7 +1117,7 @@ class NavItem(models.Model):
     SECTION_LEARNING = 'learning'
     SECTION_CHOICES = [
         (SECTION_NOTICES, '공지/일정'),
-        (SECTION_LEARNING, '러닝센터'),
+        (SECTION_LEARNING, '클래스'),
     ]
 
     section = models.CharField('섹션', max_length=20, choices=SECTION_CHOICES)

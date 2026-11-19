@@ -183,6 +183,8 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 # Media files (업로드된 학생 작품)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+# 메듀코드(블록코딩 도구) 빌드 결과를 복사해 두는 폴더 (저장소에는 올리지 않고 서버에 직접 복사)
+MEDUCODE_DIST = BASE_DIR / 'meducode_dist'
 
 # 업로드 파일 크기 제한 (50MB)
 FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800
