@@ -1804,3 +1804,24 @@ class SpecialLectureCoupon(models.Model):
 
     def __str__(self):
         return f'{self.user.username} 특강 무료 쿠폰'
+
+
+class MeduCodeProject(models.Model):
+    """메듀코드에서 회원이 계정에 저장한 작품 (프로젝트 JSON 통째로)."""
+    MAX_BYTES = 2 * 1024 * 1024   # 작품 1개 상한
+    MAX_PER_USER = 30             # 회원당 작품 수 상한
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='meducode_projects', verbose_name='회원')
+    name = models.CharField('작품 이름', max_length=100)
+    data = models.TextField('작품 데이터')
+    size = models.PositiveIntegerField('크기(바이트)', default=0)
+    created_at = models.DateTimeField('만든 날', auto_now_add=True)
+    updated_at = models.DateTimeField('수정한 날', auto_now=True)
+
+    class Meta:
+        verbose_name = '메듀코드 작품'
+        verbose_name_plural = '메듀코드 작품'
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f'{self.user.username} - {self.name}'

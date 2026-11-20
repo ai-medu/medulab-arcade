@@ -1,6 +1,8 @@
+import json
 import tempfile
 from pathlib import Path
 
+from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -55,3 +57,56 @@ class MeduCodeServingTests(TestCase):
         self.assertContains(res, '📝 숙제')
         self.assertNotContains(res, '러닝센터')
         self.assertNotContains(res, '홈플레이')
+
+
+class MeduCodeProjectApiTests(TestCase):
+    URL = '/meducode/api/projects/'
+
+    def setUp(self):
+        self.user = User.objects.create_user('coder', password='pw12345!')
+        self.other = User.objects.create_user('other', password='pw12345!')
+
+    def post(self, name='내 작품', data='{"scenes": []}'):
+        return self.client.post(self.URL, json.dumps({'name': name, 'data': data}), content_type='application/json')
+
+    def test_guest_sees_login_state_and_cannot_save(self):
+        self.assertFalse(self.client.get(self.URL).json()['logged_in'])
+        self.assertEqual(self.post().status_code, 401)
+
+    def test_save_list_load_update_delete(self):
+        self.client.force_login(self.user)
+        res = self.post()
+        self.assertEqual(res.status_code, 201)
+        pk = res.json()['project']['id']
+        listing = self.client.get(self.URL).json()
+        self.assertTrue(listing['logged_in'])
+        self.assertEqual([p['name'] for p in listing['projects']], ['내 작품'])
+        self.assertNotIn('data', listing['projects'][0])
+        detail = self.client.get(f'{self.URL}{pk}/').json()['project']
+        self.assertEqual(detail['data'], '{"scenes": []}')
+        res = self.client.put(f'{self.URL}{pk}/', json.dumps({'name': '바꾼 이름', 'data': '{"a": 1}'}),
+                              content_type='application/json')
+        self.assertEqual(res.json()['project']['name'], '바꾼 이름')
+        self.assertEqual(self.user.meducode_projects.get().data, '{"a": 1}')
+        self.assertEqual(self.client.delete(f'{self.URL}{pk}/').status_code, 200)
+        self.assertEqual(self.user.meducode_projects.count(), 0)
+
+    def test_cannot_touch_other_members_project(self):
+        self.client.force_login(self.user)
+        pk = self.post().json()['project']['id']
+        self.client.force_login(self.other)
+        self.assertEqual(self.client.get(f'{self.URL}{pk}/').status_code, 404)
+        self.assertEqual(self.client.delete(f'{self.URL}{pk}/').status_code, 404)
+        self.assertEqual(self.client.get(self.URL).json()['projects'], [])
+
+    def test_size_and_count_limits_and_bad_data(self):
+        self.client.force_login(self.user)
+        big = '{"x": "' + 'a' * (2 * 1024 * 1024) + '"}'
+        self.assertEqual(self.post(data=big).status_code, 413)
+        self.assertEqual(self.post(data='not json').status_code, 400)
+        self.assertEqual(self.post(data='[1]').status_code, 400)
+        for i in range(30):
+            self.assertEqual(self.post(name=f'작품{i}').status_code, 201)
+        res = self.post(name='31번째')
+        self.assertEqual(res.status_code, 400)
+        self.assertIn('30개', res.json()['error'])

@@ -4,6 +4,8 @@ from . import views, special_lecture, meducode
 urlpatterns = [
     path('', views.home, name='home'),
     path('works/', views.works_gallery, name='works_gallery'),
+    path('meducode/api/projects/', meducode.api_projects, name='meducode_api_projects'),
+    path('meducode/api/projects/<int:pk>/', meducode.api_project_detail, name='meducode_api_project'),
     path('meducode/', meducode.meducode_app, name='meducode'),
     path('meducode/<path:path>', meducode.meducode_app, name='meducode_file'),
     path('tools/ai-prompts/', views.ai_prompts, name='ai_prompts'),
