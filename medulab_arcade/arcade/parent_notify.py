@@ -145,6 +145,31 @@ def notify_attendance(attendance):
     _spawn(_send_attendance_now, attendance.user_id, attendance.date, attendance.attendance_type, time_label)
 
 
+def send_absence_notice(student, date, class_name, start_label):
+    """수업이 시작됐는데 출석하지 않은 학생의 학부모에게 미출석 안내 알림톡을 보낸다. 하루 한 번만 보낸다.
+    (이미 보냈거나, 설정이 비어 테스트 기록만 남겼거나, 받을 학부모가 없어 건너뛴 날은 다시 시도하지 않는다.
+    발송에 실패한 날만 다음 실행에서 한 번 더 시도한다.)"""
+    logs = NotificationLog.objects.filter(kind=NotificationLog.KIND_ABSENCE, student=student, target_date=date)
+    if logs.exclude(status=NotificationLog.STATUS_FAILED).exists() or logs.filter(status=NotificationLog.STATUS_FAILED).count() >= 2:
+        return 0
+    phones = parent_phones(student, attendance=True)
+    if not phones:
+        _no_parent(NotificationLog.KIND_ABSENCE, student, target_date=date)
+        return 0
+    variables = {
+        '#{학생이름}': _student_name(student),
+        '#{수업명}': class_name,
+        '#{시작시간}': start_label,
+        '#{날짜}': f'{date.month}월 {date.day}일',
+    }
+    sent = 0
+    for phone in phones:
+        if _deliver(NotificationLog.KIND_ABSENCE, student, phone, settings.SOLAPI_TEMPLATE_ABSENCE, variables,
+                    target_date=date):
+            sent += 1
+    return sent
+
+
 def _spawn(target, *args):
     threading.Thread(target=target, args=args, daemon=True).start()
 

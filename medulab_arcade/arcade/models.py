@@ -669,10 +669,12 @@ class NotificationLog(models.Model):
     KIND_ATTENDANCE = 'attendance'
     KIND_INVOICE = 'invoice'
     KIND_REMINDER = 'reminder'
+    KIND_ABSENCE = 'absence'
     KIND_CHOICES = [
         (KIND_ATTENDANCE, '출석 알림'),
         (KIND_INVOICE, '학원비 청구 안내'),
         (KIND_REMINDER, '학원비 미납 안내'),
+        (KIND_ABSENCE, '미출석 안내'),
     ]
     STATUS_SENT = 'sent'
     STATUS_FAILED = 'failed'

@@ -35,6 +35,7 @@ SOLAPI_PF_ID = os.environ.get('SOLAPI_PF_ID', '')  # 카카오 비즈니스 채�
 SOLAPI_SENDER = os.environ.get('SOLAPI_SENDER', '')  # 등록된 발신번호 (알림톡 실패 시 문자 대체발송용)
 SOLAPI_SMS_FALLBACK = os.environ.get('SOLAPI_SMS_FALLBACK', '1') == '1'
 SOLAPI_TEMPLATE_ATTENDANCE = os.environ.get('SOLAPI_TEMPLATE_ATTENDANCE', '')  # 출석 알림 템플릿 ID
+SOLAPI_TEMPLATE_ABSENCE = os.environ.get('SOLAPI_TEMPLATE_ABSENCE', '')  # 수업 시작 후 미출석 안내 템플릿 ID
 SOLAPI_TEMPLATE_INVOICE = os.environ.get('SOLAPI_TEMPLATE_INVOICE', '')  # 학원비 청구/미납 안내 템플릿 ID
 SOLAPI_TEMPLATE_SPECIAL = os.environ.get('SOLAPI_TEMPLATE_SPECIAL', '')  # 특강 예약 확정 안내 템플릿 ID
 SOLAPI_TEMPLATE_SPECIAL_REMINDER = os.environ.get('SOLAPI_TEMPLATE_SPECIAL_REMINDER', '')  # 특강 하루 전 안내 템플릿 ID
