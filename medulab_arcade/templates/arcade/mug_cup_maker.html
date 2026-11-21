@@ -84,6 +84,11 @@
   .tp-chip { border:1.5px solid #D8CDFF; background:#fff; color:#6a4fc0; font-size:12.5px; font-weight:700; padding:7px 13px; border-radius:999px; cursor:pointer; transition:all .15s; }
   .tp-chip:hover { background:#EDE7FF; }
   .tp-chip.active { background:linear-gradient(120deg,#8c6bfa,#b58cff); color:#fff; border-color:transparent; }
+  .tp-category-grid { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+  .tp-category-chip { display:flex; align-items:center; gap:6px; border:1.5px solid #FFE4CE; background:#FFF8F1; color:#8a5a2a; font-size:13px; font-weight:800; padding:9px 15px; border-radius:999px; cursor:pointer; transition:all .15s; }
+  .tp-category-chip .emoji { font-family:"Segoe UI Emoji","Noto Color Emoji","Apple Color Emoji","EmojiOne Color","Android Emoji",sans-serif; }
+  .tp-category-chip:hover { background:#FFEBD9; }
+  .tp-category-chip.active { background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; border-color:transparent; }
   .tp-detail-custom { display:flex; gap:6px; }
   .tp-input.sm { flex:1; padding:9px 12px; font-size:12.5px; border-radius:10px; }
   .tp-mic-btn.sm { width:34px; height:34px; font-size:14px; flex:0 0 auto; }
@@ -191,22 +196,12 @@
   <!-- STEP 2: 무엇을 그릴까요 -->
   <div class="tp-step" data-step="2">
     <div class="tp-section">
-      <div class="tp-step-label"><span>② 머그컵에 무엇을 그리고 싶나요?</span><button type="button" class="tp-listen-btn" onclick="tpSpeak('머그컵에 무엇을 그리고 싶나요? 아래 네 가지 질문에 하나씩 답하면서 그림을 자세하게 만들어 볼게요.', this)">🔊 들어보기</button></div>
-      <p class="tp-step-sub">아래 네 가지 질문에 하나씩 답하면서 그림을 자세하게 만들어 볼게요.</p>
+      <div class="tp-step-label"><span>② 머그컵에 무엇을 그리고 싶나요?</span><button type="button" class="tp-listen-btn" onclick="tpSpeak('머그컵에 무엇을 그리고 싶나요? 아래 세 가지 질문에 하나씩 답하면서 그림을 자세하게 만들어 볼게요.', this)">🔊 들어보기</button></div>
+      <p class="tp-step-sub">아래 세 가지 질문에 하나씩 답하면서 그림을 자세하게 만들어 볼게요.</p>
 
       <div class="tp-subq">
-        <div class="tp-subq-head"><span>① 무엇을 그릴까요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('무엇을 그릴까요? 직접 입력하거나, 마이크 버튼을 눌러 말로 입력하거나, 아래 그림을 눌러서 골라보세요.', this)">🔊</button></div>
-        <div class="tp-input-row">
-          <input type="text" id="subjectInput" class="tp-input" placeholder="예: 귀여운 강아지, 우리 학교 마스코트, 좋아하는 문구와 그림">
-          <button type="button" class="tp-mic-btn" id="micBtn" onclick="tpStartMic('subjectInput', this)" title="말로 입력하기">🎤</button>
-        </div>
-        <div class="tp-mic-hint" id="micHint">🎤 버튼을 누르고 말하면 글자로 바뀌어요.</div>
-        <div class="tp-example-grid" id="quickSubjects"></div>
-      </div>
-
-      <div class="tp-subq">
-        <div class="tp-subq-head"><span>② 어떤 장소나 배경으로 할까요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('어떤 장소나 배경으로 할까요?', this)">🔊</button></div>
-        <div class="tp-chip-grid" id="placeChips"></div>
+        <div class="tp-subq-head"><span>① 어떤 장소나 배경으로 할까요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('어떤 장소나 배경으로 할까요? 아래 그림을 눌러서 골라보세요.', this)">🔊</button></div>
+        <div class="tp-example-grid" id="placeTiles"></div>
         <div class="tp-detail-custom">
           <input type="text" id="placeCustom" class="tp-input sm" placeholder="예: 눈 내리는 마을">
           <button type="button" class="tp-mic-btn sm" onclick="tpStartMic('placeCustom', this)" title="말로 입력하기">🎤</button>
@@ -215,18 +210,19 @@
       </div>
 
       <div class="tp-subq">
-        <div class="tp-subq-head"><span>③ 이 장소나 배경에 어떤 것들이 있을까요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('이 장소나 배경에 어떤 것들이 있을까요?', this)">🔊</button></div>
-        <div class="tp-chip-grid" id="objectChips"></div>
-        <div class="tp-detail-custom">
-          <input type="text" id="objectCustom" class="tp-input sm" placeholder="예: 반짝이는 눈사람">
-          <button type="button" class="tp-mic-btn sm" onclick="tpStartMic('objectCustom', this)" title="말로 입력하기">🎤</button>
-          <button type="button" class="tp-add-btn" onclick="tpAddCustomDetail('objectCustom')">담기</button>
+        <div class="tp-subq-head"><span>② 무엇을 그릴까요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('무엇을 그릴까요? 먼저 종류를 고르고, 그 안에서 그림을 골라보세요.', this)">🔊</button></div>
+        <div class="tp-category-grid" id="categoryChips"></div>
+        <div class="tp-example-grid" id="quickSubjects"></div>
+        <div class="tp-input-row">
+          <input type="text" id="subjectInput" class="tp-input" placeholder="예: 귀여운 강아지, 우리 학교 마스코트, 좋아하는 문구와 그림">
+          <button type="button" class="tp-mic-btn" id="micBtn" onclick="tpStartMic('subjectInput', this)" title="말로 입력하기">🎤</button>
         </div>
+        <div class="tp-mic-hint" id="micHint">🎤 버튼을 누르고 말하면 글자로 바뀌어요.</div>
       </div>
 
       <div class="tp-subq">
-        <div class="tp-subq-head"><span>④ 무엇을 하고 있을까요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('무엇을 하고 있을까요?', this)">🔊</button></div>
-        <div class="tp-chip-grid" id="actionChips"></div>
+        <div class="tp-subq-head"><span>③ 무엇을 하고 있을까요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('무엇을 하고 있을까요? 아래 그림을 눌러서 골라보세요.', this)">🔊</button></div>
+        <div class="tp-example-grid" id="actionTiles"></div>
         <div class="tp-detail-custom">
           <input type="text" id="actionCustom" class="tp-input sm" placeholder="예: 눈싸움을 하는">
           <button type="button" class="tp-mic-btn sm" onclick="tpStartMic('actionCustom', this)" title="말로 입력하기">🎤</button>
@@ -315,32 +311,90 @@ let tpStyle = '귀엽고 단순한 카툰 스타일, 두꺼운 외곽선';
 let tpMood = '밝고 따뜻한 파스텔 컬러';
 let tpCurrentStep = 1;
 
-const QUICK_SUBJECTS = {
-  '유아': [
-    {emoji:'🐶', label:'강아지'}, {emoji:'🐱', label:'고양이'}, {emoji:'🦕', label:'공룡'},
-    {emoji:'🚗', label:'자동차'}, {emoji:'🍓', label:'과일'}, {emoji:'🌈', label:'무지개'},
-    {emoji:'🐻', label:'귀여운 곰돌이'}, {emoji:'⭐', label:'반짝이는 별'}, {emoji:'🦋', label:'나비'},
-    {emoji:'🐣', label:'병아리'}, {emoji:'🚀', label:'우주선'}, {emoji:'🐘', label:'코끼리'},
-    {emoji:'🧁', label:'컵케이크'}, {emoji:'🌻', label:'해바라기'}, {emoji:'🐢', label:'거북이'},
-  ],
-  '초등': [
-    {emoji:'🏫', label:'우리 학교 마스코트'}, {emoji:'🐼', label:'좋아하는 동물'}, {emoji:'🪐', label:'우주와 행성'},
-    {emoji:'⚽', label:'축구공과 스포츠'}, {emoji:'🦸', label:'내가 좋아하는 캐릭터'}, {emoji:'🎮', label:'게임 캐릭터'},
-    {emoji:'🍦', label:'아이스크림'}, {emoji:'🐠', label:'바닷속 물고기'}, {emoji:'🦖', label:'공룡 탐험'},
-    {emoji:'🎸', label:'악기와 음악'}, {emoji:'🧙', label:'마법사/판타지'}, {emoji:'🚴', label:'자전거 타기'},
-  ],
-  '중고등': [
-    {emoji:'😎', label:'나만의 캐릭터 로고'}, {emoji:'🎵', label:'동아리 상징 그림'}, {emoji:'💬', label:'좋아하는 문구 + 그림'},
-    {emoji:'👯', label:'우리 반 단체 캐릭터'}, {emoji:'🏀', label:'좋아하는 스포츠'}, {emoji:'🎧', label:'음악/힙합 느낌'},
-    {emoji:'🐉', label:'멋진 상상 속 동물'}, {emoji:'✨', label:'별자리/타로 느낌'}, {emoji:'🛹', label:'스트릿/스케이트 감성'},
-    {emoji:'📸', label:'필름 카메라 감성'}, {emoji:'🎹', label:'좋아하는 아티스트 느낌'}, {emoji:'🧩', label:'추상적인 패턴'},
-  ],
-  '대학일반': [
-    {emoji:'🏷️', label:'심플한 브랜드 로고풍 그림'}, {emoji:'☕', label:'좋아하는 취미(커피, 책, 여행)'}, {emoji:'🔷', label:'미니멀한 패턴 디자인'},
-    {emoji:'📣', label:'응원 문구 + 아이콘'}, {emoji:'🌿', label:'식물/보태니컬 일러스트'}, {emoji:'🏙️', label:'도시 풍경'},
-    {emoji:'🐾', label:'우리집 반려동물'}, {emoji:'📐', label:'기하학적 패턴'}, {emoji:'🗓️', label:'팀/부서 단체 굿즈'},
-    {emoji:'🏃', label:'러닝/운동 취미'}, {emoji:'🍷', label:'와인·카페 무드'}, {emoji:'🌅', label:'여행지 풍경'},
-  ],
+const CATEGORIES = [
+  {key:'animal', emoji:'🐾', label:'동물'},
+  {key:'character', emoji:'🦸', label:'캐릭터·판타지'},
+  {key:'object', emoji:'🎈', label:'사물·음식'},
+  {key:'nature', emoji:'🪐', label:'자연·우주'},
+  {key:'hobby', emoji:'⚽', label:'스포츠·취미'},
+  {key:'pattern', emoji:'✨', label:'패턴·문구'},
+];
+
+const SUBJECT_ITEMS = {
+  '유아': {
+    animal: [
+      {emoji:'🐶', label:'강아지'}, {emoji:'🐱', label:'고양이'}, {emoji:'🐻', label:'귀여운 곰돌이'},
+      {emoji:'🐢', label:'거북이'}, {emoji:'🐘', label:'코끼리'}, {emoji:'🦋', label:'나비'}, {emoji:'🐣', label:'병아리'},
+    ],
+    character: [
+      {emoji:'🦕', label:'공룡'}, {emoji:'🧜', label:'인어공주'}, {emoji:'🧙', label:'마법사'},
+      {emoji:'🦄', label:'유니콘'}, {emoji:'🤖', label:'로봇 친구'},
+    ],
+    object: [
+      {emoji:'🍓', label:'과일'}, {emoji:'🧁', label:'컵케이크'}, {emoji:'🚗', label:'자동차'},
+      {emoji:'🎈', label:'풍선'}, {emoji:'🍭', label:'사탕'},
+    ],
+    nature: [
+      {emoji:'🌈', label:'무지개'}, {emoji:'⭐', label:'반짝이는 별'}, {emoji:'🌻', label:'해바라기'},
+      {emoji:'🚀', label:'우주선'}, {emoji:'☁️', label:'뭉게구름'},
+    ],
+  },
+  '초등': {
+    animal: [
+      {emoji:'🐼', label:'좋아하는 동물'}, {emoji:'🐠', label:'바닷속 물고기'}, {emoji:'🦋', label:'곤충 친구'}, {emoji:'🐶', label:'반려동물'},
+    ],
+    character: [
+      {emoji:'🏫', label:'우리 학교 마스코트'}, {emoji:'🦸', label:'내가 좋아하는 캐릭터'}, {emoji:'🎮', label:'게임 캐릭터'},
+      {emoji:'🧙', label:'마법사/판타지'}, {emoji:'🦖', label:'공룡 탐험'},
+    ],
+    object: [
+      {emoji:'🍦', label:'아이스크림'}, {emoji:'🎸', label:'악기와 음악'}, {emoji:'🎨', label:'미술 도구'}, {emoji:'🍩', label:'좋아하는 간식'},
+    ],
+    nature: [
+      {emoji:'🪐', label:'우주와 행성'}, {emoji:'🌊', label:'바다 풍경'}, {emoji:'🌲', label:'숲속 풍경'},
+    ],
+    hobby: [
+      {emoji:'⚽', label:'축구공과 스포츠'}, {emoji:'🚴', label:'자전거 타기'}, {emoji:'🎵', label:'춤·음악 활동'},
+    ],
+  },
+  '중고등': {
+    animal: [
+      {emoji:'🐉', label:'멋진 상상 속 동물'},
+    ],
+    character: [
+      {emoji:'😎', label:'나만의 캐릭터 로고'}, {emoji:'👯', label:'우리 반 단체 캐릭터'}, {emoji:'🧝', label:'판타지 캐릭터'},
+    ],
+    object: [
+      {emoji:'📸', label:'필름 카메라 감성'}, {emoji:'🎧', label:'음악/힙합 느낌'}, {emoji:'🛹', label:'스트릿/스케이트 감성'},
+    ],
+    nature: [
+      {emoji:'✨', label:'별자리/타로 느낌'}, {emoji:'🌃', label:'도시 밤하늘'},
+    ],
+    hobby: [
+      {emoji:'🏀', label:'좋아하는 스포츠'}, {emoji:'🎵', label:'동아리 상징 그림'}, {emoji:'🎹', label:'좋아하는 아티스트 느낌'},
+    ],
+    pattern: [
+      {emoji:'💬', label:'좋아하는 문구 + 그림'}, {emoji:'🧩', label:'추상적인 패턴'},
+    ],
+  },
+  '대학일반': {
+    animal: [
+      {emoji:'🐾', label:'우리집 반려동물'},
+    ],
+    object: [
+      {emoji:'☕', label:'좋아하는 취미(커피, 책, 여행)'}, {emoji:'🍷', label:'와인·카페 무드'},
+    ],
+    nature: [
+      {emoji:'🌿', label:'식물/보태니컬 일러스트'}, {emoji:'🏙️', label:'도시 풍경'}, {emoji:'🌅', label:'여행지 풍경'},
+    ],
+    hobby: [
+      {emoji:'🏃', label:'러닝/운동 취미'}, {emoji:'🗓️', label:'팀/부서 단체 굿즈'},
+    ],
+    pattern: [
+      {emoji:'🏷️', label:'심플한 브랜드 로고풍 그림'}, {emoji:'🔷', label:'미니멀한 패턴 디자인'},
+      {emoji:'📣', label:'응원 문구 + 아이콘'}, {emoji:'📐', label:'기하학적 패턴'},
+    ],
+  },
 };
 
 const SVG_CARTOON = `<svg viewBox="0 0 100 100"><circle cx="50" cy="55" r="32" fill="#FFB199" stroke="#2E2A4A" stroke-width="5"/><circle cx="35" cy="45" r="7" fill="#2E2A4A"/><circle cx="65" cy="45" r="7" fill="#2E2A4A"/><path d="M38 68 Q50 78 62 68" stroke="#2E2A4A" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M25 30 L35 20" stroke="#2E2A4A" stroke-width="5" stroke-linecap="round"/><path d="M75 30 L65 20" stroke="#2E2A4A" stroke-width="5" stroke-linecap="round"/></svg>`;
@@ -410,23 +464,41 @@ function tpValidateSubjectAndGoto(step) {
   tpGoto(step);
 }
 
-const PLACE_HINTS = {
-  '유아': ['무지개 위', '구름 위', '꽃밭에서', '우주에서', '놀이터에서', '바닷속에서'],
-  '초등': ['학교 운동장에서', '우주 공간에서', '바닷속에서', '숲속에서', '놀이공원에서', '밤하늘 아래에서'],
-  '중고등': ['도시의 밤거리에서', '바닷가에서', '네온사인 거리에서', '조용한 방에서', '하늘 위에서', '콘서트장에서'],
-  '대학일반': ['미니멀한 배경에', '자연 속 풍경에', '카페 공간에', '도시 야경 속에', '잔잔한 여백 위에', '사무실 책상 위에'],
+const PLACE_ITEMS = {
+  '유아': [
+    {emoji:'🌈', label:'무지개 위'}, {emoji:'☁️', label:'구름 위'}, {emoji:'🌸', label:'꽃밭에서'}, {emoji:'🪐', label:'우주에서'},
+    {emoji:'🛝', label:'놀이터에서'}, {emoji:'🌊', label:'바닷속에서'}, {emoji:'🏠', label:'집 안에서'}, {emoji:'🎪', label:'놀이공원에서'},
+  ],
+  '초등': [
+    {emoji:'🏫', label:'학교 운동장에서'}, {emoji:'🪐', label:'우주 공간에서'}, {emoji:'🌊', label:'바닷속에서'}, {emoji:'🌲', label:'숲속에서'},
+    {emoji:'🎡', label:'놀이공원에서'}, {emoji:'🌙', label:'밤하늘 아래에서'}, {emoji:'⚽', label:'운동장에서'}, {emoji:'🏕️', label:'캠핑장에서'},
+  ],
+  '중고등': [
+    {emoji:'🌃', label:'도시의 밤거리에서'}, {emoji:'🏖️', label:'바닷가에서'}, {emoji:'💡', label:'네온사인 거리에서'}, {emoji:'🛋️', label:'조용한 방에서'},
+    {emoji:'☁️', label:'하늘 위에서'}, {emoji:'🎤', label:'콘서트장에서'}, {emoji:'🚉', label:'기차역에서'}, {emoji:'📚', label:'도서관에서'},
+  ],
+  '대학일반': [
+    {emoji:'⬜', label:'미니멀한 배경에'}, {emoji:'🏞️', label:'자연 속 풍경에'}, {emoji:'☕', label:'카페 공간에'}, {emoji:'🌃', label:'도시 야경 속에'},
+    {emoji:'⬛', label:'잔잔한 여백 위에'}, {emoji:'💻', label:'사무실 책상 위에'}, {emoji:'✈️', label:'공항·여행지에서'}, {emoji:'🏡', label:'집 거실에서'},
+  ],
 };
-const OBJECT_HINTS = {
-  '유아': ['솜사탕 구름', '반짝이는 별', '알록달록 풍선', '나비들', '꽃송이들', '작은 집'],
-  '초등': ['친구들', '축구공', '비행접시', '조개껍데기', '나무와 꽃', '작은 깃발'],
-  '중고등': ['가로등 불빛', '스피커와 악기', '별자리', '스케이트보드', '카메라', '책들'],
-  '대학일반': ['식물과 화분', '커피잔', '창문과 햇살', '노트북', '자동차', '건물 실루엣'],
-};
-const ACTION_HINTS = {
-  '유아': ['뛰어노는', '잠자는', '웃고 있는', '밥 먹는', '춤추는', '손을 흔드는'],
-  '초등': ['신나게 뛰어노는', '멋지게 점프하는', '활짝 웃는', '악기를 연주하는', '하이파이브 하는', '공을 차는'],
-  '중고등': ['여유롭게 쉬고 있는', '역동적으로 움직이는', '무언가를 바라보는', '은은하게 빛나는', '친구와 함께 있는', '춤을 추는'],
-  '대학일반': ['차분하게 머무는', '은은하게 빛나는', '자연스럽게 놓여있는', '역동적인 구도의', '여유를 즐기는', '커피를 마시는'],
+const ACTION_ITEMS = {
+  '유아': [
+    {emoji:'🏃', label:'뛰어노는'}, {emoji:'😴', label:'잠자는'}, {emoji:'😊', label:'웃고 있는'}, {emoji:'🍚', label:'밥 먹는'},
+    {emoji:'💃', label:'춤추는'}, {emoji:'👋', label:'손을 흔드는'}, {emoji:'🎨', label:'그림 그리는'}, {emoji:'🤗', label:'안아주는'},
+  ],
+  '초등': [
+    {emoji:'🏃', label:'신나게 뛰어노는'}, {emoji:'🤸', label:'멋지게 점프하는'}, {emoji:'😄', label:'활짝 웃는'}, {emoji:'🎸', label:'악기를 연주하는'},
+    {emoji:'🙌', label:'하이파이브 하는'}, {emoji:'⚽', label:'공을 차는'}, {emoji:'📖', label:'책을 읽는'}, {emoji:'🎤', label:'노래 부르는'},
+  ],
+  '중고등': [
+    {emoji:'😌', label:'여유롭게 쉬고 있는'}, {emoji:'💨', label:'역동적으로 움직이는'}, {emoji:'👀', label:'무언가를 바라보는'}, {emoji:'✨', label:'은은하게 빛나는'},
+    {emoji:'🧑‍🤝‍🧑', label:'친구와 함께 있는'}, {emoji:'💃', label:'춤을 추는'}, {emoji:'🎧', label:'음악을 듣는'}, {emoji:'📸', label:'사진을 찍는'},
+  ],
+  '대학일반': [
+    {emoji:'🧘', label:'차분하게 머무는'}, {emoji:'✨', label:'은은하게 빛나는'}, {emoji:'🖼️', label:'자연스럽게 놓여있는'}, {emoji:'🌀', label:'역동적인 구도의'},
+    {emoji:'☕', label:'커피를 마시는'}, {emoji:'📖', label:'책을 보는'}, {emoji:'🚶', label:'산책하는'}, {emoji:'😌', label:'여유를 즐기는'},
+  ],
 };
 
 function tpAppendSubject(text) {
@@ -451,48 +523,74 @@ function tpUpdateSubjectPreview() {
   preview.textContent = document.getElementById('subjectInput').value.trim();
 }
 
-function tpMakeChip(text) {
-  const chip = document.createElement('button');
-  chip.type = 'button';
-  chip.className = 'tp-chip';
-  chip.textContent = text;
-  chip.addEventListener('click', () => {
-    tpAppendSubject(text);
-    chip.classList.add('active');
-    tpSpeak(text);
+function tpMakeTile(item) {
+  const tile = document.createElement('button');
+  tile.type = 'button';
+  tile.className = 'tp-example-tile';
+  tile.innerHTML = `<span class="emoji">${item.emoji}</span><span class="label">${item.label}</span>`;
+  tile.addEventListener('click', () => {
+    tpAppendSubject(item.label);
+    tpSpeak(item.label);
   });
-  return chip;
+  return tile;
 }
 
-function tpRenderDetailChips() {
-  const placeWrap = document.getElementById('placeChips');
-  const objectWrap = document.getElementById('objectChips');
-  const actionWrap = document.getElementById('actionChips');
-  if (!placeWrap || !objectWrap || !actionWrap) return;
-  placeWrap.innerHTML = '';
-  objectWrap.innerHTML = '';
-  actionWrap.innerHTML = '';
-  (PLACE_HINTS[tpAudience] || []).forEach(text => placeWrap.appendChild(tpMakeChip(text)));
-  (OBJECT_HINTS[tpAudience] || []).forEach(text => objectWrap.appendChild(tpMakeChip(text)));
-  (ACTION_HINTS[tpAudience] || []).forEach(text => actionWrap.appendChild(tpMakeChip(text)));
+function tpRenderPlaceTiles() {
+  const wrap = document.getElementById('placeTiles');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  (PLACE_ITEMS[tpAudience] || []).forEach(item => wrap.appendChild(tpMakeTile(item)));
+}
+
+function tpRenderActionTiles() {
+  const wrap = document.getElementById('actionTiles');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  (ACTION_ITEMS[tpAudience] || []).forEach(item => wrap.appendChild(tpMakeTile(item)));
+}
+
+let tpCurrentCategory = null;
+
+function tpAvailableCategories() {
+  const items = SUBJECT_ITEMS[tpAudience] || {};
+  return CATEGORIES.filter(cat => (items[cat.key] || []).length > 0);
+}
+
+function tpRenderCategories() {
+  const wrap = document.getElementById('categoryChips');
+  if (!wrap) return;
+  const cats = tpAvailableCategories();
+  if (!cats.find(c => c.key === tpCurrentCategory)) {
+    tpCurrentCategory = cats.length ? cats[0].key : null;
+  }
+  wrap.innerHTML = '';
+  cats.forEach(cat => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'tp-category-chip' + (cat.key === tpCurrentCategory ? ' active' : '');
+    chip.innerHTML = `<span class="emoji">${cat.emoji}</span><span>${cat.label}</span>`;
+    chip.addEventListener('click', () => {
+      tpCurrentCategory = cat.key;
+      tpSpeak(cat.label);
+      tpRenderCategories();
+      tpRenderQuickSubjects();
+    });
+    wrap.appendChild(chip);
+  });
 }
 
 function tpRenderQuickSubjects() {
   const wrap = document.getElementById('quickSubjects');
   wrap.innerHTML = '';
-  (QUICK_SUBJECTS[tpAudience] || []).forEach(item => {
-    const tile = document.createElement('button');
-    tile.type = 'button';
-    tile.className = 'tp-example-tile';
-    tile.innerHTML = `<span class="emoji">${item.emoji}</span><span class="label">${item.label}</span>`;
-    tile.addEventListener('click', () => {
-      tpAppendSubject(item.label);
-      document.getElementById('subjectInput').focus();
-      tpSpeak(item.label);
-    });
-    wrap.appendChild(tile);
-  });
-  tpRenderDetailChips();
+  const items = (SUBJECT_ITEMS[tpAudience] || {})[tpCurrentCategory] || [];
+  items.forEach(item => wrap.appendChild(tpMakeTile(item)));
+}
+
+function tpRenderStep2Content() {
+  tpRenderCategories();
+  tpRenderQuickSubjects();
+  tpRenderPlaceTiles();
+  tpRenderActionTiles();
 }
 
 function tpRenderVisualGroup(containerId, options, currentValue, onSelect, customWrapId, customInputId) {
@@ -536,11 +634,12 @@ function tpSetupChoice(containerId, onSelect, itemClass) {
 
 tpSetupChoice('audienceBtns', (v, btn) => {
   tpAudience = v;
-  tpRenderQuickSubjects();
+  tpCurrentCategory = null;
+  tpRenderStep2Content();
   const lb = btn.querySelector('.lb');
   if (lb) tpSpeak(lb.textContent);
 }, 'tp-audience-card');
-tpRenderQuickSubjects();
+tpRenderStep2Content();
 document.getElementById('subjectInput').addEventListener('input', tpUpdateSubjectPreview);
 tpRenderVisualGroup('styleBtns', STYLE_OPTIONS, tpStyle, v => tpStyle = v, 'styleCustomWrap', 'styleCustom');
 tpRenderVisualGroup('moodBtns', MOOD_OPTIONS, tpMood, v => tpMood = v, 'moodCustomWrap', 'moodCustom');
@@ -796,8 +895,9 @@ function tpRestart() {
   document.getElementById('tpPromptSection').classList.add('hidden');
   document.getElementById('subjectInput').value = '';
   tpSubjectNudged = false;
-  document.querySelectorAll('#actionChips .tp-chip, #placeChips .tp-chip, #objectChips .tp-chip').forEach(c => c.classList.remove('active'));
-  ['placeCustom', 'objectCustom', 'actionCustom'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  tpCurrentCategory = null;
+  ['placeCustom', 'actionCustom'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  tpRenderStep2Content();
   tpUpdateSubjectPreview();
   tpGoto(1);
 }
