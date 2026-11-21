@@ -383,7 +383,7 @@ def special_lecture_list(request):
     now = timezone.now()
     lectures = SpecialLecture.objects.filter(is_active=True)
     upcoming = [l for l in lectures.filter(lecture_at__gte=now).order_by('lecture_at')]
-    past = list(lectures.filter(lecture_at__lt=now).order_by('-lecture_at')[:6])
+    past = list(lectures.filter(lecture_at__lt=now).order_by('-lecture_at')[:12])
     return render(request, 'arcade/special/list.html', {
         'upcoming': upcoming, 'past': past,
         'coupon': available_coupon(request.user),

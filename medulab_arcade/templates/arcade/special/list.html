@@ -26,32 +26,7 @@
 
     <div class="sp-grid">
         {% for lecture in upcoming %}
-        <div class="sp-lecture-wrap">
-        <a class="sp-lecture" href="{% url 'special_lecture_detail' lecture.pk %}">
-            <div class="sp-thumb t{{ lecture.pk|divisibleby:2|yesno:'0,1' }}">
-                {% if lecture.poster %}<img src="{{ lecture.poster.url }}" alt="{{ lecture.title }}">{% else %}<span class="sp-emoji">{{ lecture.thumb_emoji|default:'🎤' }}</span>{% endif %}
-                <span class="sp-thumb-badge">{% if lecture.is_open %}<span class="sp-badge open" style="background:#fff;">모집중</span>{% else %}<span class="sp-badge closed" style="background:#fff;">{% if lecture.is_full and lecture.accepts_applications %}대기 신청 가능{% elif lecture.is_full %}마감{% else %}신청 종료{% endif %}</span>{% endif %}</span>
-            </div>
-            <div class="sp-lecture-body">
-                {% if lecture.seats_left is not None and lecture.seats_left > 0 and lecture.seats_left <= 5 %}<span class="sp-badge hot">남은 자리 {{ lecture.seats_left }}</span>{% endif %}
-                <h3>{{ lecture.title }}</h3>
-                {% if lecture.summary %}<div class="sp-meta">{{ lecture.summary }}</div>{% endif %}
-                <div class="sp-meta sp-facts">
-                    <div>📅 {{ lecture.lecture_at|date:"Y.m.d (D) H:i" }}{% if lecture.end_time %} ~ {{ lecture.end_time|time:"H:i" }}{% endif %}</div>
-                    {% if lecture.location_short %}<div>📍 {{ lecture.location_short }}</div>{% endif %}
-                    <div>👥 {% if lecture.capacity %}정원 {{ lecture.capacity }}명{% if lecture.is_full %} · 마감{% else %} · 남은 자리 {{ lecture.seats_left }}{% endif %}{% else %}인원 제한 없음{% endif %}</div>
-                    <div>💰 참가비 {{ lecture.base_price|intcomma }}원</div>
-                    <div class="sp-facts-sub">🎟️ 쿠폰 사용 · 👬 친구 할인 가능</div>
-                </div>
-            </div>
-        </a>
-        {% if user.is_staff %}
-        <div class="sp-admin-row">
-            <a href="{% url 'special_admin_edit' lecture.pk %}" class="sp-btn ghost" style="padding:7px 14px; font-size:12.5px;">✏️ 수정</a>
-            <form method="post" action="{% url 'special_admin_delete' lecture.pk %}" onsubmit="return confirm('{{ lecture.title|escapejs }} 특강을 삭제할까요? 되돌릴 수 없어요.');">{% csrf_token %}<input type="hidden" name="next" value="public"><button class="sp-btn ghost" style="padding:7px 14px; font-size:12.5px; color:#dc2626;">🗑 삭제</button></form>
-        </div>
-        {% endif %}
-        </div>
+        {% include 'arcade/special/_card.html' with past=False %}
         {% empty %}
         <div class="sp-card" style="grid-column: 1 / -1; text-align:center; color:var(--text-muted);">지금 모집 중인 특강이 없어요. 새로운 특강이 열리면 이곳에 안내해 드릴게요.</div>
         {% endfor %}
@@ -61,10 +36,7 @@
     <h2 style="margin:36px 0 12px; font-size:16px; color:var(--text-secondary);">지난 특강</h2>
     <div class="sp-grid">
         {% for lecture in past %}
-        <div class="sp-card" style="opacity:.7;">
-            <div style="font-weight:800;">{{ lecture.title }}</div>
-            <div class="sp-meta">{{ lecture.lecture_at|date:"Y.m.d" }}</div>
-        </div>
+        {% include 'arcade/special/_card.html' with past=True %}
         {% endfor %}
     </div>
     {% endif %}

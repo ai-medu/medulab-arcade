@@ -5,6 +5,7 @@ import tempfile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 from PIL import Image
 
 from arcade.models import SpecialLecture, SpecialLectureImage
@@ -79,6 +80,15 @@ class CardAndCouponUITests(TestCase):
         self.assertContains(res, '정원 10명 · 남은 자리 10')
         self.assertContains(res, '참가비 20,000원')
         self.assertContains(res, '쿠폰 사용 · 👬 친구 할인 가능')
+
+    def test_past_lecture_is_shown_as_disabled_card(self):
+        past = make_lecture(title='지난 특강', lecture_at=timezone.now() - datetime.timedelta(days=3))
+        res = self.client.get(reverse('special_lecture_list'))
+        self.assertContains(res, '지난 특강')
+        self.assertContains(res, 'sp-lecture sp-past')
+        self.assertNotContains(res, f'href="{reverse("special_lecture_detail", args=[past.pk])}"')   # 눌러서 들어가지 못한다
+        self.assertContains(res, '종료')
+        self.assertContains(res, '정원 10명')   # 요약이 아니라 카드 내용 그대로
 
     def test_detail_still_shows_full_address(self):
         self.assertContains(self.client.get(reverse('special_lecture_detail', args=[self.lecture.pk])), '화개중앙로 51')
