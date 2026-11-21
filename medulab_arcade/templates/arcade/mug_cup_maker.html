@@ -79,10 +79,14 @@
   .tp-detail-row:last-child { margin-bottom:0; }
   .tp-detail-q { display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:700; color:var(--ink); margin-bottom:7px; }
   .tp-listen-btn.sm { padding:3px 9px; font-size:12px; }
-  .tp-chip-grid { display:flex; flex-wrap:wrap; gap:8px; }
+  .tp-chip-grid { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
   .tp-chip { border:1.5px solid #D8CDFF; background:#fff; color:#6a4fc0; font-size:12.5px; font-weight:700; padding:7px 13px; border-radius:999px; cursor:pointer; transition:all .15s; }
   .tp-chip:hover { background:#EDE7FF; }
   .tp-chip.active { background:linear-gradient(120deg,#8c6bfa,#b58cff); color:#fff; border-color:transparent; }
+  .tp-detail-custom { display:flex; gap:6px; }
+  .tp-input.sm { flex:1; padding:9px 12px; font-size:12.5px; border-radius:10px; }
+  .tp-mic-btn.sm { width:34px; height:34px; font-size:14px; flex:0 0 auto; }
+  .tp-add-btn { flex:0 0 auto; padding:0 14px; border-radius:10px; border:none; background:linear-gradient(120deg,#8c6bfa,#b58cff); color:#fff; font-size:12.5px; font-weight:700; cursor:pointer; }
 
   .tp-custom-input { margin-top:12px; display:none; }
   .tp-custom-input.show { display:block; }
@@ -195,14 +199,33 @@
       <div class="tp-mic-hint" id="micHint">🎤 버튼을 누르고 말하면 글자로 바뀌어요.</div>
       <div class="tp-example-grid" id="quickSubjects"></div>
       <div class="tp-detail-box" id="tpDetailBox">
-        <div class="tp-detail-head">✨ 조금 더 자세히 적어볼까요? <span class="tp-detail-optional">(골라서 눌러보세요)</span></div>
+        <div class="tp-detail-head">✨ 조금 더 자세히 적어볼까요? <span class="tp-detail-optional">(골라서 눌러보거나 직접 입력해 보세요)</span></div>
         <div class="tp-detail-row">
-          <div class="tp-detail-q"><span>무엇을 하고 있나요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('무엇을 하고 있나요?', this)">🔊</button></div>
-          <div class="tp-chip-grid" id="actionChips"></div>
+          <div class="tp-detail-q"><span>① 어떤 장소나 배경으로 할까요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('어떤 장소나 배경으로 할까요?', this)">🔊</button></div>
+          <div class="tp-chip-grid" id="placeChips"></div>
+          <div class="tp-detail-custom">
+            <input type="text" id="placeCustom" class="tp-input sm" placeholder="예: 눈 내리는 마을">
+            <button type="button" class="tp-mic-btn sm" onclick="tpStartMic('placeCustom', this)" title="말로 입력하기">🎤</button>
+            <button type="button" class="tp-add-btn" onclick="tpAddCustomDetail('placeCustom')">담기</button>
+          </div>
         </div>
         <div class="tp-detail-row">
-          <div class="tp-detail-q"><span>어디에 있나요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('어디에 있나요?', this)">🔊</button></div>
-          <div class="tp-chip-grid" id="placeChips"></div>
+          <div class="tp-detail-q"><span>② 이 장소나 배경에 어떤 것들이 있을까요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('이 장소나 배경에 어떤 것들이 있을까요?', this)">🔊</button></div>
+          <div class="tp-chip-grid" id="objectChips"></div>
+          <div class="tp-detail-custom">
+            <input type="text" id="objectCustom" class="tp-input sm" placeholder="예: 반짝이는 눈사람">
+            <button type="button" class="tp-mic-btn sm" onclick="tpStartMic('objectCustom', this)" title="말로 입력하기">🎤</button>
+            <button type="button" class="tp-add-btn" onclick="tpAddCustomDetail('objectCustom')">담기</button>
+          </div>
+        </div>
+        <div class="tp-detail-row">
+          <div class="tp-detail-q"><span>③ 무엇을 하고 있을까요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('무엇을 하고 있을까요?', this)">🔊</button></div>
+          <div class="tp-chip-grid" id="actionChips"></div>
+          <div class="tp-detail-custom">
+            <input type="text" id="actionCustom" class="tp-input sm" placeholder="예: 눈싸움을 하는">
+            <button type="button" class="tp-mic-btn sm" onclick="tpStartMic('actionCustom', this)" title="말로 입력하기">🎤</button>
+            <button type="button" class="tp-add-btn" onclick="tpAddCustomDetail('actionCustom')">담기</button>
+          </div>
         </div>
       </div>
     </div>
@@ -377,17 +400,23 @@ function tpValidateSubjectAndGoto(step) {
   tpGoto(step);
 }
 
-const ACTION_HINTS = {
-  '유아': ['뛰어노는', '잠자는', '웃고 있는', '밥 먹는', '춤추는'],
-  '초등': ['신나게 뛰어노는', '멋지게 점프하는', '활짝 웃는', '악기를 연주하는', '하이파이브 하는'],
-  '중고등': ['여유롭게 쉬고 있는', '역동적으로 움직이는', '무언가를 바라보는', '은은하게 빛나는', '친구와 함께 있는'],
-  '대학일반': ['차분하게 머무는', '은은하게 빛나는', '자연스럽게 놓여있는', '역동적인 구도의', '여유를 즐기는'],
-};
 const PLACE_HINTS = {
-  '유아': ['무지개 위', '구름 위', '꽃밭에서', '우주에서', '놀이터에서'],
-  '초등': ['학교 운동장에서', '우주 공간에서', '바닷속에서', '숲속에서', '놀이공원에서'],
-  '중고등': ['도시의 밤거리에서', '바닷가에서', '네온사인 거리에서', '조용한 방에서', '하늘 위에서'],
-  '대학일반': ['미니멀한 배경에', '자연 속 풍경에', '카페 공간에', '도시 야경 속에', '잔잔한 여백 위에'],
+  '유아': ['무지개 위', '구름 위', '꽃밭에서', '우주에서', '놀이터에서', '바닷속에서'],
+  '초등': ['학교 운동장에서', '우주 공간에서', '바닷속에서', '숲속에서', '놀이공원에서', '밤하늘 아래에서'],
+  '중고등': ['도시의 밤거리에서', '바닷가에서', '네온사인 거리에서', '조용한 방에서', '하늘 위에서', '콘서트장에서'],
+  '대학일반': ['미니멀한 배경에', '자연 속 풍경에', '카페 공간에', '도시 야경 속에', '잔잔한 여백 위에', '사무실 책상 위에'],
+};
+const OBJECT_HINTS = {
+  '유아': ['솜사탕 구름', '반짝이는 별', '알록달록 풍선', '나비들', '꽃송이들', '작은 집'],
+  '초등': ['친구들', '축구공', '비행접시', '조개껍데기', '나무와 꽃', '작은 깃발'],
+  '중고등': ['가로등 불빛', '스피커와 악기', '별자리', '스케이트보드', '카메라', '책들'],
+  '대학일반': ['식물과 화분', '커피잔', '창문과 햇살', '노트북', '자동차', '건물 실루엣'],
+};
+const ACTION_HINTS = {
+  '유아': ['뛰어노는', '잠자는', '웃고 있는', '밥 먹는', '춤추는', '손을 흔드는'],
+  '초등': ['신나게 뛰어노는', '멋지게 점프하는', '활짝 웃는', '악기를 연주하는', '하이파이브 하는', '공을 차는'],
+  '중고등': ['여유롭게 쉬고 있는', '역동적으로 움직이는', '무언가를 바라보는', '은은하게 빛나는', '친구와 함께 있는', '춤을 추는'],
+  '대학일반': ['차분하게 머무는', '은은하게 빛나는', '자연스럽게 놓여있는', '역동적인 구도의', '여유를 즐기는', '커피를 마시는'],
 };
 
 function tpAppendSubject(text) {
@@ -396,6 +425,15 @@ function tpAppendSubject(text) {
   if (!current) { input.value = text; return; }
   if (current.toLowerCase().includes(text.toLowerCase())) return;
   input.value = current + ', ' + text;
+}
+
+function tpAddCustomDetail(inputId) {
+  const el = document.getElementById(inputId);
+  const value = el.value.trim();
+  if (!value) return;
+  tpAppendSubject(value);
+  el.value = '';
+  document.getElementById('subjectInput').focus();
 }
 
 function tpMakeChip(text) {
@@ -413,13 +451,16 @@ function tpMakeChip(text) {
 }
 
 function tpRenderDetailChips() {
-  const actionWrap = document.getElementById('actionChips');
   const placeWrap = document.getElementById('placeChips');
-  if (!actionWrap || !placeWrap) return;
-  actionWrap.innerHTML = '';
+  const objectWrap = document.getElementById('objectChips');
+  const actionWrap = document.getElementById('actionChips');
+  if (!placeWrap || !objectWrap || !actionWrap) return;
   placeWrap.innerHTML = '';
-  (ACTION_HINTS[tpAudience] || []).forEach(text => actionWrap.appendChild(tpMakeChip(text)));
+  objectWrap.innerHTML = '';
+  actionWrap.innerHTML = '';
   (PLACE_HINTS[tpAudience] || []).forEach(text => placeWrap.appendChild(tpMakeChip(text)));
+  (OBJECT_HINTS[tpAudience] || []).forEach(text => objectWrap.appendChild(tpMakeChip(text)));
+  (ACTION_HINTS[tpAudience] || []).forEach(text => actionWrap.appendChild(tpMakeChip(text)));
 }
 
 function tpRenderQuickSubjects() {
@@ -739,7 +780,8 @@ function tpRestart() {
   document.getElementById('tpPromptSection').classList.add('hidden');
   document.getElementById('subjectInput').value = '';
   tpSubjectNudged = false;
-  document.querySelectorAll('#actionChips .tp-chip, #placeChips .tp-chip').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('#actionChips .tp-chip, #placeChips .tp-chip, #objectChips .tp-chip').forEach(c => c.classList.remove('active'));
+  ['placeCustom', 'objectCustom', 'actionCustom'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   tpGoto(1);
 }
 
