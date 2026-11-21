@@ -206,6 +206,13 @@ tr:hover td { background:rgba(255,255,255,0.02); }
     </div>
     {% endif %}
 
+    {% if all_unpaid and all_overdue_count %}
+    <form method="post" action="{% url 'tuition_notify_overdue' %}" style="margin:0 0 14px;" onsubmit="return confirm('납부 기한이 지난 미납 {{ all_overdue_count }}건의 학부모에게 결제 링크가 담긴 미납 안내 알림톡을 다시 보낼까요?\n\n· 방금 이미 보낸 건과 학부모 번호가 없는 건은 건너뜁니다.\n· 발송 건당 요금이 발생합니다.');">
+        {% csrf_token %}
+        <button type="submit" class="bulk-btn notify" style="padding:10px 18px; font-size:14px; font-weight:800;">📨 기한 지난 미납 {{ all_overdue_count }}건 안내 재발송</button>
+    </form>
+    {% endif %}
+
     <form class="filter-bar" method="GET">
         <input type="hidden" name="view" value="{{ all_view }}">
         <input type="text" name="q" placeholder="학생 이름/아이디 검색..." value="{{ search_query }}">

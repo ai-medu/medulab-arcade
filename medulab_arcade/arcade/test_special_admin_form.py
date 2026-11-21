@@ -90,6 +90,17 @@ class CardAndCouponUITests(TestCase):
         self.assertContains(res, '종료')
         self.assertContains(res, '정원 10명')   # 요약이 아니라 카드 내용 그대로
 
+    def test_past_lecture_detail_is_blocked_for_visitors_but_open_for_staff(self):
+        past = make_lecture(title='끝난 특강', lecture_at=timezone.now() - datetime.timedelta(days=1))
+        url = reverse('special_lecture_detail', args=[past.pk])
+        self.assertEqual(self.client.get(url).status_code, 404)
+        self.assertEqual(self.client.post(reverse('special_lecture_apply', args=[past.pk])).status_code, 404)
+        admin = make_member('adm51')
+        admin.is_staff = True
+        admin.save()
+        self.client.force_login(admin)
+        self.assertEqual(self.client.get(url).status_code, 200)
+
     def test_detail_still_shows_full_address(self):
         self.assertContains(self.client.get(reverse('special_lecture_detail', args=[self.lecture.pk])), '화개중앙로 51')
 

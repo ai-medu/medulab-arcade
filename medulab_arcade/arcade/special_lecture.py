@@ -390,15 +390,17 @@ def special_lecture_list(request):
     })
 
 
-def _lecture_or_404(pk):
+def _lecture_or_404(request, pk):
     lecture = get_object_or_404(SpecialLecture, pk=pk)
     if not lecture.is_active:
         raise Http404
+    if lecture.lecture_at < timezone.now() and not request.user.is_staff:
+        raise Http404   # 지난 특강은 상세 화면도 열지 않는다 (관리자는 확인 가능)
     return lecture
 
 
 def special_lecture_detail(request, pk):
-    lecture = _lecture_or_404(pk)
+    lecture = _lecture_or_404(request, pk)
     user = request.user
     profile = getattr(user, 'profile', None) if user.is_authenticated else None
     medulab_parent = is_medulab_parent(user)
@@ -423,7 +425,7 @@ def special_lecture_detail(request, pk):
 
 @require_POST
 def special_lecture_apply(request, pk):
-    lecture = _lecture_or_404(pk)
+    lecture = _lecture_or_404(request, pk)
     user = request.user
     back = redirect('special_lecture_detail', pk=lecture.pk)
 

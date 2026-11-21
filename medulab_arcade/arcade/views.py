@@ -4988,6 +4988,19 @@ def tuition_invoice_bulk_action(request):
     return redirect(next_url)
 
 
+@login_required
+@user_passes_test(staff_check)
+@require_POST
+def tuition_notify_overdue(request):
+    """납부 기한이 지난 미납 청구서 전체의 학부모에게 미납 안내 알림톡(결제 링크 포함)을 한번에 다시 보낸다"""
+    invoices = TuitionInvoice.objects.filter(status=TuitionInvoice.STATUS_UNPAID, due_date__lt=timezone.localdate())
+    if not invoices.exists():
+        messages.info(request, '기한이 지난 미납 청구서가 없습니다.')
+    else:
+        _bulk_notify_invoices(request, invoices)
+    return redirect(request.POST.get('next') or reverse('tuition_admin_dashboard') + '?view=unpaid')
+
+
 def _bulk_notify_invoices(request, invoices):
     """선택한 청구서의 학부모에게 학원비 청구 안내 알림톡을 보낸다 (이미 보낸 건도 다시 보냄).
     완납/취소 건과 학부모 번호가 없는 건은 건너뛰고, 결과를 사유별로 요약해 알려 준다."""

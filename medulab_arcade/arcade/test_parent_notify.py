@@ -233,6 +233,24 @@ class BulkInvoiceNoticeTests(TestCase):
         self.assertIn('미납이 아닌 건 1건', text)
         self.assertIn('학부모 번호 없음 1건', text)
 
+    def test_notify_overdue_button_resends_only_overdue_unpaid(self):
+        overdue = self._invoice(self.with_parent, due_date=timezone.localdate() - timedelta(days=3))
+        self._invoice(self.with_parent, due_date=timezone.localdate() + timedelta(days=3))   # 아직 기한 전
+        self._invoice(self.with_parent, status=TuitionInvoice.STATUS_PAID,
+                      due_date=timezone.localdate() - timedelta(days=9))                      # 이미 낸 건
+        page = self.client.get(reverse('tuition_admin_dashboard') + '?view=unpaid')
+        self.assertContains(page, '기한 지난 미납 1건 안내 재발송')
+        with mock.patch('arcade.parent_notify.requests.post') as post:
+            post.return_value.status_code = 200
+            res = self.client.post(reverse('tuition_notify_overdue'), follow=True)
+        self.assertEqual(post.call_count, 1)
+        self.assertEqual(NotificationLog.objects.get(invoice=overdue).kind, NotificationLog.KIND_REMINDER)
+        self.assertIn('1건을 발송', ' '.join(str(m) for m in res.context['messages']))
+
+    def test_notify_overdue_requires_staff(self):
+        self.client.force_login(User.objects.create_user('kid', password='x'))
+        self.assertNotEqual(self.client.post(reverse('tuition_notify_overdue')).status_code, 200)
+
     def test_resend_allowed_after_guard_window_but_not_double_click(self):
         inv = self._invoice(self.with_parent)
         with mock.patch('arcade.parent_notify.requests.post') as post:
