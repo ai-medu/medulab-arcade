@@ -4,8 +4,19 @@
 
 {% block extra_css %}{% include 'arcade/special/_style.html' %}
 <style>
-.ab-reason { display:flex; align-items:center; gap:10px; padding:14px 16px; border:1px solid var(--border); border-radius:12px; margin-bottom:10px; cursor:pointer; font-size:15px; background:var(--bg-card); }
-.ab-reason input { width:18px; height:18px; flex-shrink:0; }
+.ab-info { background:var(--bg-card); border:1px solid var(--border); border-radius:16px; padding:6px 18px; margin-bottom:16px; }
+.ab-row { display:flex; gap:14px; align-items:baseline; padding:12px 0; border-bottom:1px solid var(--border); }
+.ab-row:last-child { border-bottom:none; }
+.ab-key { flex:0 0 44px; font-size:15px; font-weight:700; color:var(--text-muted); }
+.ab-val { font-size:18px; font-weight:800; color:var(--text-primary, #1f2937); line-height:1.4; word-break:keep-all; }
+.ab-lead { font-size:19px; font-weight:800; line-height:1.55; margin:0 0 18px; word-break:keep-all; }
+.ab-lead span { display:inline-block; margin-top:4px; font-size:16px; font-weight:500; color:var(--text-secondary); }
+.sp-wrap .sp-notice { font-size:16px; line-height:1.7; }
+.sp-wrap .sp-sub { font-size:16px; }
+.sp-wrap .sp-input { font-size:16px; padding:14px 16px; }
+.sp-wrap .sp-btn { font-size:18px; padding:17px 22px; }
+.ab-reason { display:flex; align-items:center; gap:12px; padding:17px 18px; border:1px solid var(--border); border-radius:14px; margin-bottom:12px; cursor:pointer; font-size:18px; font-weight:600; line-height:1.4; word-break:keep-all; background:var(--bg-card); }
+.ab-reason input { width:22px; height:22px; flex-shrink:0; }
 .ab-reason:has(input:checked) { border-color:var(--accent-blue); box-shadow:0 0 0 2px rgba(59,130,246,.25); }
 </style>
 {% endblock %}
@@ -30,7 +41,12 @@
 
     {% else %}
     <h1 class="sp-title">📝 결석 사유 알리기</h1>
-    <p class="sp-sub"><b>{{ student_name }}</b> 학생 · {{ date|date:"n월 j일" }} <b>{{ class_name }}</b>{% if start_time %} ({{ start_time|time:"H:i" }} 시작){% endif %}<br>오늘 수업에 오지 못하는 이유를 선택해 주세요. 제출하면 출석부에 <b>결석</b>으로 기록돼요.</p>
+    <div class="ab-info">
+        <div class="ab-row"><span class="ab-key">학생</span><span class="ab-val">{{ student_name }}</span></div>
+        <div class="ab-row"><span class="ab-key">수업</span><span class="ab-val">{{ class_name }}</span></div>
+        <div class="ab-row"><span class="ab-key">일시</span><span class="ab-val">{{ date|date:"n월 j일 (D)" }}{% if start_time %} {{ start_time|time:"H:i" }} 시작{% endif %}</span></div>
+    </div>
+    <p class="ab-lead">오늘 수업에 오지 못하는 이유를 선택해 주세요.<br><span>제출하면 출석부에 <b>결석</b>으로 기록돼요.</span></p>
     {% if already %}<div class="sp-notice info">이미 <b>"{{ already }}"</b> 사유로 알려 주셨어요. 바꾸려면 다시 선택해 제출해 주세요.</div>{% endif %}
     {% if error %}<div class="sp-notice err">{{ error }}</div>{% endif %}
 
@@ -42,7 +58,7 @@
         <input class="sp-input" name="detail" maxlength="60" placeholder="기타 사유를 직접 입력해 주세요 (60자까지)" style="margin-top:4px;">
         <button type="submit" class="sp-btn" style="width:100%; margin-top:18px;">결석 사유 제출</button>
     </form>
-    <p class="sp-sub" style="font-size:12.5px;">※ 지금 학원에 오는 중이라면 제출하지 않으셔도 돼요. 출석하면 자동으로 확인돼요.</p>
+    <p class="sp-sub" style="font-size:15px;">※ 지금 학원에 오는 중이라면 제출하지 않으셔도 돼요. 출석하면 자동으로 확인돼요.</p>
     {% endif %}
 </div>
 {% endblock %}
