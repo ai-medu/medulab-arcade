@@ -91,10 +91,9 @@
   .tp-category-chip .emoji { font-family:"Segoe UI Emoji","Noto Color Emoji","Apple Color Emoji","EmojiOne Color","Android Emoji",sans-serif; }
   .tp-category-chip:hover { background:#FFEBD9; }
   .tp-category-chip.active { background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; border-color:transparent; }
-  .tp-detail-custom { display:flex; gap:6px; }
+  .tp-detail-custom { display:flex; gap:6px; margin-bottom:4px; }
   .tp-input.sm { flex:1; padding:9px 12px; font-size:12.5px; border-radius:10px; }
   .tp-mic-btn.sm { width:34px; height:34px; font-size:14px; flex:0 0 auto; }
-  .tp-add-btn { flex:0 0 auto; padding:0 14px; border-radius:10px; border:none; background:linear-gradient(120deg,#8c6bfa,#b58cff); color:#fff; font-size:12.5px; font-weight:700; cursor:pointer; }
 
   .tp-custom-input { margin-top:12px; display:none; }
   .tp-custom-input.show { display:block; }
@@ -203,33 +202,31 @@
 
       <div class="tp-subq">
         <div class="tp-subq-head"><span>① 어떤 장소나 배경으로 할까요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('어떤 장소나 배경으로 할까요? 아래 그림을 눌러서 골라보세요.', this)">🔊</button></div>
-        <div class="tp-example-grid" id="placeTiles"></div>
         <div class="tp-detail-custom">
           <input type="text" id="placeCustom" class="tp-input sm" placeholder="예: 눈 내리는 마을">
           <button type="button" class="tp-mic-btn sm" onclick="tpStartMic('placeCustom', this)" title="말로 입력하기">🎤</button>
-          <button type="button" class="tp-add-btn" onclick="tpAddCustomDetail('placeCustom')">담기</button>
         </div>
+        <div class="tp-example-grid" id="placeTiles"></div>
       </div>
 
       <div class="tp-subq">
         <div class="tp-subq-head"><span>② 무엇을 그릴까요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('무엇을 그릴까요? 먼저 종류를 고르고, 그 안에서 그림을 골라보세요.', this)">🔊</button></div>
-        <div class="tp-category-grid" id="categoryChips"></div>
-        <div class="tp-example-grid" id="quickSubjects"></div>
         <div class="tp-input-row">
           <input type="text" id="subjectInput" class="tp-input" placeholder="예: 귀여운 강아지, 우리 학교 마스코트, 좋아하는 문구와 그림">
           <button type="button" class="tp-mic-btn" id="micBtn" onclick="tpStartMic('subjectInput', this)" title="말로 입력하기">🎤</button>
         </div>
         <div class="tp-mic-hint" id="micHint">🎤 버튼을 누르고 말하면 글자로 바뀌어요.</div>
+        <div class="tp-category-grid" id="categoryChips"></div>
+        <div class="tp-example-grid" id="quickSubjects"></div>
       </div>
 
       <div class="tp-subq">
         <div class="tp-subq-head"><span>③ 무엇을 하고 있을까요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('무엇을 하고 있을까요? 아래 그림을 눌러서 골라보세요.', this)">🔊</button></div>
-        <div class="tp-example-grid" id="actionTiles"></div>
         <div class="tp-detail-custom">
           <input type="text" id="actionCustom" class="tp-input sm" placeholder="예: 눈싸움을 하는">
           <button type="button" class="tp-mic-btn sm" onclick="tpStartMic('actionCustom', this)" title="말로 입력하기">🎤</button>
-          <button type="button" class="tp-add-btn" onclick="tpAddCustomDetail('actionCustom')">담기</button>
         </div>
+        <div class="tp-example-grid" id="actionTiles"></div>
       </div>
 
       <div class="tp-subq-summary">
@@ -559,17 +556,6 @@ function tpAppendSubject(text) {
 function tpTogglePart(arr, text) {
   const lower = text.toLowerCase();
   if (!arr.some(v => v.toLowerCase().includes(lower))) arr.push(text);
-}
-
-function tpAddCustomDetail(inputId) {
-  const el = document.getElementById(inputId);
-  const value = el.value.trim();
-  if (!value) return;
-  if (inputId === 'placeCustom') tpTogglePart(tpPlaceChosen, value);
-  else if (inputId === 'actionCustom') tpTogglePart(tpActionChosen, value);
-  else tpAppendSubject(value);
-  el.value = '';
-  tpUpdateSubjectPreview();
 }
 
 function tpComposeParts() {
