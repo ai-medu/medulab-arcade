@@ -58,7 +58,6 @@
   .tp-mic-btn:hover { border-color:var(--c); }
   .tp-mic-btn.listening { background:linear-gradient(120deg,#ff5a5a,#ff9a5a); border-color:transparent; color:#fff; animation:tpPulse 1s infinite; }
   @keyframes tpPulse { 0%{ box-shadow:0 0 0 0 rgba(255,90,90,.45); } 70%{ box-shadow:0 0 0 12px rgba(255,90,90,0); } 100%{ box-shadow:0 0 0 0 rgba(255,90,90,0); } }
-  .tp-mic-hint { font-size:12px; color:#b5afce; margin-top:8px; }
 
   .tp-btn-group { display:flex; gap:10px; flex-wrap:wrap; }
   .tp-choice-btn { padding:10px 22px; border:2px solid #FFE4CE; border-radius:999px; background:#fff; color:var(--ink); font-size:14.5px; font-weight:700; cursor:pointer; transition:all .18s; }
@@ -213,9 +212,8 @@
         <div class="tp-subq-head"><span>② 무엇을 그릴까요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('무엇을 그릴까요? 먼저 종류를 고르고, 그 안에서 그림을 골라보세요.', this)">🔊</button></div>
         <div class="tp-input-row">
           <input type="text" id="subjectInput" class="tp-input" placeholder="예: 귀여운 강아지, 우리 학교 마스코트, 좋아하는 문구와 그림">
-          <button type="button" class="tp-mic-btn" id="micBtn" onclick="tpStartMic('subjectInput', this)" title="말로 입력하기">🎤</button>
+          <button type="button" class="tp-mic-btn" id="micBtn" onclick="tpStartMic('subjectInput', this)" title="🎤 버튼을 누르고 말하면 글자로 바뀌어요.">🎤</button>
         </div>
-        <div class="tp-mic-hint" id="micHint">🎤 버튼을 누르고 말하면 글자로 바뀌어요.</div>
         <div class="tp-category-grid" id="categoryChips"></div>
         <div class="tp-example-grid" id="quickSubjects"></div>
       </div>
@@ -730,7 +728,7 @@ function tpStartMic(inputId, btnEl) {
     return;
   }
   const targetInput = document.getElementById(inputId);
-  const micHint = document.getElementById('micHint');
+  const defaultTitle = btnEl.title;
   tpRecognition = new SR();
   tpRecognition.lang = 'ko-KR';
   tpRecognition.interimResults = false;
@@ -738,7 +736,7 @@ function tpStartMic(inputId, btnEl) {
   tpRecognition.onstart = () => {
     tpListening = true;
     btnEl.classList.add('listening');
-    if (micHint && inputId === 'subjectInput') micHint.textContent = '🎙️ 듣고 있어요... 말해보세요!';
+    btnEl.title = '🎙️ 듣고 있어요... 말해보세요!';
   };
   tpRecognition.onresult = (e) => {
     const text = e.results[0][0].transcript;
@@ -752,7 +750,7 @@ function tpStartMic(inputId, btnEl) {
   tpRecognition.onend = () => {
     tpListening = false;
     btnEl.classList.remove('listening');
-    if (micHint && inputId === 'subjectInput') micHint.textContent = '🎤 버튼을 누르고 말하면 글자로 바뀌어요.';
+    btnEl.title = defaultTitle;
   };
   tpRecognition.start();
 }
