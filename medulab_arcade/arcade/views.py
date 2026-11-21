@@ -7366,9 +7366,20 @@ def _render_staff_student_dashboard(request):
         .order_by('start_time', 'name')
     )
 
+    # 오늘 출석부에 결석으로 기록된 학생 (등원 기록이 없는 경우에만 '결석'으로 보여 준다)
+    today_absent_notes = {}
+    for uid, note in ClassAttendance.objects.filter(
+            enrollment__student_id__in=student_ids, enrollment__is_active=True, date=today, is_present=False,
+    ).values_list('enrollment__student_id', 'note'):
+        if note or uid not in today_absent_notes:
+            today_absent_notes[uid] = note
+
     for s in students:
         s.attended_today = s.id in today_attended_ids
         s.today_attendance_type = today_attendance_types.get(s.id)
+        if s.id in today_absent_notes and s.id not in today_attended_ids:
+            s.today_attendance_type = 'absent'
+            s.today_absent_note = today_absent_notes[s.id]
         s.month_attendance_count = month_attendance_counts.get(s.id, 0)
         s.month_access_count = month_access_counts.get(s.id, 0)
         pay = month_pay.get(s.id)
@@ -7705,11 +7716,13 @@ def api_admin_set_attendance(request, student_id):
         # 결석: 수강 중인 수업의 출석부에 결석으로 기록한다 (다음 달 청구서 결석 차감에 반영됨). 등원 기록은 지운다.
         if not enrollments.exists():
             return JsonResponse({'status': 'error', 'message': '수강 중인 수업이 없어 결석으로 처리할 수 없습니다.'}, status=400)
+        reason = str(payload.get('reason') or '').strip()[:60]
+        note = f'관리자 결석 처리: {reason}' if reason else '관리자 결석 처리'
         Attendance.objects.filter(user=student, date=target_date).delete()
         for enrollment in enrollments:
             ClassAttendance.objects.update_or_create(
                 enrollment=enrollment, date=target_date,
-                defaults={'is_present': False, 'note': '관리자 결석 처리'},
+                defaults={'is_present': False, 'note': note},
             )
         return JsonResponse({'status': 'success', 'attendance_type': 'absent', 'attendance_type_display': '결석'})
 

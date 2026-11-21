@@ -1,0 +1,71 @@
+{# 관리자가 '결석'으로 바꿀 때 결석 사유를 고르는 창. askAbsenceReason(function (reason) { ... }) 로 연다 #}
+<style>
+    #absReasonOverlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:3000; align-items:center; justify-content:center; padding:16px; }
+    #absReasonOverlay.show { display:flex; }
+    #absReasonBox { background:#fff; color:#1f2937; border-radius:16px; padding:22px; width:100%; max-width:380px; max-height:92vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,.4); }
+    #absReasonBox h4 { margin:0 0 4px; font-size:18px; }
+    #absReasonBox p { margin:0 0 14px; font-size:13.5px; color:#6b7280; }
+    .abs-opt { display:flex; align-items:center; gap:10px; padding:13px 14px; border:1px solid #d1d5db; border-radius:12px; margin-bottom:8px; cursor:pointer; font-size:15.5px; font-weight:600; }
+    .abs-opt input { width:19px; height:19px; flex-shrink:0; }
+    .abs-opt:has(input:checked) { border-color:#ef4444; background:#fef2f2; }
+    #absReasonDetail { width:100%; box-sizing:border-box; padding:12px 14px; border:1px solid #d1d5db; border-radius:10px; font-size:15px; margin:2px 0 0; display:none; color:#1f2937; background:#fff; }
+    #absReasonError { color:#dc2626; font-size:13.5px; min-height:18px; margin-top:8px; }
+    .abs-btns { display:flex; gap:8px; margin-top:12px; }
+    .abs-btns button { flex:1; padding:13px; border-radius:10px; font-size:15.5px; font-weight:800; cursor:pointer; border:1px solid #d1d5db; background:#fff; color:#4b5563; }
+    .abs-btns button.go { background:#ef4444; border-color:#ef4444; color:#fff; }
+</style>
+<div id="absReasonOverlay" onclick="if(event.target===this) closeAbsenceReason();">
+    <div id="absReasonBox" role="dialog" aria-label="결석 사유 선택">
+        <h4>❌ 결석 사유 선택</h4>
+        <p>결석으로 기록하고, 선택한 사유를 출석부 메모에 남겨요.</p>
+        <label class="abs-opt"><input type="radio" name="absReason" value="몸이 아파서"> 몸이 아파서</label>
+        <label class="abs-opt"><input type="radio" name="absReason" value="학교 행사·시험·방과후 일정"> 학교 행사·시험·방과후 일정</label>
+        <label class="abs-opt"><input type="radio" name="absReason" value="가족 행사·여행"> 가족 행사·여행</label>
+        <label class="abs-opt"><input type="radio" name="absReason" value="다른 학원·일정"> 다른 학원·일정</label>
+        <label class="abs-opt"><input type="radio" name="absReason" value="연락 없이 결석"> 연락 없이 결석</label>
+        <label class="abs-opt"><input type="radio" name="absReason" value="__other__"> 기타 (직접 입력)</label>
+        <input type="text" id="absReasonDetail" maxlength="60" placeholder="결석 사유를 직접 입력해 주세요 (60자까지)">
+        <div id="absReasonError"></div>
+        <div class="abs-btns">
+            <button type="button" onclick="closeAbsenceReason()">취소</button>
+            <button type="button" class="go" onclick="confirmAbsenceReason()">결석으로 처리</button>
+        </div>
+    </div>
+</div>
+<script>
+    (function () {
+        var callback = null;
+        var overlay = document.getElementById('absReasonOverlay');
+        var detail = document.getElementById('absReasonDetail');
+        var error = document.getElementById('absReasonError');
+        overlay.addEventListener('change', function () {
+            var chosen = overlay.querySelector('input[name=absReason]:checked');
+            detail.style.display = chosen && chosen.value === '__other__' ? 'block' : 'none';
+            error.textContent = '';
+        });
+        window.askAbsenceReason = function (onPick) {
+            callback = onPick;
+            overlay.querySelectorAll('input[name=absReason]').forEach(function (r) { r.checked = false; });
+            detail.value = '';
+            detail.style.display = 'none';
+            error.textContent = '';
+            overlay.classList.add('show');
+        };
+        window.closeAbsenceReason = function () {
+            overlay.classList.remove('show');
+            callback = null;
+        };
+        window.confirmAbsenceReason = function () {
+            var chosen = overlay.querySelector('input[name=absReason]:checked');
+            if (!chosen) { error.textContent = '결석 사유를 선택해 주세요.'; return; }
+            var reason = chosen.value;
+            if (reason === '__other__') {
+                reason = detail.value.trim();
+                if (!reason) { error.textContent = '기타 사유를 입력해 주세요.'; return; }
+            }
+            var pick = callback;
+            closeAbsenceReason();
+            if (pick) pick(reason);
+        };
+    })();
+</script>

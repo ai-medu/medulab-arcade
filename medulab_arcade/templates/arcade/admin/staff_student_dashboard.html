@@ -279,6 +279,7 @@
                         {% if s.today_attendance_type == 'present' %}<span class="attend-badge attend-yes">✅ 출석</span>
                         {% elif s.today_attendance_type == 'makeup' %}<span class="attend-badge attend-yes">💙 보강</span>
                         {% elif s.today_attendance_type == 'access' %}<span class="attend-badge" style="background:rgba(148,163,184,0.12); color:#94a3b8; border:1px solid rgba(148,163,184,0.3);">📶 접속만</span>
+                        {% elif s.today_attendance_type == 'absent' %}<span class="attend-badge" style="background:rgba(239,68,68,0.14); color:#f87171; border:1px solid rgba(239,68,68,0.4);" title="{{ s.today_absent_note }}">❌ 결석</span>
                         {% else %}<span class="attend-badge attend-no">미출석</span>{% endif %}<span class="attend-edit-icon">✎</span>
                         </button>
                     </td>
@@ -370,6 +371,7 @@
             <button type="button" class="attend-choice" data-type="present" onclick="setAttend('present')"><span>✅ 출석</span><small>정규 수업일에 등원</small></button>
             <button type="button" class="attend-choice" data-type="makeup" onclick="setAttend('makeup')"><span>💙 보강</span><small>수업일이 아닌 날 등원</small></button>
             <button type="button" class="attend-choice" data-type="access" onclick="setAttend('access')"><span>📶 접속만</span><small>학원 밖에서 접속</small></button>
+            <button type="button" class="attend-choice" data-type="absent" onclick="askAbsenceReason(function (r) { setAttend('absent', r); })"><span>❌ 결석</span><small>사유를 고르고 결석 처리</small></button>
             <button type="button" class="attend-choice" data-type="none" onclick="setAttend('none')"><span>미출석 (기록 삭제)</span><small>오늘 기록을 지웁니다</small></button>
         </div>
         <div class="attend-note">출석·보강으로 바꾸면 연결된 학부모에게 출석 알림톡이 발송됩니다. (학생당 하루 한 번만 발송)</div>
@@ -441,6 +443,7 @@
     <input type="hidden" name="mode" id="quickAssignMode" value="add">
     <input type="hidden" name="next" value="{{ request.get_full_path }}">
 </form>
+{% include 'arcade/admin/_absence_reason_modal.html' %}
 {% include 'arcade/admin/_invoice_disc_js.html' %}
 <script>
 const ATTEND_SET_URL = "{% url 'api_admin_set_attendance' 0 %}";
@@ -460,7 +463,7 @@ function openAttendModal(studentId, studentName, currentType) {
 function closeAttendModal() {
     document.getElementById('attendOverlay').classList.remove('show');
 }
-function setAttend(type) {
+function setAttend(type, reason) {
     const csrf = document.querySelector('#attendOverlay input[name=csrfmiddlewaretoken]').value;
     const buttons = document.querySelectorAll('#attendChoices .attend-choice');
     const msg = document.getElementById('attendMsg');
@@ -469,7 +472,7 @@ function setAttend(type) {
     fetch(ATTEND_SET_URL.replace('/0/', '/' + attendStudentId + '/'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
-        body: JSON.stringify({ date: ATTEND_TODAY, attendance_type: type }),
+        body: JSON.stringify({ date: ATTEND_TODAY, attendance_type: type, reason: reason || '' }),
     }).then(function (r) { return r.json(); }).then(function (data) {
         if (data.status === 'success') {
             window.location.reload();

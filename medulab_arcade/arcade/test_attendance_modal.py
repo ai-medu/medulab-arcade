@@ -61,6 +61,20 @@ class AttendanceModalTests(TestCase):
         post('none')
         self.assertFalse(ClassAttendance.objects.filter(enrollment__student=self.student).exists())
 
+    def test_absent_with_reason_is_saved_and_shown_on_dashboard(self):
+        today = timezone.localdate()
+        url = reverse('api_admin_set_attendance', args=[self.student.id])
+        self.client.post(url, {'date': today.isoformat(), 'attendance_type': 'absent', 'reason': '몸이 아파서'},
+                         content_type='application/json')
+        self.assertEqual(ClassAttendance.objects.get(enrollment__student=self.student, date=today).note,
+                         '관리자 결석 처리: 몸이 아파서')
+        page = self.client.get(reverse('my_report'))
+        self.assertContains(page, '❌ 결석')
+        self.assertContains(page, '관리자 결석 처리: 몸이 아파서')   # 배지에 마우스를 올리면 사유가 보인다
+        self.assertContains(page, 'data-type="absent"')
+        self.assertContains(page, 'id="absReasonOverlay"')
+        self.assertContains(self.client.get(reverse('admin_student_report', args=[self.student.id])), 'id="absReasonOverlay"')
+
     def test_cannot_mark_absent_without_class(self):
         ClassEnrollment.objects.all().delete()
         res = self.client.post(reverse('api_admin_set_attendance', args=[self.student.id]),
