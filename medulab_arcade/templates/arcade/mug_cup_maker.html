@@ -72,13 +72,14 @@
   .tp-example-tile .emoji { font-size:34px; line-height:1; display:block; margin-bottom:6px; font-family:"Segoe UI Emoji","Noto Color Emoji","Apple Color Emoji","EmojiOne Color","Android Emoji",sans-serif; }
   .tp-example-tile .label { font-size:12.5px; font-weight:700; color:#8a5a2a; }
 
-  .tp-detail-box { margin-top:18px; padding:16px 16px 14px; border-radius:16px; background:#F6F3FF; border:1.5px dashed #D8CDFF; }
-  .tp-detail-head { font-size:13.5px; font-weight:800; color:#6a4fc0; margin-bottom:10px; }
-  .tp-detail-optional { font-weight:600; color:#a594d6; font-size:12px; }
-  .tp-detail-row { margin-bottom:10px; }
-  .tp-detail-row:last-child { margin-bottom:0; }
-  .tp-detail-q { display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:700; color:var(--ink); margin-bottom:7px; }
+  .tp-subq { padding-top:22px; margin-top:22px; border-top:1.5px solid #F3EEFF; }
+  .tp-subq:first-child { padding-top:0; margin-top:4px; border-top:none; }
+  .tp-subq-head { display:flex; align-items:center; gap:8px; font-size:15px; font-weight:800; color:var(--ink); margin-bottom:12px; }
   .tp-listen-btn.sm { padding:3px 9px; font-size:12px; }
+  .tp-subq-summary { margin-top:22px; padding:16px 18px; border-radius:16px; background:#FFF8F1; border:1.5px solid #FFE4CE; }
+  .tp-subq-summary-label { font-size:12.5px; font-weight:800; color:#c2672a; margin-bottom:6px; }
+  .tp-subq-summary-text { font-size:14px; font-weight:700; color:var(--ink); line-height:1.5; min-height:20px; }
+  .tp-subq-summary-text:empty::before { content:"선택하거나 입력하면 여기에 모여요."; color:#b5afce; font-weight:600; }
   .tp-chip-grid { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
   .tp-chip { border:1.5px solid #D8CDFF; background:#fff; color:#6a4fc0; font-size:12.5px; font-weight:700; padding:7px 13px; border-radius:999px; cursor:pointer; transition:all .15s; }
   .tp-chip:hover { background:#EDE7FF; }
@@ -190,43 +191,52 @@
   <!-- STEP 2: 무엇을 그릴까요 -->
   <div class="tp-step" data-step="2">
     <div class="tp-section">
-      <div class="tp-step-label"><span>② 머그컵에 무엇을 그리고 싶나요?</span><button type="button" class="tp-listen-btn" onclick="tpSpeak('머그컵에 무엇을 그리고 싶나요? 직접 입력하거나, 마이크 버튼을 눌러 말로 입력하거나, 아래 그림을 눌러서 골라보세요.', this)">🔊 들어보기</button></div>
-      <p class="tp-step-sub">직접 입력하거나, 마이크 버튼을 눌러 말로 입력하거나, 아래 그림을 눌러서 골라보세요.</p>
-      <div class="tp-input-row">
-        <input type="text" id="subjectInput" class="tp-input" placeholder="예: 귀여운 강아지, 우리 학교 마스코트, 좋아하는 문구와 그림">
-        <button type="button" class="tp-mic-btn" id="micBtn" onclick="tpStartMic('subjectInput', this)" title="말로 입력하기">🎤</button>
+      <div class="tp-step-label"><span>② 머그컵에 무엇을 그리고 싶나요?</span><button type="button" class="tp-listen-btn" onclick="tpSpeak('머그컵에 무엇을 그리고 싶나요? 아래 네 가지 질문에 하나씩 답하면서 그림을 자세하게 만들어 볼게요.', this)">🔊 들어보기</button></div>
+      <p class="tp-step-sub">아래 네 가지 질문에 하나씩 답하면서 그림을 자세하게 만들어 볼게요.</p>
+
+      <div class="tp-subq">
+        <div class="tp-subq-head"><span>① 무엇을 그릴까요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('무엇을 그릴까요? 직접 입력하거나, 마이크 버튼을 눌러 말로 입력하거나, 아래 그림을 눌러서 골라보세요.', this)">🔊</button></div>
+        <div class="tp-input-row">
+          <input type="text" id="subjectInput" class="tp-input" placeholder="예: 귀여운 강아지, 우리 학교 마스코트, 좋아하는 문구와 그림">
+          <button type="button" class="tp-mic-btn" id="micBtn" onclick="tpStartMic('subjectInput', this)" title="말로 입력하기">🎤</button>
+        </div>
+        <div class="tp-mic-hint" id="micHint">🎤 버튼을 누르고 말하면 글자로 바뀌어요.</div>
+        <div class="tp-example-grid" id="quickSubjects"></div>
       </div>
-      <div class="tp-mic-hint" id="micHint">🎤 버튼을 누르고 말하면 글자로 바뀌어요.</div>
-      <div class="tp-example-grid" id="quickSubjects"></div>
-      <div class="tp-detail-box" id="tpDetailBox">
-        <div class="tp-detail-head">✨ 조금 더 자세히 적어볼까요? <span class="tp-detail-optional">(골라서 눌러보거나 직접 입력해 보세요)</span></div>
-        <div class="tp-detail-row">
-          <div class="tp-detail-q"><span>① 어떤 장소나 배경으로 할까요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('어떤 장소나 배경으로 할까요?', this)">🔊</button></div>
-          <div class="tp-chip-grid" id="placeChips"></div>
-          <div class="tp-detail-custom">
-            <input type="text" id="placeCustom" class="tp-input sm" placeholder="예: 눈 내리는 마을">
-            <button type="button" class="tp-mic-btn sm" onclick="tpStartMic('placeCustom', this)" title="말로 입력하기">🎤</button>
-            <button type="button" class="tp-add-btn" onclick="tpAddCustomDetail('placeCustom')">담기</button>
-          </div>
+
+      <div class="tp-subq">
+        <div class="tp-subq-head"><span>② 어떤 장소나 배경으로 할까요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('어떤 장소나 배경으로 할까요?', this)">🔊</button></div>
+        <div class="tp-chip-grid" id="placeChips"></div>
+        <div class="tp-detail-custom">
+          <input type="text" id="placeCustom" class="tp-input sm" placeholder="예: 눈 내리는 마을">
+          <button type="button" class="tp-mic-btn sm" onclick="tpStartMic('placeCustom', this)" title="말로 입력하기">🎤</button>
+          <button type="button" class="tp-add-btn" onclick="tpAddCustomDetail('placeCustom')">담기</button>
         </div>
-        <div class="tp-detail-row">
-          <div class="tp-detail-q"><span>② 이 장소나 배경에 어떤 것들이 있을까요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('이 장소나 배경에 어떤 것들이 있을까요?', this)">🔊</button></div>
-          <div class="tp-chip-grid" id="objectChips"></div>
-          <div class="tp-detail-custom">
-            <input type="text" id="objectCustom" class="tp-input sm" placeholder="예: 반짝이는 눈사람">
-            <button type="button" class="tp-mic-btn sm" onclick="tpStartMic('objectCustom', this)" title="말로 입력하기">🎤</button>
-            <button type="button" class="tp-add-btn" onclick="tpAddCustomDetail('objectCustom')">담기</button>
-          </div>
+      </div>
+
+      <div class="tp-subq">
+        <div class="tp-subq-head"><span>③ 이 장소나 배경에 어떤 것들이 있을까요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('이 장소나 배경에 어떤 것들이 있을까요?', this)">🔊</button></div>
+        <div class="tp-chip-grid" id="objectChips"></div>
+        <div class="tp-detail-custom">
+          <input type="text" id="objectCustom" class="tp-input sm" placeholder="예: 반짝이는 눈사람">
+          <button type="button" class="tp-mic-btn sm" onclick="tpStartMic('objectCustom', this)" title="말로 입력하기">🎤</button>
+          <button type="button" class="tp-add-btn" onclick="tpAddCustomDetail('objectCustom')">담기</button>
         </div>
-        <div class="tp-detail-row">
-          <div class="tp-detail-q"><span>③ 무엇을 하고 있을까요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('무엇을 하고 있을까요?', this)">🔊</button></div>
-          <div class="tp-chip-grid" id="actionChips"></div>
-          <div class="tp-detail-custom">
-            <input type="text" id="actionCustom" class="tp-input sm" placeholder="예: 눈싸움을 하는">
-            <button type="button" class="tp-mic-btn sm" onclick="tpStartMic('actionCustom', this)" title="말로 입력하기">🎤</button>
-            <button type="button" class="tp-add-btn" onclick="tpAddCustomDetail('actionCustom')">담기</button>
-          </div>
+      </div>
+
+      <div class="tp-subq">
+        <div class="tp-subq-head"><span>④ 무엇을 하고 있을까요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('무엇을 하고 있을까요?', this)">🔊</button></div>
+        <div class="tp-chip-grid" id="actionChips"></div>
+        <div class="tp-detail-custom">
+          <input type="text" id="actionCustom" class="tp-input sm" placeholder="예: 눈싸움을 하는">
+          <button type="button" class="tp-mic-btn sm" onclick="tpStartMic('actionCustom', this)" title="말로 입력하기">🎤</button>
+          <button type="button" class="tp-add-btn" onclick="tpAddCustomDetail('actionCustom')">담기</button>
         </div>
+      </div>
+
+      <div class="tp-subq-summary">
+        <div class="tp-subq-summary-label">📝 지금까지 만든 내용</div>
+        <div class="tp-subq-summary-text" id="tpSubjectPreview"></div>
       </div>
     </div>
     <div class="tp-nav-row">
@@ -422,9 +432,9 @@ const ACTION_HINTS = {
 function tpAppendSubject(text) {
   const input = document.getElementById('subjectInput');
   const current = input.value.trim();
-  if (!current) { input.value = text; return; }
-  if (current.toLowerCase().includes(text.toLowerCase())) return;
-  input.value = current + ', ' + text;
+  if (!current) { input.value = text; }
+  else if (!current.toLowerCase().includes(text.toLowerCase())) { input.value = current + ', ' + text; }
+  tpUpdateSubjectPreview();
 }
 
 function tpAddCustomDetail(inputId) {
@@ -433,7 +443,12 @@ function tpAddCustomDetail(inputId) {
   if (!value) return;
   tpAppendSubject(value);
   el.value = '';
-  document.getElementById('subjectInput').focus();
+}
+
+function tpUpdateSubjectPreview() {
+  const preview = document.getElementById('tpSubjectPreview');
+  if (!preview) return;
+  preview.textContent = document.getElementById('subjectInput').value.trim();
 }
 
 function tpMakeChip(text) {
@@ -445,7 +460,6 @@ function tpMakeChip(text) {
     tpAppendSubject(text);
     chip.classList.add('active');
     tpSpeak(text);
-    document.getElementById('subjectInput').focus();
   });
   return chip;
 }
@@ -527,6 +541,7 @@ tpSetupChoice('audienceBtns', (v, btn) => {
   if (lb) tpSpeak(lb.textContent);
 }, 'tp-audience-card');
 tpRenderQuickSubjects();
+document.getElementById('subjectInput').addEventListener('input', tpUpdateSubjectPreview);
 tpRenderVisualGroup('styleBtns', STYLE_OPTIONS, tpStyle, v => tpStyle = v, 'styleCustomWrap', 'styleCustom');
 tpRenderVisualGroup('moodBtns', MOOD_OPTIONS, tpMood, v => tpMood = v, 'moodCustomWrap', 'moodCustom');
 
@@ -568,6 +583,7 @@ function tpStartMic(inputId, btnEl) {
   tpRecognition.onresult = (e) => {
     const text = e.results[0][0].transcript;
     targetInput.value = text;
+    if (inputId === 'subjectInput') tpUpdateSubjectPreview();
     tpSpeak(`${text} 라고 들었어요.`);
   };
   tpRecognition.onerror = () => {
@@ -782,6 +798,7 @@ function tpRestart() {
   tpSubjectNudged = false;
   document.querySelectorAll('#actionChips .tp-chip, #placeChips .tp-chip, #objectChips .tp-chip').forEach(c => c.classList.remove('active'));
   ['placeCustom', 'objectCustom', 'actionCustom'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  tpUpdateSubjectPreview();
   tpGoto(1);
 }
 
