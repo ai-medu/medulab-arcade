@@ -10,8 +10,16 @@
   body { background:linear-gradient(150deg,#FFF6EE 0%,#F1F0FF 45%,#EAF7FF 100%) !important; color:var(--ink); }
 
   .tp-wrap { max-width:880px; margin:0 auto; padding:40px 20px 80px; }
-  .tp-back { display:inline-flex; align-items:center; gap:6px; color:var(--c2); font-weight:700; font-size:14px; text-decoration:none; margin-bottom:20px; }
+  .tp-back { display:inline-flex; align-items:center; gap:6px; color:var(--c2); font-weight:700; font-size:14px; text-decoration:none; }
   .tp-back:hover { text-decoration:underline; }
+  .tp-top-row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; }
+  .tp-history-open-btn { display:inline-flex; align-items:center; gap:6px; border:1.5px solid #FFE4CE; background:#FFF8F1; color:#8a5a2a; font-size:13px; font-weight:800; padding:8px 16px; border-radius:999px; cursor:pointer; transition:all .15s; }
+  .tp-history-open-btn:hover { background:#FFEBD9; }
+  .tp-history-open-btn.hidden { display:none; }
+
+  .tp-modal-overlay { position:fixed; inset:0; background:rgba(30,20,50,.45); display:flex; align-items:center; justify-content:center; z-index:1000; padding:20px; }
+  .tp-modal-overlay.hidden { display:none; }
+  .tp-modal { background:#fff; border-radius:20px; padding:22px 24px; max-width:480px; width:100%; max-height:80vh; overflow-y:auto; box-shadow:0 12px 40px rgba(0,0,0,.2); }
 
   .tp-hero { text-align:center; padding:8px 20px 20px; margin-bottom:4px; }
   .tp-hero .badge { display:inline-block; background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; font-size:13px; font-weight:bold; letter-spacing:1px; padding:5px 16px; border-radius:999px; margin-bottom:16px; }
@@ -135,13 +143,14 @@
   .tp-preview-canvas { width:100%; max-width:440px; height:auto; border-radius:10px; display:block; }
   .tp-preview-note { font-size:11.5px; color:#b5afce; text-align:center; margin:8px 0 0; }
 
-  .tp-history-section { background:#fff; border-radius:20px; padding:20px 24px; margin-bottom:18px; box-shadow:0 4px 20px rgba(140,107,250,.08); }
-  .tp-history-section.hidden { display:none; }
-  .tp-history-head { display:flex; align-items:center; justify-content:space-between; font-size:14.5px; font-weight:800; color:var(--ink); margin-bottom:12px; }
+  .tp-history-head { display:flex; align-items:center; justify-content:space-between; font-size:15px; font-weight:800; color:var(--ink); margin-bottom:14px; }
+  .tp-history-close { border:none; background:none; color:#b5afce; font-size:20px; font-weight:700; cursor:pointer; line-height:1; padding:2px 6px; }
+  .tp-history-close:hover { color:#e06a6a; }
   .tp-history-clear { border:none; background:none; color:#b5afce; font-size:12px; font-weight:700; cursor:pointer; }
   .tp-history-clear:hover { color:#e06a6a; }
-  .tp-history-list { display:flex; gap:10px; flex-wrap:wrap; }
-  .tp-history-item { border:2px solid #FFE4CE; border-radius:14px; background:#FFF8F1; padding:10px 14px; cursor:pointer; text-align:left; transition:all .15s; max-width:200px; }
+  .tp-history-list { display:flex; flex-direction:column; gap:8px; }
+  .tp-history-empty { font-size:13.5px; color:#b5afce; text-align:center; padding:20px 0; }
+  .tp-history-item { border:2px solid #FFE4CE; border-radius:14px; background:#FFF8F1; padding:10px 14px; cursor:pointer; text-align:left; transition:all .15s; width:100%; }
   .tp-history-item:hover { border-color:var(--c); background:#FFEBD9; }
   .tp-history-item .h-aud { display:block; font-size:11px; font-weight:700; color:#c2672a; margin-bottom:2px; }
   .tp-history-item .h-subj { display:block; font-size:13px; font-weight:800; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -159,7 +168,10 @@
 
 {% block content %}
 <div class="tp-wrap">
-  <a href="{% url 'ai_prompts' %}" class="tp-back">← AI 프롬프트 생성기</a>
+  <div class="tp-top-row">
+    <a href="{% url 'ai_prompts' %}" class="tp-back">← AI 프롬프트 생성기</a>
+    <button type="button" id="tpHistoryOpenBtn" class="tp-history-open-btn hidden" onclick="tpOpenHistoryModal()">🕘 불러오기</button>
+  </div>
 
   <div class="tp-hero">
     <div class="badge">☕ 굿즈 제작</div>
@@ -290,12 +302,17 @@
     <button type="button" class="tp-restart-btn" onclick="tpRestart()">🔄 처음부터 다시 만들기</button>
   </div>
 
-  <div id="tpHistorySection" class="tp-history-section hidden">
-    <div class="tp-history-head">
-      <span>🕘 최근 만든 프롬프트</span>
-      <button type="button" class="tp-history-clear" onclick="tpClearHistory()">전체 삭제</button>
+  <div id="tpHistoryModal" class="tp-modal-overlay hidden" onclick="if (event.target === this) tpCloseHistoryModal();">
+    <div class="tp-modal">
+      <div class="tp-history-head">
+        <span>🕘 최근 만든 프롬프트</span>
+        <div>
+          <button type="button" class="tp-history-clear" onclick="tpClearHistory()">전체 삭제</button>
+          <button type="button" class="tp-history-close" onclick="tpCloseHistoryModal()" aria-label="닫기">✕</button>
+        </div>
+      </div>
+      <div id="tpHistoryList" class="tp-history-list"></div>
     </div>
-    <div id="tpHistoryList" class="tp-history-list"></div>
   </div>
 </div>
 <div id="tpToast" class="tp-toast"></div>
@@ -843,24 +860,41 @@ function tpSaveHistory(entry) {
   tpRenderHistory();
 }
 
-function tpRenderHistory() {
-  const wrap = document.getElementById('tpHistoryList');
-  const section = document.getElementById('tpHistorySection');
-  if (!wrap || !section) return;
+function tpGetHistoryList() {
   let list = [];
   try { list = JSON.parse(localStorage.getItem(TP_HISTORY_KEY) || '[]'); } catch (e) { list = []; }
-  if (!list.length) { section.classList.add('hidden'); return; }
-  section.classList.remove('hidden');
+  return list;
+}
+
+function tpRenderHistory() {
+  const openBtn = document.getElementById('tpHistoryOpenBtn');
+  const wrap = document.getElementById('tpHistoryList');
+  if (!wrap || !openBtn) return;
+  const list = tpGetHistoryList();
+  openBtn.classList.toggle('hidden', !list.length);
   wrap.innerHTML = '';
+  if (!list.length) {
+    wrap.innerHTML = '<p class="tp-history-empty">아직 만든 프롬프트가 없어요.</p>';
+    return;
+  }
   list.forEach(item => {
     const card = document.createElement('button');
     card.type = 'button';
     card.className = 'tp-history-item';
     card.title = item.prompt.slice(0, 80) + '...';
     card.innerHTML = `<span class="h-aud">${item.audience}</span><span class="h-subj">${item.subject}</span>`;
-    card.addEventListener('click', () => tpLoadHistoryItem(item));
+    card.addEventListener('click', () => { tpLoadHistoryItem(item); tpCloseHistoryModal(); });
     wrap.appendChild(card);
   });
+}
+
+function tpOpenHistoryModal() {
+  tpRenderHistory();
+  document.getElementById('tpHistoryModal').classList.remove('hidden');
+}
+
+function tpCloseHistoryModal() {
+  document.getElementById('tpHistoryModal').classList.add('hidden');
 }
 
 function tpLoadHistoryItem(item) {
