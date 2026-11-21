@@ -72,6 +72,18 @@
   .tp-example-tile .emoji { font-size:34px; line-height:1; display:block; margin-bottom:6px; font-family:"Segoe UI Emoji","Noto Color Emoji","Apple Color Emoji","EmojiOne Color","Android Emoji",sans-serif; }
   .tp-example-tile .label { font-size:12.5px; font-weight:700; color:#8a5a2a; }
 
+  .tp-detail-box { margin-top:18px; padding:16px 16px 14px; border-radius:16px; background:#F6F3FF; border:1.5px dashed #D8CDFF; }
+  .tp-detail-head { font-size:13.5px; font-weight:800; color:#6a4fc0; margin-bottom:10px; }
+  .tp-detail-optional { font-weight:600; color:#a594d6; font-size:12px; }
+  .tp-detail-row { margin-bottom:10px; }
+  .tp-detail-row:last-child { margin-bottom:0; }
+  .tp-detail-q { display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:700; color:var(--ink); margin-bottom:7px; }
+  .tp-listen-btn.sm { padding:3px 9px; font-size:12px; }
+  .tp-chip-grid { display:flex; flex-wrap:wrap; gap:8px; }
+  .tp-chip { border:1.5px solid #D8CDFF; background:#fff; color:#6a4fc0; font-size:12.5px; font-weight:700; padding:7px 13px; border-radius:999px; cursor:pointer; transition:all .15s; }
+  .tp-chip:hover { background:#EDE7FF; }
+  .tp-chip.active { background:linear-gradient(120deg,#8c6bfa,#b58cff); color:#fff; border-color:transparent; }
+
   .tp-custom-input { margin-top:12px; display:none; }
   .tp-custom-input.show { display:block; }
 
@@ -182,6 +194,17 @@
       </div>
       <div class="tp-mic-hint" id="micHint">🎤 버튼을 누르고 말하면 글자로 바뀌어요.</div>
       <div class="tp-example-grid" id="quickSubjects"></div>
+      <div class="tp-detail-box" id="tpDetailBox">
+        <div class="tp-detail-head">✨ 조금 더 자세히 적어볼까요? <span class="tp-detail-optional">(골라서 눌러보세요)</span></div>
+        <div class="tp-detail-row">
+          <div class="tp-detail-q"><span>무엇을 하고 있나요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('무엇을 하고 있나요?', this)">🔊</button></div>
+          <div class="tp-chip-grid" id="actionChips"></div>
+        </div>
+        <div class="tp-detail-row">
+          <div class="tp-detail-q"><span>어디에 있나요?</span><button type="button" class="tp-listen-btn sm" onclick="tpSpeak('어디에 있나요?', this)">🔊</button></div>
+          <div class="tp-chip-grid" id="placeChips"></div>
+        </div>
+      </div>
     </div>
     <div class="tp-nav-row">
       <button type="button" class="tp-nav-btn prev" onclick="tpGoto(1)">← 이전</button>
@@ -337,10 +360,66 @@ function tpGoto(step) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+let tpSubjectNudged = false;
+
 function tpValidateSubjectAndGoto(step) {
-  const subject = document.getElementById('subjectInput').value.trim();
-  if (!subject) { tpShowToast('머그컵에 그릴 그림을 입력하거나 골라주세요!'); document.getElementById('subjectInput').focus(); return; }
+  const input = document.getElementById('subjectInput');
+  const subject = input.value.trim();
+  if (!subject) { tpShowToast('머그컵에 그릴 그림을 입력하거나 골라주세요!'); input.focus(); return; }
+  const isDetailed = subject.includes(',') || subject.length >= 8;
+  if (!isDetailed && !tpSubjectNudged) {
+    tpSubjectNudged = true;
+    const msg = '조금 더 자세히 적어볼까요? 어떤 모습인지, 어디에 있는지도 함께 골라보면 더 멋진 그림이 나와요!';
+    tpShowToast(msg);
+    tpSpeak(msg);
+    return;
+  }
   tpGoto(step);
+}
+
+const ACTION_HINTS = {
+  '유아': ['뛰어노는', '잠자는', '웃고 있는', '밥 먹는', '춤추는'],
+  '초등': ['신나게 뛰어노는', '멋지게 점프하는', '활짝 웃는', '악기를 연주하는', '하이파이브 하는'],
+  '중고등': ['여유롭게 쉬고 있는', '역동적으로 움직이는', '무언가를 바라보는', '은은하게 빛나는', '친구와 함께 있는'],
+  '대학일반': ['차분하게 머무는', '은은하게 빛나는', '자연스럽게 놓여있는', '역동적인 구도의', '여유를 즐기는'],
+};
+const PLACE_HINTS = {
+  '유아': ['무지개 위', '구름 위', '꽃밭에서', '우주에서', '놀이터에서'],
+  '초등': ['학교 운동장에서', '우주 공간에서', '바닷속에서', '숲속에서', '놀이공원에서'],
+  '중고등': ['도시의 밤거리에서', '바닷가에서', '네온사인 거리에서', '조용한 방에서', '하늘 위에서'],
+  '대학일반': ['미니멀한 배경에', '자연 속 풍경에', '카페 공간에', '도시 야경 속에', '잔잔한 여백 위에'],
+};
+
+function tpAppendSubject(text) {
+  const input = document.getElementById('subjectInput');
+  const current = input.value.trim();
+  if (!current) { input.value = text; return; }
+  if (current.toLowerCase().includes(text.toLowerCase())) return;
+  input.value = current + ', ' + text;
+}
+
+function tpMakeChip(text) {
+  const chip = document.createElement('button');
+  chip.type = 'button';
+  chip.className = 'tp-chip';
+  chip.textContent = text;
+  chip.addEventListener('click', () => {
+    tpAppendSubject(text);
+    chip.classList.add('active');
+    tpSpeak(text);
+    document.getElementById('subjectInput').focus();
+  });
+  return chip;
+}
+
+function tpRenderDetailChips() {
+  const actionWrap = document.getElementById('actionChips');
+  const placeWrap = document.getElementById('placeChips');
+  if (!actionWrap || !placeWrap) return;
+  actionWrap.innerHTML = '';
+  placeWrap.innerHTML = '';
+  (ACTION_HINTS[tpAudience] || []).forEach(text => actionWrap.appendChild(tpMakeChip(text)));
+  (PLACE_HINTS[tpAudience] || []).forEach(text => placeWrap.appendChild(tpMakeChip(text)));
 }
 
 function tpRenderQuickSubjects() {
@@ -352,12 +431,13 @@ function tpRenderQuickSubjects() {
     tile.className = 'tp-example-tile';
     tile.innerHTML = `<span class="emoji">${item.emoji}</span><span class="label">${item.label}</span>`;
     tile.addEventListener('click', () => {
-      document.getElementById('subjectInput').value = item.label;
+      tpAppendSubject(item.label);
       document.getElementById('subjectInput').focus();
       tpSpeak(item.label);
     });
     wrap.appendChild(tile);
   });
+  tpRenderDetailChips();
 }
 
 function tpRenderVisualGroup(containerId, options, currentValue, onSelect, customWrapId, customInputId) {
@@ -658,6 +738,8 @@ function tpGenerate() {
 function tpRestart() {
   document.getElementById('tpPromptSection').classList.add('hidden');
   document.getElementById('subjectInput').value = '';
+  tpSubjectNudged = false;
+  document.querySelectorAll('#actionChips .tp-chip, #placeChips .tp-chip').forEach(c => c.classList.remove('active'));
   tpGoto(1);
 }
 
