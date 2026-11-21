@@ -487,7 +487,7 @@ let tpSubjectNudged = false;
 
 function tpValidateSubjectAndGoto(step) {
   const input = document.getElementById('subjectInput');
-  const subject = input.value.trim();
+  const subject = tpComposeParts().combined;
   if (!subject) { tpShowToast('머그컵에 그릴 그림을 입력하거나 골라주세요!'); input.focus(); return; }
   const isDetailed = subject.includes(',') || subject.length >= 8;
   if (!isDetailed && !tpSubjectNudged) {
@@ -545,6 +545,9 @@ const ACTION_ITEMS = {
   ],
 };
 
+let tpPlaceChosen = [];
+let tpActionChosen = [];
+
 function tpAppendSubject(text) {
   const input = document.getElementById('subjectInput');
   const current = input.value.trim();
@@ -553,27 +556,48 @@ function tpAppendSubject(text) {
   tpUpdateSubjectPreview();
 }
 
+function tpTogglePart(arr, text) {
+  const lower = text.toLowerCase();
+  if (!arr.some(v => v.toLowerCase().includes(lower))) arr.push(text);
+}
+
 function tpAddCustomDetail(inputId) {
   const el = document.getElementById(inputId);
   const value = el.value.trim();
   if (!value) return;
-  tpAppendSubject(value);
+  if (inputId === 'placeCustom') tpTogglePart(tpPlaceChosen, value);
+  else if (inputId === 'actionCustom') tpTogglePart(tpActionChosen, value);
+  else tpAppendSubject(value);
   el.value = '';
+  tpUpdateSubjectPreview();
+}
+
+function tpComposeParts() {
+  const placeCustom = (document.getElementById('placeCustom') || {}).value || '';
+  const actionCustom = (document.getElementById('actionCustom') || {}).value || '';
+  const place = [...tpPlaceChosen, placeCustom.trim()].filter(Boolean).join(', ');
+  const subject = (document.getElementById('subjectInput').value || '').trim();
+  const action = [...tpActionChosen, actionCustom.trim()].filter(Boolean).join(', ');
+  const combined = [place, subject, action].filter(Boolean).join(', ');
+  return { place, subject, action, combined };
 }
 
 function tpUpdateSubjectPreview() {
   const preview = document.getElementById('tpSubjectPreview');
   if (!preview) return;
-  preview.textContent = document.getElementById('subjectInput').value.trim();
+  preview.textContent = tpComposeParts().combined;
 }
 
-function tpMakeTile(item) {
+function tpMakeTile(item, kind) {
   const tile = document.createElement('button');
   tile.type = 'button';
   tile.className = 'tp-example-tile';
   tile.innerHTML = `<span class="emoji">${item.emoji}</span><span class="label">${item.label}</span>`;
   tile.addEventListener('click', () => {
-    tpAppendSubject(item.label);
+    if (kind === 'place') tpTogglePart(tpPlaceChosen, item.label);
+    else if (kind === 'action') tpTogglePart(tpActionChosen, item.label);
+    else tpAppendSubject(item.label);
+    tpUpdateSubjectPreview();
     tpSpeak(item.label);
   });
   return tile;
@@ -583,14 +607,14 @@ function tpRenderPlaceTiles() {
   const wrap = document.getElementById('placeTiles');
   if (!wrap) return;
   wrap.innerHTML = '';
-  (PLACE_ITEMS[tpAudience] || []).forEach(item => wrap.appendChild(tpMakeTile(item)));
+  (PLACE_ITEMS[tpAudience] || []).forEach(item => wrap.appendChild(tpMakeTile(item, 'place')));
 }
 
 function tpRenderActionTiles() {
   const wrap = document.getElementById('actionTiles');
   if (!wrap) return;
   wrap.innerHTML = '';
-  (ACTION_ITEMS[tpAudience] || []).forEach(item => wrap.appendChild(tpMakeTile(item)));
+  (ACTION_ITEMS[tpAudience] || []).forEach(item => wrap.appendChild(tpMakeTile(item, 'action')));
 }
 
 let tpCurrentCategory = null;
@@ -627,7 +651,7 @@ function tpRenderQuickSubjects() {
   const wrap = document.getElementById('quickSubjects');
   wrap.innerHTML = '';
   const items = (SUBJECT_ITEMS[tpAudience] || {})[tpCurrentCategory] || [];
-  items.forEach(item => wrap.appendChild(tpMakeTile(item)));
+  items.forEach(item => wrap.appendChild(tpMakeTile(item, 'subject')));
 }
 
 function tpRenderStep2Content() {
@@ -679,12 +703,19 @@ function tpSetupChoice(containerId, onSelect, itemClass) {
 tpSetupChoice('audienceBtns', (v, btn) => {
   tpAudience = v;
   tpCurrentCategory = null;
+  tpPlaceChosen = [];
+  tpActionChosen = [];
   tpRenderStep2Content();
+  tpUpdateSubjectPreview();
   const lb = btn.querySelector('.lb');
   if (lb) tpSpeak(lb.textContent);
 }, 'tp-audience-card');
 tpRenderStep2Content();
 document.getElementById('subjectInput').addEventListener('input', tpUpdateSubjectPreview);
+['placeCustom', 'actionCustom'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', tpUpdateSubjectPreview);
+});
 tpRenderVisualGroup('styleBtns', STYLE_OPTIONS, tpStyle, v => tpStyle = v, 'styleCustomWrap', 'styleCustom');
 tpRenderVisualGroup('moodBtns', MOOD_OPTIONS, tpMood, v => tpMood = v, 'moodCustomWrap', 'moodCustom');
 
@@ -726,7 +757,7 @@ function tpStartMic(inputId, btnEl) {
   tpRecognition.onresult = (e) => {
     const text = e.results[0][0].transcript;
     targetInput.value = text;
-    if (inputId === 'subjectInput') tpUpdateSubjectPreview();
+    tpUpdateSubjectPreview();
     tpSpeak(`${text} 라고 들었어요.`);
   };
   tpRecognition.onerror = () => {
@@ -865,7 +896,7 @@ function tpClearHistory() {
 }
 
 function tpGenerate() {
-  const subject = document.getElementById('subjectInput').value.trim();
+  const subject = tpComposeParts().combined;
   if (!subject) { tpShowToast('머그컵에 그릴 그림을 입력해 주세요!'); tpGoto(2); return; }
 
   const style = tpResolveVisual('styleBtns', tpStyle, 'styleCustom');
@@ -940,6 +971,8 @@ function tpRestart() {
   document.getElementById('subjectInput').value = '';
   tpSubjectNudged = false;
   tpCurrentCategory = null;
+  tpPlaceChosen = [];
+  tpActionChosen = [];
   ['placeCustom', 'actionCustom'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   tpRenderStep2Content();
   tpUpdateSubjectPreview();
