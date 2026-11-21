@@ -6986,6 +6986,14 @@ def _build_report_context(user, view_year=None, view_month=None):
         for d in _class_session_dates(enrollment.school_class, current_year, current_month):
             class_scheduled_days.add(d.day)
 
+    # 출석부에 결석으로 기록된 날 (수업일이거나 사유 메모가 있는 날). 등원 기록(출석/보강)이 있는 날은 제외
+    checked_in_days = set(present_days) | set(makeup_days)
+    absent_days = sorted({
+        r.date.day for r in ClassAttendance.objects.filter(
+            enrollment__in=enrolled_classes, date__year=current_year, date__month=current_month, is_present=False)
+        if (r.date.day in class_scheduled_days or r.note) and r.date.day not in checked_in_days
+    })
+
     holiday_days_labels = {}
     holiday_events = ScheduleEvent.objects.filter(
         event_type=ScheduleEvent.EVENT_TYPE_HOLIDAY, is_active=True,
@@ -7204,6 +7212,7 @@ def _build_report_context(user, view_year=None, view_month=None):
         'present_days': present_days,
         'makeup_days': makeup_days,
         'access_days': access_days,
+        'absent_days': absent_days,
         'enrolled_classes': enrolled_classes,
         'class_scheduled_days': class_scheduled_days,
         'holiday_days': holiday_days,
@@ -7689,6 +7698,27 @@ def api_admin_set_attendance(request, student_id):
         target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
     except (TypeError, ValueError):
         return JsonResponse({'status': 'error', 'message': '날짜 형식이 올바르지 않습니다.'}, status=400)
+
+    enrollments = ClassEnrollment.objects.filter(student=student, is_active=True)
+
+    if attendance_type == 'absent':
+        # 결석: 수강 중인 수업의 출석부에 결석으로 기록한다 (다음 달 청구서 결석 차감에 반영됨). 등원 기록은 지운다.
+        if not enrollments.exists():
+            return JsonResponse({'status': 'error', 'message': '수강 중인 수업이 없어 결석으로 처리할 수 없습니다.'}, status=400)
+        Attendance.objects.filter(user=student, date=target_date).delete()
+        for enrollment in enrollments:
+            ClassAttendance.objects.update_or_create(
+                enrollment=enrollment, date=target_date,
+                defaults={'is_present': False, 'note': '관리자 결석 처리'},
+            )
+        return JsonResponse({'status': 'success', 'attendance_type': 'absent', 'attendance_type_display': '결석'})
+
+    # 결석이 아닌 구분으로 바꾸면 출석부의 결석 표시도 함께 정리해, 달력과 수업비 차감이 어긋나지 않게 한다
+    absent_rows = ClassAttendance.objects.filter(enrollment__in=enrollments, date=target_date, is_present=False)
+    if attendance_type in ('present', 'makeup'):
+        absent_rows.update(is_present=True, note='')
+    else:
+        absent_rows.delete()
 
     if attendance_type == 'none':
         Attendance.objects.filter(user=student, date=target_date).delete()

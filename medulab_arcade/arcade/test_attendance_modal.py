@@ -6,7 +6,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from . import parent_notify
-from .models import Attendance, ClassEnrollment, SchoolClass
+from .models import Attendance, ClassAttendance, ClassEnrollment, SchoolClass
 
 
 class AttendanceModalTests(TestCase):
@@ -39,3 +39,31 @@ class AttendanceModalTests(TestCase):
         self.assertEqual(Attendance.objects.get(user=self.student).attendance_type, 'makeup')
         post('none')
         self.assertFalse(Attendance.objects.filter(user=self.student).exists())
+
+    def test_admin_can_mark_absent_and_calendar_shows_it(self):
+        today = timezone.localdate()
+        url = reverse('api_admin_set_attendance', args=[self.student.id])
+        post = lambda t: self.client.post(url, {'date': today.isoformat(), 'attendance_type': t}, content_type='application/json')
+        post('present')
+        res = post('absent')
+        self.assertEqual(res.json()['attendance_type'], 'absent')
+        self.assertFalse(Attendance.objects.filter(user=self.student).exists())   # 등원 기록은 지워진다
+        row = ClassAttendance.objects.get(enrollment__student=self.student, date=today)
+        self.assertFalse(row.is_present)
+        page = self.client.get(reverse('admin_student_report', args=[self.student.id]))
+        self.assertContains(page, '결석으로 변경')
+        self.assertIn(today.day, page.context['absent_days'])
+        self.assertContains(page, 'stamp-label">결석')
+        # 결석을 다른 구분으로 바꾸면 결석 표시도 사라진다
+        post('present')
+        self.assertTrue(ClassAttendance.objects.get(enrollment__student=self.student, date=today).is_present)
+        post('absent')
+        post('none')
+        self.assertFalse(ClassAttendance.objects.filter(enrollment__student=self.student).exists())
+
+    def test_cannot_mark_absent_without_class(self):
+        ClassEnrollment.objects.all().delete()
+        res = self.client.post(reverse('api_admin_set_attendance', args=[self.student.id]),
+                               {'date': timezone.localdate().isoformat(), 'attendance_type': 'absent'},
+                               content_type='application/json')
+        self.assertEqual(res.status_code, 400)

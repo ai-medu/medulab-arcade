@@ -224,6 +224,11 @@
         border-color: rgba(255, 255, 255, 0.15);
         color: rgba(255, 255, 255, 0.55);
     }
+    .calendar-cell.absent {
+        background: rgba(239, 68, 68, 0.12);
+        border-color: rgba(239, 68, 68, 0.35);
+        color: #f87171;
+    }
     .calendar-cell.class-day {
         border-color: rgba(245, 158, 11, 0.4);
     }
@@ -798,6 +803,7 @@
                                     {% if day in present_days %}attended
                                     {% elif day in makeup_days %}attended-makeup
                                     {% elif day in access_days %}attended-access
+                                    {% elif day in absent_days %}absent
                                     {% endif %}
                                     {% if day in class_scheduled_days %}class-day{% endif %}
                                     {% if day in holiday_days %}holiday{% endif %}
@@ -810,6 +816,8 @@
                                     <span class="attendance-stamp"><span class="stamp-icon">💙</span><span class="stamp-label">보강</span></span>
                                     {% elif day in access_days %}
                                     <span class="attendance-stamp"><span class="stamp-icon">📶</span><span class="stamp-label">접속</span></span>
+                                    {% elif day in absent_days %}
+                                    <span class="attendance-stamp"><span class="stamp-icon">❌</span><span class="stamp-label">결석</span></span>
                                     {% endif %}
                                     {% with label=holiday_days_labels|get_item:day %}
                                     {% if label %}
@@ -833,6 +841,7 @@
                     <button type="button" onclick="setAdminAttendance('present')" style="padding:12px; border-radius:10px; border:1px solid rgba(16,185,129,0.35); background:rgba(16,185,129,0.12); color:#10b981; font-weight:700; cursor:pointer;">💚 출석으로 변경</button>
                     <button type="button" onclick="setAdminAttendance('makeup')" style="padding:12px; border-radius:10px; border:1px solid rgba(96,165,250,0.35); background:rgba(96,165,250,0.12); color:#60a5fa; font-weight:700; cursor:pointer;">💙 보강으로 변경</button>
                     <button type="button" onclick="setAdminAttendance('access')" style="padding:12px; border-radius:10px; border:1px solid rgba(148,163,184,0.35); background:rgba(148,163,184,0.12); color:#94a3b8; font-weight:700; cursor:pointer;">📶 접속으로 변경</button>
+                    <button type="button" onclick="setAdminAttendance('absent')" style="padding:12px; border-radius:10px; border:1px solid rgba(239,68,68,0.5); background:rgba(239,68,68,0.18); color:#ef4444; font-weight:700; cursor:pointer;">❌ 결석으로 변경</button>
                     <button type="button" onclick="setAdminAttendance('none')" style="padding:12px; border-radius:10px; border:1px solid rgba(239,68,68,0.35); background:rgba(239,68,68,0.1); color:#f87171; font-weight:700; cursor:pointer;">🗑️ 기록 삭제</button>
                 </div>
                 <button type="button" onclick="closeAdminAttendanceModal()" style="margin-top:16px; width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--text-muted); cursor:pointer;">취소</button>
