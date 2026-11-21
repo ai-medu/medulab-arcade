@@ -174,10 +174,14 @@
   .tp-prompt-header span { font-size:17px; font-weight:800; color:var(--ink); display:block; margin-bottom:4px; }
   .tp-prompt-header small { color:#9d96bc; font-size:13px; }
   .tp-prompt-box { background:#FFF6EE; border-radius:12px; padding:16px; font-size:13px; line-height:1.8; color:#5a5475; white-space:pre-wrap; margin:14px 0 16px; border:1px solid #FFE4CE; word-break:break-word; max-height:400px; overflow-y:auto; }
-  .tp-copy-btn { padding:12px 32px; background:linear-gradient(120deg,var(--c2),var(--c)); color:#fff; border:none; border-radius:999px; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 4px 16px rgba(255,154,90,.3); transition:transform .2s; }
-  .tp-copy-btn:hover { transform:translateY(-2px); }
-  .tp-restart-btn { padding:12px 24px; background:#fff; color:#9d96bc; border:2px solid #FFE4CE; border-radius:999px; font-size:14px; font-weight:700; cursor:pointer; margin-left:10px; }
+  .tp-action-row { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:10px; margin-top:4px; }
+  .tp-action-row button { padding:12px 22px; border-radius:999px; font-size:14px; font-weight:700; cursor:pointer; white-space:nowrap; transition:transform .2s; }
+  .tp-action-row button:hover { transform:translateY(-2px); }
+  .tp-copy-btn { background:linear-gradient(120deg,var(--c2),var(--c)); color:#fff; border:none; box-shadow:0 4px 16px rgba(255,154,90,.3); }
+  .tp-restart-btn { background:#fff; color:#9d96bc; border:2px solid #FFE4CE; }
   .tp-restart-btn:hover { color:var(--c2); border-color:var(--c2); }
+  .tp-submit-open-btn { background:linear-gradient(120deg,#8c6bfa,#b58cff); color:#fff; border:none; box-shadow:0 4px 16px rgba(140,107,250,.3); }
+  @media (max-width:600px) { .tp-action-row { flex-direction:column; align-items:stretch; } .tp-action-row button { width:100%; } }
 
   .tp-mug-preview { display:flex; align-items:center; justify-content:center; gap:10px; margin-top:14px; padding:14px; background:#FFF8F1; border-radius:12px; border:1px dashed #FFCBA4; }
   .tp-mug-preview .shape { width:200px; max-width:70%; aspect-ratio:200/90; background:repeating-linear-gradient(135deg, rgba(255,154,90,.18) 0 10px, rgba(140,107,250,.12) 10px 20px); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:12px; color:#9d7a4a; font-weight:700; border:2px solid #FFCBA4; }
@@ -344,10 +348,11 @@
       <canvas id="tpPreviewCanvas" width="440" height="198" class="tp-preview-canvas"></canvas>
     </div>
     <p class="tp-preview-note">🎨 실제 이미지가 아니라 선택한 스타일·색감을 참고용으로 합성해 본 대략적인 미리보기예요.</p>
-    <button type="button" class="tp-copy-btn" onclick="tpCopyPrompt()">📋 프롬프트 복사하기</button>
-    <button type="button" class="tp-restart-btn" onclick="tpRestart()">🔄 처음부터 다시 만들기</button>
-    <br>
-    <button type="button" class="tp-copy-btn" style="margin-top:12px;" onclick="tpOpenSubmitModal()">📤 결과물 제출하기</button>
+    <div class="tp-action-row">
+      <button type="button" class="tp-copy-btn" onclick="tpCopyPrompt()">📋 프롬프트 복사하기</button>
+      <button type="button" class="tp-submit-open-btn" onclick="tpOpenSubmitModal()">📤 결과물 제출하기</button>
+      <button type="button" class="tp-restart-btn" onclick="tpRestart()">🔄 처음부터 다시 만들기</button>
+    </div>
   </div>
 
   <div id="tpHistoryModal" class="tp-modal-overlay hidden" onclick="if (event.target === this) tpCloseHistoryModal();">
@@ -892,37 +897,101 @@ function tpRoundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+function tpWrapLines(ctx, text, maxWidth, maxLines) {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = '';
+  for (const word of words) {
+    const test = line ? line + ' ' + word : word;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      lines.push(line);
+      line = word;
+      if (lines.length === maxLines - 1) break;
+    } else {
+      line = test;
+    }
+  }
+  if (line) lines.push(line);
+  if (lines.length > maxLines) lines.length = maxLines;
+  const used = lines.join(' ').length;
+  if (used < text.length && lines.length) {
+    lines[lines.length - 1] = lines[lines.length - 1].replace(/.{0,3}$/, '') + '…';
+  }
+  return lines;
+}
+
 function tpDrawPreview(subject, styleOpt, moodOpt) {
   const canvas = document.getElementById('tpPreviewCanvas');
   if (!canvas || !canvas.getContext) return;
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
-
-  function drawSubjectText(textX, align) {
-    ctx.fillStyle = (moodOpt && moodOpt.value === '고급스러운 모노톤 블랙&화이트, 무채색 위주') ? '#fff' : '#2E2A4A';
-    ctx.font = 'bold 20px sans-serif';
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = align;
-    ctx.fillText(subject, textX, H / 2, W - 40);
-  }
+  const isDark = moodOpt && (moodOpt.value || '').includes('모노톤 블랙') || (styleOpt && (styleOpt.value || '').includes('네온'));
+  const textColor = isDark ? '#fff' : '#2E2A4A';
 
   function paintBase() {
     ctx.clearRect(0, 0, W, H);
     const colors = (moodOpt && moodOpt.colors) ? moodOpt.colors : ['#FFF6EE', '#F1F0FF'];
     const grad = ctx.createLinearGradient(0, 0, W, H);
     colors.forEach((c, i) => grad.addColorStop(i / Math.max(colors.length - 1, 1), c));
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(46,42,74,.18)';
+    ctx.shadowBlur = 18;
+    ctx.shadowOffsetY = 6;
     ctx.fillStyle = grad;
-    tpRoundRect(ctx, 0, 0, W, H, 16);
+    tpRoundRect(ctx, 0, 0, W, H, 22);
     ctx.fill();
+    ctx.restore();
+
+    // 은은한 도트 패턴으로 질감 더하기
+    ctx.save();
+    tpRoundRect(ctx, 0, 0, W, H, 22);
+    ctx.clip();
+    ctx.fillStyle = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.35)';
+    for (let y = 10; y < H; y += 22) {
+      for (let x = (y / 22) % 2 === 0 ? 10 : 22; x < W; x += 22) {
+        ctx.beginPath();
+        ctx.arc(x, y, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
 
     const mmToPx = W / 200;
     const safe = 15 * mmToPx;
     ctx.save();
-    ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+    ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.18)';
     ctx.setLineDash([4, 4]);
-    ctx.strokeRect(safe, safe * 0.35, W - safe * 2, H - safe * 0.7);
+    ctx.lineWidth = 1;
+    tpRoundRect(ctx, safe, safe * 0.35, W - safe * 2, H - safe * 0.7, 10);
+    ctx.stroke();
     ctx.restore();
     return safe;
+  }
+
+  function drawIconBadge(x, size) {
+    const r = size / 2;
+    const cx = x + r, cy = H / 2;
+    ctx.save();
+    ctx.shadowColor = 'rgba(46,42,74,.2)';
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 3;
+    ctx.fillStyle = isDark ? 'rgba(255,255,255,0.1)' : '#fff';
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawSubjectLines(textX, align, maxWidth) {
+    ctx.fillStyle = textColor;
+    ctx.font = '800 19px "Pretendard","Segoe UI",sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = align;
+    const lines = tpWrapLines(ctx, subject, maxWidth, 3);
+    const lineH = 25;
+    const startY = H / 2 - ((lines.length - 1) * lineH) / 2;
+    lines.forEach((line, i) => ctx.fillText(line, textX, startY + i * lineH));
   }
 
   const safe = paintBase();
@@ -930,15 +999,18 @@ function tpDrawPreview(subject, styleOpt, moodOpt) {
   if (styleOpt && styleOpt.art) {
     const img = new Image();
     img.onload = () => {
-      const size = Math.min(H * 0.68, 120);
-      ctx.drawImage(img, safe + 14, (H - size) / 2, size, size);
-      drawSubjectText(safe + 14 + size + 16, 'left');
+      const size = Math.min(H * 0.6, 104);
+      const iconX = safe + 18;
+      drawIconBadge(iconX, size);
+      const pad = size * 0.16;
+      ctx.drawImage(img, iconX + pad, (H - size) / 2 + pad, size - pad * 2, size - pad * 2);
+      drawSubjectLines(iconX + size + 20, 'left', W - (iconX + size + 20) - safe - 10);
     };
-    img.onerror = () => drawSubjectText(W / 2, 'center');
+    img.onerror = () => drawSubjectLines(W / 2, 'center', W - safe * 2 - 20);
     const svgSrc = styleOpt.art.includes('xmlns') ? styleOpt.art : styleOpt.art.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
     img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgSrc)));
   } else {
-    drawSubjectText(W / 2, 'center');
+    drawSubjectLines(W / 2, 'center', W - safe * 2 - 20);
   }
 }
 
