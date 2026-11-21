@@ -1592,6 +1592,24 @@ class AIPromptCardOrder(models.Model):
         return f'카드 순서 ({self.updated_at:%Y-%m-%d %H:%M})'
 
 
+class MugCupSubmission(models.Model):
+    """AI 활용 머그컵 만들기 - 학생 결과물 제출 (로그인 불필요)"""
+    name = models.CharField('이름', max_length=50)
+    birthdate = models.CharField('생년월일', max_length=10, blank=True, default='')
+    audience = models.CharField('대상', max_length=20, blank=True, default='')
+    subject = models.TextField('내용(프롬프트 주제)', blank=True, default='')
+    image = models.ImageField('결과물 이미지', upload_to='mug_cup/submissions/%Y/%m/', blank=True, null=True)
+    created_at = models.DateTimeField('제출 시각', auto_now_add=True)
+
+    class Meta:
+        verbose_name = '머그컵 만들기 결과물 제출'
+        verbose_name_plural = '머그컵 만들기 결과물 제출'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.name} ({self.created_at:%Y-%m-%d %H:%M})'
+
+
 class ContentIdeaThumbnailSubmission(models.Model):
     """AI 프롬프트 생성기 - 나만의 콘텐츠 아이디어 찾기 썸네일 제출 (로그인 불필요)"""
     name = models.CharField('이름', max_length=50)

@@ -28,7 +28,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required, user_passes_test
 from .badge_service import get_active_badges_with_user_state, get_recent_user_badges, get_user_badge_count
 from .parent_notify import notify_attendance
-from .models import ClassDiscountType, Badge, Project, Category, Like, Bookmark, Tag, UserProfile, EmailChangeRequest, SignupEmailVerification, ScheduleAttachment, ScheduleEvent, Notice, Award, Certification, CertInfo, CompetitionType, Contest, SchoolClass, ClassEnrollment, ParentChildLink, TuitionInvoice, ClassAttendance, TuitionBatchPayment, InstagramConfig, InstagramPost, InstagramUploadDraft, InstagramUploadDraftItem, FutureCareerSave, ContentFinderSubmission, ContentIdeaThumbnailSubmission, AIPromptCardOrder, ContentFinderDraft, ContentIdeaFinderDraft, ContentPlanDraft, ChannelBrandingDraft
+from .models import ClassDiscountType, Badge, Project, Category, Like, Bookmark, Tag, UserProfile, EmailChangeRequest, SignupEmailVerification, ScheduleAttachment, ScheduleEvent, Notice, Award, Certification, CertInfo, CompetitionType, Contest, SchoolClass, ClassEnrollment, ParentChildLink, TuitionInvoice, ClassAttendance, TuitionBatchPayment, InstagramConfig, InstagramPost, InstagramUploadDraft, InstagramUploadDraftItem, FutureCareerSave, ContentFinderSubmission, ContentIdeaThumbnailSubmission, MugCupSubmission, AIPromptCardOrder, ContentFinderDraft, ContentIdeaFinderDraft, ContentPlanDraft, ChannelBrandingDraft
 from .forms import AdminOnboardingForm, apply_signup_extras, normalize_children_info, ProjectUploadForm, SignUpForm, AdminUserForm, AdminUserProfileForm, BadgeForm, ScheduleEventForm, TimetableForm, UserProfileUpdateForm, MedulabParentUpgradeForm, SocialOnboardingForm, SchoolClassForm
 from .holiday_utils import ensure_holidays
 
@@ -717,7 +717,100 @@ def ai_robot_project(request):
 
 
 def mug_cup_maker(request):
-    return render(request, 'arcade/mug_cup_maker.html')
+    profile_name = ''
+    profile_birthdate = ''
+    if request.user.is_authenticated:
+        try:
+            profile = request.user.profile
+            profile_name = profile.real_name or request.user.username
+            profile_birthdate = profile.birth_date.strftime('%Y-%m-%d') if profile.birth_date else ''
+        except UserProfile.DoesNotExist:
+            profile_name = request.user.username
+    return render(request, 'arcade/mug_cup_maker.html', {
+        'profile_name': profile_name,
+        'profile_birthdate': profile_birthdate,
+    })
+
+
+@require_POST
+def mug_cup_submission_submit(request):
+    """AI 활용 머그컵 만들기 - 결과물 제출 (로그인 불필요)"""
+    try:
+        payload = json.loads(request.body)
+    except (ValueError, TypeError):
+        return JsonResponse({'success': False, 'error': '잘못된 요청입니다.'}, status=400)
+
+    audience = (payload.get('audience') or '').strip()
+    subject = (payload.get('subject') or '').strip()
+    image_b64 = payload.get('image') or ''
+
+    if request.user.is_authenticated:
+        try:
+            profile = request.user.profile
+            name = profile.real_name or request.user.username
+            birthdate = profile.birth_date.strftime('%Y-%m-%d') if profile.birth_date else ''
+        except UserProfile.DoesNotExist:
+            name = request.user.username
+            birthdate = ''
+    else:
+        name = (payload.get('name') or '').strip()
+        birthdate = (payload.get('birthdate') or '').strip()
+
+    if not name:
+        return JsonResponse({'success': False, 'error': '이름을 입력해 주세요.'}, status=400)
+    if len(name) > 50:
+        return JsonResponse({'success': False, 'error': '이름은 50자 이내로 입력해 주세요.'}, status=400)
+    if not image_b64:
+        return JsonResponse({'success': False, 'error': '결과물 이미지를 붙여넣거나 선택해 주세요.'}, status=400)
+
+    submission = MugCupSubmission(name=name, birthdate=birthdate, audience=audience, subject=subject)
+
+    try:
+        header, b64data = image_b64.split(',', 1) if ',' in image_b64 else ('', image_b64)
+        img_bytes = base64.b64decode(b64data)
+        ext = 'png'
+        if 'jpeg' in header or 'jpg' in header:
+            ext = 'jpg'
+        elif 'webp' in header:
+            ext = 'webp'
+        filename = f'mug_{uuid.uuid4().hex[:8]}.{ext}'
+        submission.image = InMemoryUploadedFile(
+            io.BytesIO(img_bytes), 'image', filename, f'image/{ext}', len(img_bytes), None
+        )
+    except Exception:
+        return JsonResponse({'success': False, 'error': '이미지를 처리하지 못했습니다. 다시 시도해 주세요.'}, status=400)
+
+    submission.save()
+    return JsonResponse({'success': True})
+
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def mug_cup_submission_list(request):
+    """관리자용 - 머그컵 만들기 결과물 제출 목록"""
+    rows = MugCupSubmission.objects.order_by('-created_at')
+    items = [
+        {
+            'id': r.id,
+            'name': r.name,
+            'birthdate': r.birthdate,
+            'audience': r.audience,
+            'subject': r.subject,
+            'image_url': r.image.url if r.image else '',
+            'created_at': timezone.localtime(r.created_at).strftime('%Y-%m-%d %H:%M'),
+        }
+        for r in rows
+    ]
+    return JsonResponse({'success': True, 'items': items})
+
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+@require_POST
+def mug_cup_submission_delete(request, submission_id):
+    """관리자용 - 머그컵 만들기 결과물 제출 삭제"""
+    MugCupSubmission.objects.filter(pk=submission_id).delete()
+    return JsonResponse({'success': True})
 
 
 def content_idea_finder(request):

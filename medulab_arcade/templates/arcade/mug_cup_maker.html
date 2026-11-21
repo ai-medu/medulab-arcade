@@ -20,6 +20,47 @@
   .tp-modal-overlay { position:fixed; inset:0; background:rgba(30,20,50,.45); display:flex; align-items:center; justify-content:center; z-index:1000; padding:20px; }
   .tp-modal-overlay.hidden { display:none; }
   .tp-modal { background:#fff; border-radius:20px; padding:22px 24px; max-width:480px; width:100%; max-height:80vh; overflow-y:auto; box-shadow:0 12px 40px rgba(0,0,0,.2); }
+  .tp-modal.wide { max-width:720px; }
+
+  .tp-admin-open-btn { display:inline-flex; align-items:center; gap:6px; border:1.5px solid #D8CDFF; background:#F5F2FF; color:#6a4fc0; font-size:13px; font-weight:800; padding:8px 16px; border-radius:999px; cursor:pointer; transition:all .15s; }
+  .tp-admin-open-btn:hover { background:#EDE7FF; }
+
+  .tp-field-label { font-size:12.5px; font-weight:800; color:#8a84ab; margin:14px 0 6px; }
+  .tp-field-label:first-child { margin-top:0; }
+  .tp-submit-input { width:100%; padding:10px 14px; font-size:14px; border:1.5px solid #E7E2FF; border-radius:10px; box-sizing:border-box; }
+  .tp-submit-input[readonly] { background:#F5F2FF; color:#6a6486; }
+  .tp-paste-zone { border:2.5px dashed #C9BEFA; border-radius:16px; padding:24px 18px; text-align:center; color:#8a84ab; font-size:13px; cursor:text; background:#FAFAFF; transition:all .2s; outline:none; margin-top:6px; }
+  .tp-paste-zone:focus, .tp-paste-zone.dragover { border-color:var(--c2); background:#F5F2FF; }
+  .tp-paste-zone img { max-width:100%; border-radius:12px; margin-top:10px; box-shadow:0 6px 20px rgba(0,0,0,0.12); }
+  .tp-submit-status { margin-top:10px; font-size:13px; font-weight:700; min-height:18px; }
+  .tp-submit-status.ok { color:#0f9d78; }
+  .tp-submit-status.err { color:#e0405a; }
+  .tp-submit-btn { width:100%; margin-top:16px; padding:13px; border:none; border-radius:14px; background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; font-size:15px; font-weight:800; cursor:pointer; }
+
+  .tp-gallery-toolbar { display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+  .tp-gallery-toolbar button { border:1.5px solid #E7E2FF; background:#fff; color:#6a4fc0; font-size:12.5px; font-weight:800; padding:7px 14px; border-radius:999px; cursor:pointer; }
+  .tp-gallery-toolbar button:hover { background:#F5F2FF; }
+  .tp-gallery-toolbar button.primary { background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; border-color:transparent; }
+  .tp-list-row { display:flex; gap:12px; padding:12px 4px; border-bottom:1px solid #eee; align-items:flex-start; }
+  .tp-list-row:last-child { border-bottom:none; }
+  .tp-list-row input[type="checkbox"] { width:18px; height:18px; margin-top:4px; flex-shrink:0; }
+  .tp-list-thumb { width:96px; height:54px; border-radius:8px; object-fit:cover; flex-shrink:0; background:#f3f3f3; cursor:pointer; }
+  .tp-list-info { flex:1; min-width:0; }
+  .tp-list-info b { color:var(--ink); font-size:14px; }
+  .tp-list-info .meta { font-size:11.5px; color:#9a94b8; margin-top:4px; }
+  .tp-list-del { border:none; border-radius:8px; padding:6px 10px; font-size:12px; font-weight:700; cursor:pointer; background:#fee2e2; color:#b91c1c; flex-shrink:0; }
+  .tp-list-del:hover { background:#fecaca; }
+  .tp-list-empty { color:#9a94b8; font-size:13px; padding:24px 4px; text-align:center; }
+
+  #tpPrintArea { display:none; }
+  @media print {
+    body * { visibility:hidden; }
+    #tpPrintArea, #tpPrintArea * { visibility:visible; }
+    #tpPrintArea { display:block; position:absolute; left:0; top:0; width:100%; }
+    .tp-print-page { page-break-after:always; display:flex; flex-direction:column; gap:14mm; padding:10mm; }
+    .tp-print-page:last-child { page-break-after:auto; }
+    .tp-print-page img { width:100%; display:block; }
+  }
 
   .tp-hero { text-align:center; padding:8px 20px 20px; margin-bottom:4px; }
   .tp-hero .badge { display:inline-block; background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; font-size:13px; font-weight:bold; letter-spacing:1px; padding:5px 16px; border-radius:999px; margin-bottom:16px; }
@@ -170,7 +211,12 @@
 <div class="tp-wrap">
   <div class="tp-top-row">
     <a href="{% url 'ai_prompts' %}" class="tp-back">← AI 프롬프트 생성기</a>
-    <button type="button" id="tpHistoryOpenBtn" class="tp-history-open-btn hidden" onclick="tpOpenHistoryModal()">🕘 불러오기</button>
+    <div style="display:flex; gap:8px;">
+      {% if user.is_staff %}
+      <button type="button" class="tp-admin-open-btn" onclick="tpOpenGalleryModal()">🖼️ 제출 결과물</button>
+      {% endif %}
+      <button type="button" id="tpHistoryOpenBtn" class="tp-history-open-btn hidden" onclick="tpOpenHistoryModal()">🕘 불러오기</button>
+    </div>
   </div>
 
   <div class="tp-hero">
@@ -300,6 +346,8 @@
     <p class="tp-preview-note">🎨 실제 이미지가 아니라 선택한 스타일·색감을 참고용으로 합성해 본 대략적인 미리보기예요.</p>
     <button type="button" class="tp-copy-btn" onclick="tpCopyPrompt()">📋 프롬프트 복사하기</button>
     <button type="button" class="tp-restart-btn" onclick="tpRestart()">🔄 처음부터 다시 만들기</button>
+    <br>
+    <button type="button" class="tp-copy-btn" style="margin-top:12px;" onclick="tpOpenSubmitModal()">📤 결과물 제출하기</button>
   </div>
 
   <div id="tpHistoryModal" class="tp-modal-overlay hidden" onclick="if (event.target === this) tpCloseHistoryModal();">
@@ -314,6 +362,52 @@
       <div id="tpHistoryList" class="tp-history-list"></div>
     </div>
   </div>
+
+  <div id="tpSubmitModal" class="tp-modal-overlay hidden" onclick="if (event.target === this) tpCloseSubmitModal();">
+    <div class="tp-modal">
+      <div class="tp-history-head">
+        <span>📤 결과물 제출하기</span>
+        <button type="button" class="tp-history-close" onclick="tpCloseSubmitModal()" aria-label="닫기">✕</button>
+      </div>
+
+      <div class="tp-field-label">이름</div>
+      <input type="text" id="tpSubmitName" class="tp-submit-input" placeholder="이름을 입력해 주세요"
+        value="{{ profile_name }}" {% if user.is_authenticated %}readonly{% endif %}>
+
+      <div class="tp-field-label">생년월일</div>
+      <input type="text" id="tpSubmitBirthdate" class="tp-submit-input" placeholder="예: 2015-03-21"
+        value="{{ profile_birthdate }}" {% if user.is_authenticated %}readonly{% endif %}>
+
+      <div class="tp-field-label">결과물 이미지</div>
+      <p style="font-size:12px; color:#9d96bc; margin:0 0 4px;">AI가 만들어 준 이미지를 붙여넣거나(Ctrl+V), 파일로 선택해 주세요.</p>
+      <div class="tp-paste-zone" id="tpSubmitPasteZone" tabindex="0">📎 여기를 클릭하고 Ctrl+V로 이미지를 붙여넣으세요
+        <div id="tpSubmitPastePreview"></div>
+      </div>
+      <input type="file" id="tpSubmitFileInput" accept="image/*" style="margin-top:8px;">
+
+      <button type="button" class="tp-submit-btn" onclick="tpSubmitResult()">🚀 제출하기</button>
+      <div class="tp-submit-status" id="tpSubmitStatus"></div>
+    </div>
+  </div>
+
+  {% if user.is_staff %}
+  <div id="tpGalleryModal" class="tp-modal-overlay hidden" onclick="if (event.target === this) tpCloseGalleryModal();">
+    <div class="tp-modal wide">
+      <div class="tp-history-head">
+        <span>🖼️ 제출 결과물 (관리자)</span>
+        <button type="button" class="tp-history-close" onclick="tpCloseGalleryModal()" aria-label="닫기">✕</button>
+      </div>
+      <div class="tp-gallery-toolbar">
+        <button type="button" onclick="tpToggleAllGallery(true)">전체 선택</button>
+        <button type="button" onclick="tpToggleAllGallery(false)">선택 해제</button>
+        <button type="button" class="primary" onclick="tpPrintSelected()">🖨️ 선택 항목 인쇄 (3개씩)</button>
+      </div>
+      <div id="tpGalleryBody" class="tp-history-list">불러오는 중...</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div id="tpPrintArea"></div>
 </div>
 <div id="tpToast" class="tp-toast"></div>
 {% endblock %}
@@ -912,6 +1006,146 @@ function tpClearHistory() {
   tpRenderHistory();
   tpShowToast('최근 기록을 삭제했어요.');
 }
+
+/* ---- 결과물 제출하기 ---- */
+let tpSubmitImageDataUrl = '';
+
+function tpOpenSubmitModal() {
+  document.getElementById('tpSubmitModal').classList.remove('hidden');
+}
+function tpCloseSubmitModal() {
+  document.getElementById('tpSubmitModal').classList.add('hidden');
+}
+
+function tpSetSubmitImage(dataUrl) {
+  tpSubmitImageDataUrl = dataUrl;
+  document.getElementById('tpSubmitPastePreview').innerHTML = `<img src="${dataUrl}" alt="제출할 이미지">`;
+}
+
+const tpSubmitPasteZone = document.getElementById('tpSubmitPasteZone');
+if (tpSubmitPasteZone) {
+  tpSubmitPasteZone.addEventListener('paste', function(e) {
+    const items = (e.clipboardData || window.clipboardData).items;
+    for (const item of items) {
+      if (item.type.indexOf('image') !== -1) {
+        const blob = item.getAsFile();
+        const reader = new FileReader();
+        reader.onload = evt => tpSetSubmitImage(evt.target.result);
+        reader.readAsDataURL(blob);
+        e.preventDefault();
+        return;
+      }
+    }
+  });
+  tpSubmitPasteZone.addEventListener('click', () => tpSubmitPasteZone.focus());
+}
+
+const tpSubmitFileInput = document.getElementById('tpSubmitFileInput');
+if (tpSubmitFileInput) {
+  tpSubmitFileInput.addEventListener('change', () => {
+    const file = tpSubmitFileInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = evt => tpSetSubmitImage(evt.target.result);
+    reader.readAsDataURL(file);
+  });
+}
+
+function tpSubmitResult() {
+  const statusEl = document.getElementById('tpSubmitStatus');
+  const name = document.getElementById('tpSubmitName').value.trim();
+  const birthdate = document.getElementById('tpSubmitBirthdate').value.trim();
+
+  if (!name) { statusEl.className = 'tp-submit-status err'; statusEl.textContent = '이름을 입력해 주세요.'; document.getElementById('tpSubmitName').focus(); return; }
+  if (!tpSubmitImageDataUrl) { statusEl.className = 'tp-submit-status err'; statusEl.textContent = '결과물 이미지를 붙여넣거나 선택해 주세요.'; return; }
+
+  statusEl.className = 'tp-submit-status'; statusEl.textContent = '제출 중...';
+
+  fetch('{% url "mug_cup_submission_submit" %}', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+    body: JSON.stringify({
+      name, birthdate,
+      audience: tpAudience,
+      subject: tpComposeParts().combined,
+      image: tpSubmitImageDataUrl,
+    }),
+  }).then(r => r.json()).then(res => {
+    if (res.success) {
+      statusEl.className = 'tp-submit-status ok';
+      statusEl.textContent = '🎉 결과물이 제출되었습니다!';
+    } else {
+      statusEl.className = 'tp-submit-status err';
+      statusEl.textContent = res.error || '제출에 실패했습니다.';
+    }
+  }).catch(() => {
+    statusEl.className = 'tp-submit-status err';
+    statusEl.textContent = '제출 중 오류가 발생했습니다.';
+  });
+}
+
+{% if user.is_staff %}
+/* ---- 관리자: 제출 결과물 보기 / 인쇄 ---- */
+function tpOpenGalleryModal() {
+  document.getElementById('tpGalleryModal').classList.remove('hidden');
+  tpRefreshGallery();
+}
+function tpCloseGalleryModal() {
+  document.getElementById('tpGalleryModal').classList.add('hidden');
+}
+
+function tpRefreshGallery() {
+  const body = document.getElementById('tpGalleryBody');
+  body.innerHTML = '불러오는 중...';
+  fetch('{% url "mug_cup_submission_list" %}').then(r => r.json()).then(res => {
+    if (!res.success || !res.items.length) {
+      body.innerHTML = '<div class="tp-list-empty">제출된 결과물이 없습니다.</div>';
+      return;
+    }
+    body.innerHTML = res.items.map(item => `
+      <div class="tp-list-row" data-id="${item.id}">
+        <input type="checkbox" class="tp-gallery-check" value="${item.image_url}">
+        ${item.image_url ? `<img class="tp-list-thumb" src="${item.image_url}" onclick="window.open('${item.image_url}','_blank')">` : ''}
+        <div class="tp-list-info">
+          <b>${item.name}</b>
+          <div class="meta">대상: ${item.audience || '-'} ${item.birthdate ? '· 생년월일: ' + item.birthdate : ''}</div>
+          <div class="meta">${item.created_at}</div>
+        </div>
+        <button type="button" class="tp-list-del" onclick="tpDeleteSubmission(${item.id})">삭제</button>
+      </div>
+    `).join('');
+  }).catch(() => { body.innerHTML = '<div class="tp-list-empty">목록을 불러오지 못했습니다.</div>'; });
+}
+
+function tpToggleAllGallery(checked) {
+  document.querySelectorAll('.tp-gallery-check').forEach(cb => { cb.checked = checked; });
+}
+
+function tpDeleteSubmission(id) {
+  if (!confirm('이 제출 항목을 삭제할까요? 되돌릴 수 없습니다.')) return;
+  fetch(`/tools/mug-cup-maker/${id}/delete/`, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+  }).then(r => r.json()).then(res => {
+    if (res.success) tpRefreshGallery();
+    else alert('삭제에 실패했습니다.');
+  }).catch(() => alert('삭제 중 오류가 발생했습니다.'));
+}
+
+function tpPrintSelected() {
+  const urls = Array.from(document.querySelectorAll('.tp-gallery-check:checked')).map(cb => cb.value);
+  if (!urls.length) { alert('인쇄할 결과물을 선택해 주세요.'); return; }
+
+  const printArea = document.getElementById('tpPrintArea');
+  let html = '';
+  for (let i = 0; i < urls.length; i += 3) {
+    const chunk = urls.slice(i, i + 3);
+    html += `<div class="tp-print-page">${chunk.map(u => `<img src="${u}">`).join('')}</div>`;
+  }
+  printArea.innerHTML = html;
+  setTimeout(() => window.print(), 100);
+}
+{% endif %}
 
 function tpGenerate() {
   const subject = tpComposeParts().combined;
