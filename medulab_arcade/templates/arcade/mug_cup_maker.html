@@ -66,7 +66,9 @@
   .tp-choice-btn.active { background:linear-gradient(120deg,var(--c),var(--c2)); color:#fff; border-color:transparent; }
 
   /* example gallery with picture-like tiles */
-  .tp-example-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(118px,1fr)); gap:10px; margin-top:14px; }
+  .tp-example-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-top:14px; }
+  @media (max-width:720px) { .tp-example-grid { grid-template-columns:repeat(3,1fr); } }
+  @media (max-width:420px) { .tp-example-grid { grid-template-columns:repeat(2,1fr); } }
   .tp-example-tile { border:2px solid #FFE4CE; border-radius:14px; background:#FFF8F1; cursor:pointer; padding:12px 8px 10px; text-align:center; transition:all .15s; }
   .tp-example-tile:hover { border-color:var(--c); background:#FFEBD9; transform:translateY(-2px); }
   .tp-example-tile .emoji { font-size:34px; line-height:1; display:block; margin-bottom:6px; font-family:"Segoe UI Emoji","Noto Color Emoji","Apple Color Emoji","EmojiOne Color","Android Emoji",sans-serif; }
@@ -323,76 +325,110 @@ const CATEGORIES = [
 const SUBJECT_ITEMS = {
   '유아': {
     animal: [
-      {emoji:'🐶', label:'강아지'}, {emoji:'🐱', label:'고양이'}, {emoji:'🐻', label:'귀여운 곰돌이'},
-      {emoji:'🐢', label:'거북이'}, {emoji:'🐘', label:'코끼리'}, {emoji:'🦋', label:'나비'}, {emoji:'🐣', label:'병아리'},
+      {emoji:'🐶', label:'강아지'}, {emoji:'🐱', label:'고양이'}, {emoji:'🐻', label:'귀여운 곰돌이'}, {emoji:'🐢', label:'거북이'}, {emoji:'🐘', label:'코끼리'},
+      {emoji:'🦋', label:'나비'}, {emoji:'🐣', label:'병아리'}, {emoji:'🐰', label:'토끼'}, {emoji:'🦁', label:'사자'}, {emoji:'🐼', label:'판다'},
+      {emoji:'🦆', label:'오리'}, {emoji:'🐿️', label:'다람쥐'}, {emoji:'🐬', label:'돌고래'}, {emoji:'🐧', label:'펭귄'}, {emoji:'🐑', label:'양'},
     ],
     character: [
-      {emoji:'🦕', label:'공룡'}, {emoji:'🧜', label:'인어공주'}, {emoji:'🧙', label:'마법사'},
-      {emoji:'🦄', label:'유니콘'}, {emoji:'🤖', label:'로봇 친구'},
+      {emoji:'🦕', label:'공룡'}, {emoji:'🧜', label:'인어공주'}, {emoji:'🧙', label:'마법사'}, {emoji:'🦄', label:'유니콘'}, {emoji:'🤖', label:'로봇 친구'},
+      {emoji:'🧚', label:'요정'}, {emoji:'🤴', label:'기사'}, {emoji:'👸', label:'공주'}, {emoji:'🤠', label:'왕자'}, {emoji:'👻', label:'귀여운 유령 친구'},
+      {emoji:'👨‍🚀', label:'우주인'}, {emoji:'🏴‍☠️', label:'해적'}, {emoji:'🥷', label:'닌자'}, {emoji:'🧹', label:'마녀'}, {emoji:'👼', label:'천사'},
     ],
     object: [
-      {emoji:'🍓', label:'과일'}, {emoji:'🧁', label:'컵케이크'}, {emoji:'🚗', label:'자동차'},
-      {emoji:'🎈', label:'풍선'}, {emoji:'🍭', label:'사탕'},
+      {emoji:'🍓', label:'과일'}, {emoji:'🧁', label:'컵케이크'}, {emoji:'🚗', label:'자동차'}, {emoji:'🎈', label:'풍선'}, {emoji:'🍭', label:'사탕'},
+      {emoji:'🍦', label:'아이스크림'}, {emoji:'🧸', label:'장난감'}, {emoji:'🧱', label:'블록'}, {emoji:'🪆', label:'인형'}, {emoji:'🚂', label:'기차'},
+      {emoji:'✈️', label:'비행기'}, {emoji:'⛵', label:'배'}, {emoji:'☂️', label:'우산'}, {emoji:'👒', label:'모자'}, {emoji:'👟', label:'신발'},
     ],
     nature: [
-      {emoji:'🌈', label:'무지개'}, {emoji:'⭐', label:'반짝이는 별'}, {emoji:'🌻', label:'해바라기'},
-      {emoji:'🚀', label:'우주선'}, {emoji:'☁️', label:'뭉게구름'},
+      {emoji:'🌈', label:'무지개'}, {emoji:'⭐', label:'반짝이는 별'}, {emoji:'🌻', label:'해바라기'}, {emoji:'🚀', label:'우주선'}, {emoji:'☁️', label:'뭉게구름'},
+      {emoji:'🌳', label:'나무'}, {emoji:'🌼', label:'꽃'}, {emoji:'❄️', label:'눈송이'}, {emoji:'🌊', label:'파도'}, {emoji:'⛰️', label:'산'},
+      {emoji:'🌙', label:'달'}, {emoji:'☀️', label:'태양'}, {emoji:'🌊', label:'폭포'}, {emoji:'🍃', label:'바람에 날리는 나뭇잎'}, {emoji:'🫧', label:'비눗방울'},
     ],
   },
   '초등': {
     animal: [
-      {emoji:'🐼', label:'좋아하는 동물'}, {emoji:'🐠', label:'바닷속 물고기'}, {emoji:'🦋', label:'곤충 친구'}, {emoji:'🐶', label:'반려동물'},
+      {emoji:'🐼', label:'좋아하는 동물'}, {emoji:'🐠', label:'바닷속 물고기'}, {emoji:'🦋', label:'곤충 친구'}, {emoji:'🐶', label:'반려동물'}, {emoji:'🐱', label:'고양이'},
+      {emoji:'🐰', label:'토끼'}, {emoji:'🦜', label:'앵무새'}, {emoji:'🐢', label:'거북이'}, {emoji:'🦕', label:'공룡'}, {emoji:'🐧', label:'펭귄'},
+      {emoji:'🐼', label:'판다'}, {emoji:'🦊', label:'여우'}, {emoji:'🦌', label:'사슴'}, {emoji:'🦉', label:'부엉이'}, {emoji:'🐴', label:'말'},
     ],
     character: [
-      {emoji:'🏫', label:'우리 학교 마스코트'}, {emoji:'🦸', label:'내가 좋아하는 캐릭터'}, {emoji:'🎮', label:'게임 캐릭터'},
-      {emoji:'🧙', label:'마법사/판타지'}, {emoji:'🦖', label:'공룡 탐험'},
+      {emoji:'🏫', label:'우리 학교 마스코트'}, {emoji:'🦸', label:'내가 좋아하는 캐릭터'}, {emoji:'🎮', label:'게임 캐릭터'}, {emoji:'🧙', label:'마법사/판타지'}, {emoji:'🦖', label:'공룡 탐험'},
+      {emoji:'🦹', label:'슈퍼히어로'}, {emoji:'🧚', label:'요정'}, {emoji:'🤖', label:'로봇 친구'}, {emoji:'👨‍🚀', label:'우주 영웅'}, {emoji:'🥷', label:'닌자'},
+      {emoji:'⚔️', label:'기사'}, {emoji:'🧭', label:'탐험가'}, {emoji:'🪄', label:'마법 소녀'}, {emoji:'🧳', label:'모험가'}, {emoji:'🏴‍☠️', label:'우주 해적'},
     ],
     object: [
-      {emoji:'🍦', label:'아이스크림'}, {emoji:'🎸', label:'악기와 음악'}, {emoji:'🎨', label:'미술 도구'}, {emoji:'🍩', label:'좋아하는 간식'},
+      {emoji:'🍦', label:'아이스크림'}, {emoji:'🎸', label:'악기와 음악'}, {emoji:'🎨', label:'미술 도구'}, {emoji:'🍩', label:'좋아하는 간식'}, {emoji:'🧸', label:'장난감'},
+      {emoji:'⚽', label:'축구공'}, {emoji:'🎒', label:'책가방'}, {emoji:'🧱', label:'블록 장난감'}, {emoji:'🎲', label:'보드게임'}, {emoji:'🧩', label:'퍼즐'},
+      {emoji:'💻', label:'컴퓨터'}, {emoji:'📷', label:'카메라'}, {emoji:'🚲', label:'자전거'}, {emoji:'🛹', label:'스케이트보드'}, {emoji:'🎸', label:'기타'},
     ],
     nature: [
-      {emoji:'🪐', label:'우주와 행성'}, {emoji:'🌊', label:'바다 풍경'}, {emoji:'🌲', label:'숲속 풍경'},
+      {emoji:'🪐', label:'우주와 행성'}, {emoji:'🌊', label:'바다 풍경'}, {emoji:'🌲', label:'숲속 풍경'}, {emoji:'🌈', label:'무지개'}, {emoji:'✨', label:'별자리'},
+      {emoji:'💦', label:'폭포'}, {emoji:'⛰️', label:'산'}, {emoji:'🏞️', label:'호수'}, {emoji:'🌷', label:'꽃밭'}, {emoji:'❄️', label:'눈 내리는 풍경'},
+      {emoji:'🏜️', label:'사막'}, {emoji:'🕳️', label:'동굴'}, {emoji:'🌋', label:'화산'}, {emoji:'🧊', label:'빙하'}, {emoji:'🌌', label:'오로라'},
     ],
     hobby: [
-      {emoji:'⚽', label:'축구공과 스포츠'}, {emoji:'🚴', label:'자전거 타기'}, {emoji:'🎵', label:'춤·음악 활동'},
+      {emoji:'⚽', label:'축구공과 스포츠'}, {emoji:'🚴', label:'자전거 타기'}, {emoji:'🎵', label:'춤·음악 활동'}, {emoji:'🏊', label:'수영'}, {emoji:'⚾', label:'야구'},
+      {emoji:'🏀', label:'농구'}, {emoji:'🏸', label:'배드민턴'}, {emoji:'🪢', label:'줄넘기'}, {emoji:'🖍️', label:'그림 그리기'}, {emoji:'🎤', label:'노래 부르기'},
+      {emoji:'🎹', label:'악기 연주'}, {emoji:'🎲', label:'보드게임'}, {emoji:'🧩', label:'퍼즐 맞추기'}, {emoji:'🏕️', label:'캠핑'}, {emoji:'🥾', label:'등산'},
     ],
   },
   '중고등': {
     animal: [
-      {emoji:'🐉', label:'멋진 상상 속 동물'},
+      {emoji:'🐉', label:'멋진 상상 속 동물'}, {emoji:'🐺', label:'늑대'}, {emoji:'🐲', label:'용'}, {emoji:'🐯', label:'호랑이'}, {emoji:'🦁', label:'사자'},
+      {emoji:'🦅', label:'독수리'}, {emoji:'🔥', label:'불사조'}, {emoji:'🦄', label:'유니콘'}, {emoji:'🐆', label:'치타'}, {emoji:'🦈', label:'상어'},
+      {emoji:'🦅', label:'매'}, {emoji:'🦊', label:'여우'}, {emoji:'🐆', label:'흑표범'}, {emoji:'🐍', label:'코브라'}, {emoji:'🐙', label:'문어'},
     ],
     character: [
-      {emoji:'😎', label:'나만의 캐릭터 로고'}, {emoji:'👯', label:'우리 반 단체 캐릭터'}, {emoji:'🧝', label:'판타지 캐릭터'},
+      {emoji:'😎', label:'나만의 캐릭터 로고'}, {emoji:'👯', label:'우리 반 단체 캐릭터'}, {emoji:'🧝', label:'판타지 캐릭터'}, {emoji:'📺', label:'애니메이션 캐릭터'}, {emoji:'🎮', label:'게임 속 주인공'},
+      {emoji:'🤖', label:'사이버펑크 캐릭터'}, {emoji:'🦸', label:'히어로'}, {emoji:'🦹', label:'빌런'}, {emoji:'🧙', label:'마법사'}, {emoji:'⚔️', label:'전사'},
+      {emoji:'🎤', label:'아이돌 캐릭터'}, {emoji:'🤖', label:'로봇 전사'}, {emoji:'👻', label:'유령 친구'}, {emoji:'🕵️', label:'탐정 캐릭터'}, {emoji:'🛹', label:'스트릿 캐릭터'},
     ],
     object: [
-      {emoji:'📸', label:'필름 카메라 감성'}, {emoji:'🎧', label:'음악/힙합 느낌'}, {emoji:'🛹', label:'스트릿/스케이트 감성'},
+      {emoji:'📸', label:'필름 카메라 감성'}, {emoji:'🎧', label:'음악/힙합 느낌'}, {emoji:'🛹', label:'스트릿/스케이트 감성'}, {emoji:'🎧', label:'헤드폰'}, {emoji:'👟', label:'스니커즈'},
+      {emoji:'🧥', label:'후드티'}, {emoji:'🎸', label:'기타'}, {emoji:'💿', label:'턴테이블'}, {emoji:'🧴', label:'스프레이 캔'}, {emoji:'🛹', label:'스케이트보드'},
+      {emoji:'🕶️', label:'선글라스'}, {emoji:'🏍️', label:'오토바이'}, {emoji:'🚲', label:'자전거'}, {emoji:'🎲', label:'보드게임'}, {emoji:'📚', label:'책'},
     ],
     nature: [
-      {emoji:'✨', label:'별자리/타로 느낌'}, {emoji:'🌃', label:'도시 밤하늘'},
+      {emoji:'✨', label:'별자리/타로 느낌'}, {emoji:'🌃', label:'도시 밤하늘'}, {emoji:'🌌', label:'은하수'}, {emoji:'🌇', label:'노을'}, {emoji:'⛈️', label:'폭풍우'},
+      {emoji:'⚡', label:'번개'}, {emoji:'🌌', label:'오로라'}, {emoji:'🌙', label:'달빛'}, {emoji:'🔥', label:'불꽃'}, {emoji:'🌫️', label:'안개'},
+      {emoji:'❄️', label:'눈보라'}, {emoji:'🌊', label:'파도'}, {emoji:'🏜️', label:'사막'}, {emoji:'🌋', label:'화산'}, {emoji:'🧊', label:'빙하'},
     ],
     hobby: [
-      {emoji:'🏀', label:'좋아하는 스포츠'}, {emoji:'🎵', label:'동아리 상징 그림'}, {emoji:'🎹', label:'좋아하는 아티스트 느낌'},
+      {emoji:'🏀', label:'좋아하는 스포츠'}, {emoji:'🎵', label:'동아리 상징 그림'}, {emoji:'🎹', label:'좋아하는 아티스트 느낌'}, {emoji:'⚽', label:'축구'}, {emoji:'⚾', label:'야구'},
+      {emoji:'🏸', label:'배드민턴'}, {emoji:'💃', label:'댄스'}, {emoji:'🎸', label:'밴드 활동'}, {emoji:'📷', label:'사진 동아리'}, {emoji:'🎮', label:'게임 동아리'},
+      {emoji:'🛹', label:'스케이트보드'}, {emoji:'🧗', label:'클라이밍'}, {emoji:'🎳', label:'볼링'}, {emoji:'🎧', label:'e스포츠'}, {emoji:'🏋️', label:'헬스'},
     ],
     pattern: [
-      {emoji:'💬', label:'좋아하는 문구 + 그림'}, {emoji:'🧩', label:'추상적인 패턴'},
+      {emoji:'💬', label:'좋아하는 문구 + 그림'}, {emoji:'🧩', label:'추상적인 패턴'}, {emoji:'🔷', label:'기하학 무늬'}, {emoji:'🎨', label:'그래피티 패턴'}, {emoji:'🏁', label:'체크 패턴'},
+      {emoji:'🔤', label:'타이포그래피'}, {emoji:'🏷️', label:'로고 디자인'}, {emoji:'💥', label:'만화풍 패턴'}, {emoji:'🗒️', label:'스티커 콜라주'}, {emoji:'🟪', label:'픽셀 패턴'},
+      {emoji:'➰', label:'줄무늬 패턴'}, {emoji:'✨', label:'별무늬 패턴'}, {emoji:'💗', label:'하트 패턴'}, {emoji:'⚪', label:'도트 패턴'}, {emoji:'🌈', label:'그라데이션 패턴'},
     ],
   },
   '대학일반': {
     animal: [
-      {emoji:'🐾', label:'우리집 반려동물'},
+      {emoji:'🐾', label:'우리집 반려동물'}, {emoji:'🐶', label:'강아지'}, {emoji:'🐱', label:'고양이'}, {emoji:'🐴', label:'말'}, {emoji:'🦁', label:'사자'},
+      {emoji:'🦅', label:'독수리'}, {emoji:'🐋', label:'고래'}, {emoji:'🦊', label:'여우'}, {emoji:'🦌', label:'사슴'}, {emoji:'🦉', label:'부엉이'},
+      {emoji:'🐰', label:'토끼'}, {emoji:'🦜', label:'앵무새'}, {emoji:'🐢', label:'거북이'}, {emoji:'🐧', label:'펭귄'}, {emoji:'🐯', label:'호랑이'},
     ],
     object: [
-      {emoji:'☕', label:'좋아하는 취미(커피, 책, 여행)'}, {emoji:'🍷', label:'와인·카페 무드'},
+      {emoji:'☕', label:'좋아하는 취미(커피, 책, 여행)'}, {emoji:'🍷', label:'와인·카페 무드'}, {emoji:'📷', label:'카메라'}, {emoji:'🚗', label:'자동차'}, {emoji:'⌚', label:'시계'},
+      {emoji:'👓', label:'안경'}, {emoji:'🕯️', label:'향초'}, {emoji:'📚', label:'책'}, {emoji:'🖋️', label:'만년필'}, {emoji:'🏺', label:'빈티지 소품'},
+      {emoji:'☕', label:'커피잔'}, {emoji:'🚲', label:'자전거'}, {emoji:'⛺', label:'캠핑 장비'}, {emoji:'⛳', label:'골프 용품'}, {emoji:'🎸', label:'악기'},
     ],
     nature: [
-      {emoji:'🌿', label:'식물/보태니컬 일러스트'}, {emoji:'🏙️', label:'도시 풍경'}, {emoji:'🌅', label:'여행지 풍경'},
+      {emoji:'🌿', label:'식물/보태니컬 일러스트'}, {emoji:'🏙️', label:'도시 풍경'}, {emoji:'🌅', label:'여행지 풍경'}, {emoji:'⛰️', label:'산'}, {emoji:'🌊', label:'바다'},
+      {emoji:'🏞️', label:'호수'}, {emoji:'🌲', label:'숲'}, {emoji:'🏜️', label:'사막'}, {emoji:'🌌', label:'오로라'}, {emoji:'🌇', label:'노을'},
+      {emoji:'✨', label:'별빛'}, {emoji:'💦', label:'폭포'}, {emoji:'🌾', label:'들판'}, {emoji:'🪴', label:'정원'}, {emoji:'🏞️', label:'강'},
     ],
     hobby: [
-      {emoji:'🏃', label:'러닝/운동 취미'}, {emoji:'🗓️', label:'팀/부서 단체 굿즈'},
+      {emoji:'🏃', label:'러닝/운동 취미'}, {emoji:'🗓️', label:'팀/부서 단체 굿즈'}, {emoji:'⛳', label:'골프'}, {emoji:'🧘', label:'요가'}, {emoji:'🥾', label:'등산'},
+      {emoji:'⛺', label:'캠핑'}, {emoji:'🚴', label:'사이클링'}, {emoji:'🏊', label:'수영'}, {emoji:'🎾', label:'테니스'}, {emoji:'🧗', label:'클라이밍'},
+      {emoji:'🎣', label:'낚시'}, {emoji:'🍷', label:'와인 테이스팅'}, {emoji:'📷', label:'사진 촬영'}, {emoji:'📖', label:'독서'}, {emoji:'✈️', label:'여행'},
     ],
     pattern: [
-      {emoji:'🏷️', label:'심플한 브랜드 로고풍 그림'}, {emoji:'🔷', label:'미니멀한 패턴 디자인'},
-      {emoji:'📣', label:'응원 문구 + 아이콘'}, {emoji:'📐', label:'기하학적 패턴'},
+      {emoji:'🏷️', label:'심플한 브랜드 로고풍 그림'}, {emoji:'🔷', label:'미니멀한 패턴 디자인'}, {emoji:'📣', label:'응원 문구 + 아이콘'}, {emoji:'📐', label:'기하학적 패턴'}, {emoji:'🔤', label:'타이포그래피 디자인'},
+      {emoji:'🌈', label:'그라데이션 패턴'}, {emoji:'📏', label:'라인 아트 패턴'}, {emoji:'🏛️', label:'아르데코 패턴'}, {emoji:'🏷️', label:'모던 로고'}, {emoji:'⭕', label:'심볼 마크'},
+      {emoji:'🔠', label:'모노그램'}, {emoji:'✍️', label:'캘리그라피'}, {emoji:'🎭', label:'추상화 패턴'}, {emoji:'🏁', label:'체크 무늬'}, {emoji:'➖', label:'스트라이프 패턴'},
     ],
   },
 };
@@ -466,38 +502,46 @@ function tpValidateSubjectAndGoto(step) {
 
 const PLACE_ITEMS = {
   '유아': [
-    {emoji:'🌈', label:'무지개 위'}, {emoji:'☁️', label:'구름 위'}, {emoji:'🌸', label:'꽃밭에서'}, {emoji:'🪐', label:'우주에서'},
-    {emoji:'🛝', label:'놀이터에서'}, {emoji:'🌊', label:'바닷속에서'}, {emoji:'🏠', label:'집 안에서'}, {emoji:'🎪', label:'놀이공원에서'},
+    {emoji:'🌈', label:'무지개 위'}, {emoji:'☁️', label:'구름 위'}, {emoji:'🌸', label:'꽃밭에서'}, {emoji:'🪐', label:'우주에서'}, {emoji:'🛝', label:'놀이터에서'},
+    {emoji:'🌊', label:'바닷속에서'}, {emoji:'🏠', label:'집 안에서'}, {emoji:'🎪', label:'놀이공원에서'}, {emoji:'🏞️', label:'공원에서'}, {emoji:'🦕', label:'공룡의 숲에서'},
+    {emoji:'🏰', label:'성 안에서'}, {emoji:'🚂', label:'기차 안에서'}, {emoji:'🍭', label:'사탕 나라에서'}, {emoji:'🌙', label:'달나라에서'}, {emoji:'🧸', label:'인형의 방에서'},
   ],
   '초등': [
-    {emoji:'🏫', label:'학교 운동장에서'}, {emoji:'🪐', label:'우주 공간에서'}, {emoji:'🌊', label:'바닷속에서'}, {emoji:'🌲', label:'숲속에서'},
-    {emoji:'🎡', label:'놀이공원에서'}, {emoji:'🌙', label:'밤하늘 아래에서'}, {emoji:'⚽', label:'운동장에서'}, {emoji:'🏕️', label:'캠핑장에서'},
+    {emoji:'🏫', label:'학교 운동장에서'}, {emoji:'🪐', label:'우주 공간에서'}, {emoji:'🌊', label:'바닷속에서'}, {emoji:'🌲', label:'숲속에서'}, {emoji:'🎡', label:'놀이공원에서'},
+    {emoji:'🌙', label:'밤하늘 아래에서'}, {emoji:'⚽', label:'운동장에서'}, {emoji:'🏕️', label:'캠핑장에서'}, {emoji:'🏖️', label:'해변에서'}, {emoji:'🏙️', label:'도시에서'},
+    {emoji:'🏞️', label:'산속에서'}, {emoji:'🎪', label:'서커스장에서'}, {emoji:'🏯', label:'옛날 성에서'}, {emoji:'🚀', label:'우주 정거장에서'}, {emoji:'🏟️', label:'경기장에서'},
   ],
   '중고등': [
-    {emoji:'🌃', label:'도시의 밤거리에서'}, {emoji:'🏖️', label:'바닷가에서'}, {emoji:'💡', label:'네온사인 거리에서'}, {emoji:'🛋️', label:'조용한 방에서'},
-    {emoji:'☁️', label:'하늘 위에서'}, {emoji:'🎤', label:'콘서트장에서'}, {emoji:'🚉', label:'기차역에서'}, {emoji:'📚', label:'도서관에서'},
+    {emoji:'🌃', label:'도시의 밤거리에서'}, {emoji:'🏖️', label:'바닷가에서'}, {emoji:'💡', label:'네온사인 거리에서'}, {emoji:'🛋️', label:'조용한 방에서'}, {emoji:'☁️', label:'하늘 위에서'},
+    {emoji:'🎤', label:'콘서트장에서'}, {emoji:'🚉', label:'기차역에서'}, {emoji:'📚', label:'도서관에서'}, {emoji:'🏙️', label:'옥상에서'}, {emoji:'🌌', label:'은하수 아래에서'},
+    {emoji:'🏚️', label:'골목길에서'}, {emoji:'🛹', label:'스케이트파크에서'}, {emoji:'🏫', label:'교실에서'}, {emoji:'🌧️', label:'비 오는 거리에서'}, {emoji:'🕹️', label:'오락실에서'},
   ],
   '대학일반': [
-    {emoji:'⬜', label:'미니멀한 배경에'}, {emoji:'🏞️', label:'자연 속 풍경에'}, {emoji:'☕', label:'카페 공간에'}, {emoji:'🌃', label:'도시 야경 속에'},
-    {emoji:'⬛', label:'잔잔한 여백 위에'}, {emoji:'💻', label:'사무실 책상 위에'}, {emoji:'✈️', label:'공항·여행지에서'}, {emoji:'🏡', label:'집 거실에서'},
+    {emoji:'⬜', label:'미니멀한 배경에'}, {emoji:'🏞️', label:'자연 속 풍경에'}, {emoji:'☕', label:'카페 공간에'}, {emoji:'🌃', label:'도시 야경 속에'}, {emoji:'⬛', label:'잔잔한 여백 위에'},
+    {emoji:'💻', label:'사무실 책상 위에'}, {emoji:'✈️', label:'공항·여행지에서'}, {emoji:'🏡', label:'집 거실에서'}, {emoji:'🏖️', label:'휴양지에서'}, {emoji:'🌲', label:'산책로에서'},
+    {emoji:'🏔️', label:'산 정상에서'}, {emoji:'🚗', label:'자동차 안에서'}, {emoji:'🧳', label:'여행 가방 위에'}, {emoji:'🍷', label:'와인바에서'}, {emoji:'📚', label:'서재에서'},
   ],
 };
 const ACTION_ITEMS = {
   '유아': [
-    {emoji:'🏃', label:'뛰어노는'}, {emoji:'😴', label:'잠자는'}, {emoji:'😊', label:'웃고 있는'}, {emoji:'🍚', label:'밥 먹는'},
-    {emoji:'💃', label:'춤추는'}, {emoji:'👋', label:'손을 흔드는'}, {emoji:'🎨', label:'그림 그리는'}, {emoji:'🤗', label:'안아주는'},
+    {emoji:'🏃', label:'뛰어노는'}, {emoji:'😴', label:'잠자는'}, {emoji:'😊', label:'웃고 있는'}, {emoji:'🍚', label:'밥 먹는'}, {emoji:'💃', label:'춤추는'},
+    {emoji:'👋', label:'손을 흔드는'}, {emoji:'🎨', label:'그림 그리는'}, {emoji:'🤗', label:'안아주는'}, {emoji:'🎵', label:'노래하는'}, {emoji:'🛁', label:'목욕하는'},
+    {emoji:'📖', label:'책 읽는'}, {emoji:'🧩', label:'퍼즐 맞추는'}, {emoji:'🪁', label:'연 날리는'}, {emoji:'🎁', label:'선물 주는'}, {emoji:'😋', label:'간식 먹는'},
   ],
   '초등': [
-    {emoji:'🏃', label:'신나게 뛰어노는'}, {emoji:'🤸', label:'멋지게 점프하는'}, {emoji:'😄', label:'활짝 웃는'}, {emoji:'🎸', label:'악기를 연주하는'},
-    {emoji:'🙌', label:'하이파이브 하는'}, {emoji:'⚽', label:'공을 차는'}, {emoji:'📖', label:'책을 읽는'}, {emoji:'🎤', label:'노래 부르는'},
+    {emoji:'🏃', label:'신나게 뛰어노는'}, {emoji:'🤸', label:'멋지게 점프하는'}, {emoji:'😄', label:'활짝 웃는'}, {emoji:'🎸', label:'악기를 연주하는'}, {emoji:'🙌', label:'하이파이브 하는'},
+    {emoji:'⚽', label:'공을 차는'}, {emoji:'📖', label:'책을 읽는'}, {emoji:'🎤', label:'노래 부르는'}, {emoji:'🚴', label:'자전거를 타는'}, {emoji:'🎨', label:'그림을 그리는'},
+    {emoji:'🏊', label:'수영하는'}, {emoji:'🎯', label:'목표를 맞히는'}, {emoji:'🤝', label:'친구와 손잡는'}, {emoji:'🧗', label:'암벽을 오르는'}, {emoji:'🎉', label:'축하하는'},
   ],
   '중고등': [
-    {emoji:'😌', label:'여유롭게 쉬고 있는'}, {emoji:'💨', label:'역동적으로 움직이는'}, {emoji:'👀', label:'무언가를 바라보는'}, {emoji:'✨', label:'은은하게 빛나는'},
-    {emoji:'🧑‍🤝‍🧑', label:'친구와 함께 있는'}, {emoji:'💃', label:'춤을 추는'}, {emoji:'🎧', label:'음악을 듣는'}, {emoji:'📸', label:'사진을 찍는'},
+    {emoji:'😌', label:'여유롭게 쉬고 있는'}, {emoji:'💨', label:'역동적으로 움직이는'}, {emoji:'👀', label:'무언가를 바라보는'}, {emoji:'✨', label:'은은하게 빛나는'}, {emoji:'🧑‍🤝‍🧑', label:'친구와 함께 있는'},
+    {emoji:'💃', label:'춤을 추는'}, {emoji:'🎧', label:'음악을 듣는'}, {emoji:'📸', label:'사진을 찍는'}, {emoji:'🚶', label:'거리를 걷는'}, {emoji:'🖊️', label:'글을 쓰는'},
+    {emoji:'🎮', label:'게임을 하는'}, {emoji:'🛹', label:'보드를 타는'}, {emoji:'😎', label:'포즈를 취하는'}, {emoji:'🌙', label:'밤을 즐기는'}, {emoji:'🤘', label:'자유로움을 느끼는'},
   ],
   '대학일반': [
-    {emoji:'🧘', label:'차분하게 머무는'}, {emoji:'✨', label:'은은하게 빛나는'}, {emoji:'🖼️', label:'자연스럽게 놓여있는'}, {emoji:'🌀', label:'역동적인 구도의'},
-    {emoji:'☕', label:'커피를 마시는'}, {emoji:'📖', label:'책을 보는'}, {emoji:'🚶', label:'산책하는'}, {emoji:'😌', label:'여유를 즐기는'},
+    {emoji:'🧘', label:'차분하게 머무는'}, {emoji:'✨', label:'은은하게 빛나는'}, {emoji:'🖼️', label:'자연스럽게 놓여있는'}, {emoji:'🌀', label:'역동적인 구도의'}, {emoji:'☕', label:'커피를 마시는'},
+    {emoji:'📖', label:'책을 보는'}, {emoji:'🚶', label:'산책하는'}, {emoji:'😌', label:'여유를 즐기는'}, {emoji:'💼', label:'일에 집중하는'}, {emoji:'🧑‍💻', label:'작업하는'},
+    {emoji:'🍷', label:'와인을 즐기는'}, {emoji:'🌇', label:'노을을 바라보는'}, {emoji:'🎧', label:'음악을 감상하는'}, {emoji:'🤝', label:'미팅을 하는'}, {emoji:'🧳', label:'여행을 떠나는'},
   ],
 };
 
