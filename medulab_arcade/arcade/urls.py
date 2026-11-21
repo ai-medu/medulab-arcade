@@ -1,9 +1,10 @@
 from django.urls import path, re_path
-from . import views, special_lecture, meducode
+from . import views, special_lecture, meducode, absence_report
 
 urlpatterns = [
     path('', views.home, name='home'),
     path('works/', views.works_gallery, name='works_gallery'),
+    path('absence/<str:token>/', absence_report.absence_report, name='absence_report'),
     path('meducode/api/projects/', meducode.api_projects, name='meducode_api_projects'),
     path('meducode/api/projects/<int:pk>/', meducode.api_project_detail, name='meducode_api_project'),
     path('meducode/', meducode.meducode_app, name='meducode'),

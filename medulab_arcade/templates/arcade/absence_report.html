@@ -1,0 +1,48 @@
+{% extends 'arcade/base.html' %}
+
+{% block title %}결석 사유 알리기 - 메듀랩{% endblock %}
+
+{% block extra_css %}{% include 'arcade/special/_style.html' %}
+<style>
+.ab-reason { display:flex; align-items:center; gap:10px; padding:14px 16px; border:1px solid var(--border); border-radius:12px; margin-bottom:10px; cursor:pointer; font-size:15px; background:var(--bg-card); }
+.ab-reason input { width:18px; height:18px; flex-shrink:0; }
+.ab-reason:has(input:checked) { border-color:var(--accent-blue); box-shadow:0 0 0 2px rgba(59,130,246,.25); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sp-wrap" style="max-width:520px;">
+    {% if state == 'invalid' %}
+    <h1 class="sp-title">🔗 링크를 열 수 없어요</h1>
+    <div class="sp-notice warn">이 링크는 만료되었거나 올바르지 않아요. (안내를 받고 3일이 지나면 열 수 없어요.)<br>결석 사유는 학원으로 직접 연락해 주세요.</div>
+
+    {% elif state == 'attended' %}
+    <h1 class="sp-title">✅ 이미 출석했어요</h1>
+    <div class="sp-notice good"><b>{{ student_name }}</b> 학생은 {{ date|date:"n월 j일" }} <b>{{ class_name }}</b> 수업에 이미 출석 처리되어 있어요. 따로 알리실 내용은 없어요.</div>
+
+    {% elif state == 'done' %}
+    <h1 class="sp-title">📨 전달되었어요</h1>
+    <div class="sp-notice good">
+        <b>{{ student_name }}</b> 학생의 {{ date|date:"n월 j일" }} <b>{{ class_name }}</b> 수업 <b>결석</b>이 접수되었어요.<br>
+        사유: {{ reason }}
+    </div>
+    <p class="sp-sub">사유를 바꾸고 싶으면 이 링크를 다시 열어 새로 선택해 주세요. 선생님께서 확인하세요.</p>
+
+    {% else %}
+    <h1 class="sp-title">📝 결석 사유 알리기</h1>
+    <p class="sp-sub"><b>{{ student_name }}</b> 학생 · {{ date|date:"n월 j일" }} <b>{{ class_name }}</b>{% if start_time %} ({{ start_time|time:"H:i" }} 시작){% endif %}<br>오늘 수업에 오지 못하는 이유를 선택해 주세요. 제출하면 출석부에 <b>결석</b>으로 기록돼요.</p>
+    {% if already %}<div class="sp-notice info">이미 <b>"{{ already }}"</b> 사유로 알려 주셨어요. 바꾸려면 다시 선택해 제출해 주세요.</div>{% endif %}
+    {% if error %}<div class="sp-notice err">{{ error }}</div>{% endif %}
+
+    <form method="post" class="sp-card">
+        {% csrf_token %}
+        {% for code, label in reasons %}
+        <label class="ab-reason"><input type="radio" name="reason" value="{{ code }}" {% if selected == code %}checked{% endif %} required> {{ label }}</label>
+        {% endfor %}
+        <input class="sp-input" name="detail" maxlength="60" placeholder="기타 사유를 직접 입력해 주세요 (60자까지)" style="margin-top:4px;">
+        <button type="submit" class="sp-btn" style="width:100%; margin-top:18px;">결석 사유 제출</button>
+    </form>
+    <p class="sp-sub" style="font-size:12.5px;">※ 지금 학원에 오는 중이라면 제출하지 않으셔도 돼요. 출석하면 자동으로 확인돼요.</p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -75,7 +75,7 @@
                         </td>
                         {% for cell in row.cells %}
                         <td class="{% if cell.is_scheduled %}scheduled-day{% endif %}">
-                            <input type="checkbox" class="att-check" name="att_{{ row.enrollment.id }}_{{ cell.date|date:'Y-m-d' }}" {% if cell.is_present %}checked{% endif %} title="{% if cell.is_scheduled %}정규 수업일{% else %}그 외 날짜{% endif %} · 체크 해제 = 결석">
+                            <input type="checkbox" class="att-check" name="att_{{ row.enrollment.id }}_{{ cell.date|date:'Y-m-d' }}" {% if cell.is_present %}checked{% endif %} title="{% if cell.is_scheduled %}정규 수업일{% else %}그 외 날짜{% endif %} · 체크 해제 = 결석{% if cell.note %} · {{ cell.note }}{% endif %}">
                         </td>
                         {% endfor %}
                     </tr>

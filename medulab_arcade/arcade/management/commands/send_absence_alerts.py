@@ -58,7 +58,7 @@ def send_absence_alerts(now=None, minutes=10):
             continue   # 선생님이 출석부에 이미 출석으로 표시한 학생
         handled.add(student.pk)
         targets += 1
-        if send_absence_notice(student, today, klass.name, klass.start_time.strftime('%H:%M')):
+        if send_absence_notice(student, today, klass.name, klass.start_time.strftime('%H:%M'), enrollment.pk):
             sent_students += 1
     return sent_students, targets
 

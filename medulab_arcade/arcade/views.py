@@ -4525,10 +4525,9 @@ def class_admin_attendance(request, class_id):
         messages.success(request, '출석 정보를 저장했습니다.')
         return redirect(f"{reverse('class_admin_attendance', args=[school_class.id])}?year={year}&month={month}")
 
-    existing = {
-        (r.enrollment_id, r.date): r.is_present
-        for r in ClassAttendance.objects.filter(enrollment__school_class=school_class, date__year=year, date__month=month)
-    }
+    records = list(ClassAttendance.objects.filter(enrollment__school_class=school_class, date__year=year, date__month=month))
+    existing = {(r.enrollment_id, r.date): r.is_present for r in records}
+    notes = {(r.enrollment_id, r.date): r.note for r in records if r.note}
     student_ids = [e.student_id for e in enrollments]
     self_checkin_dates = set(
         Attendance.objects.filter(
@@ -4549,7 +4548,7 @@ def class_admin_attendance(request, class_id):
                 is_present = (enrollment.student_id, d) in self_checkin_dates
             if is_present:
                 present_count += 1
-            cells.append({'date': d, 'is_present': is_present, 'is_scheduled': d in scheduled_dates})
+            cells.append({'date': d, 'is_present': is_present, 'is_scheduled': d in scheduled_dates, 'note': notes.get(key, '')})
         rows.append({'enrollment': enrollment, 'cells': cells, 'present_count': present_count})
 
     prev_year, prev_month, next_year, next_month = _prev_next_month(year, month)

@@ -145,7 +145,7 @@ def notify_attendance(attendance):
     _spawn(_send_attendance_now, attendance.user_id, attendance.date, attendance.attendance_type, time_label)
 
 
-def send_absence_notice(student, date, class_name, start_label):
+def send_absence_notice(student, date, class_name, start_label, enrollment_id=None):
     """수업이 시작됐는데 출석하지 않은 학생의 학부모에게 미출석 안내 알림톡을 보낸다. 하루 한 번만 보낸다.
     (이미 보냈거나, 설정이 비어 테스트 기록만 남겼거나, 받을 학부모가 없어 건너뛴 날은 다시 시도하지 않는다.
     발송에 실패한 날만 다음 실행에서 한 번 더 시도한다.)"""
@@ -162,6 +162,10 @@ def send_absence_notice(student, date, class_name, start_label):
         '#{시작시간}': start_label,
         '#{날짜}': f'{date.month}월 {date.day}일',
     }
+    if enrollment_id:
+        # 템플릿 버튼 링크를 https://medulab.kr/absence/#{결석코드}/ 로 등록해 두면 결석 사유 선택 주소가 완성된다
+        from .absence_report import make_absence_token
+        variables['#{결석코드}'] = make_absence_token(enrollment_id, date)
     sent = 0
     for phone in phones:
         if _deliver(NotificationLog.KIND_ABSENCE, student, phone, settings.SOLAPI_TEMPLATE_ABSENCE, variables,
