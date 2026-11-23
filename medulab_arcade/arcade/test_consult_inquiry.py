@@ -68,6 +68,11 @@ class ConsultAdminTests(TestCase):
         data = page.context['inquiries_json'][0]
         self.assertEqual((data['address'], data['children'], data['days']), ('광주 서구 화개중앙로 51', '손하은(초4)', '월, 수'))
 
+    def test_modal_shows_all_form_items_even_when_empty(self):
+        page = self.client.get(reverse('consult_inquiry_admin_list'))
+        for label in ('주소', '관심 수업', '코딩·로봇 경험', '희망 요일', '희망 시간대', '상담 방식', '알게 된 경로', '입력 안 함'):
+            self.assertContains(page, label)
+
     def test_toggle_still_works(self):
         self.client.post(reverse('consult_inquiry_toggle_handled', args=[self.i.pk]))
         self.i.refresh_from_db()
