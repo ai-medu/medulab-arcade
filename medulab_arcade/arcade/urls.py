@@ -1,9 +1,13 @@
 from django.urls import path, re_path
-from . import views, special_lecture, meducode, absence_report
+from . import views, special_lecture, meducode, absence_report, admin_messages
 
 urlpatterns = [
     path('', views.home, name='home'),
     path('works/', views.works_gallery, name='works_gallery'),
+    path('admin-services/messages/', admin_messages.message_list, name='admin_message_list'),
+    path('admin-services/messages/save/', admin_messages.message_save, name='admin_message_save'),
+    path('admin-services/messages/<int:pk>/save/', admin_messages.message_save, name='admin_message_update'),
+    path('admin-services/messages/<int:pk>/delete/', admin_messages.message_delete, name='admin_message_delete'),
     path('absence/<str:token>/', absence_report.absence_report, name='absence_report'),
     path('meducode/api/projects/', meducode.api_projects, name='meducode_api_projects'),
     path('meducode/api/projects/<int:pk>/', meducode.api_project_detail, name='meducode_api_project'),

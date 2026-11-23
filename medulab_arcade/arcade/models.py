@@ -1845,3 +1845,20 @@ class MeduCodeProject(models.Model):
 
     def __str__(self):
         return f'{self.user.username} - {self.name}'
+
+
+class AdminMessage(models.Model):
+    """관리자가 학부모·회원에게 보내는 안내 문구 모음 (가입 안내 등). 관리 화면에서 복사해 바로 붙여 넣어 쓴다."""
+    title = models.CharField('제목', max_length=100)
+    body = models.TextField('내용')
+    display_order = models.PositiveIntegerField('표시 순서', default=0)
+    created_at = models.DateTimeField('만든 날', auto_now_add=True)
+    updated_at = models.DateTimeField('수정한 날', auto_now=True)
+
+    class Meta:
+        verbose_name = '안내 메시지'
+        verbose_name_plural = '안내 메시지'
+        ordering = ['display_order', 'id']
+
+    def __str__(self):
+        return self.title

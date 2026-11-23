@@ -1,0 +1,120 @@
+{% extends 'arcade/base.html' %}
+
+{% block title %}안내 메시지 - 메듀랩 관리 서비스{% endblock %}
+
+{% block extra_css %}
+<style>
+    .msg-wrap { max-width: 920px; margin: 40px auto; padding: 0 20px; }
+    .msg-head { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:8px; }
+    .msg-title { font: 900 26px 'Orbitron', sans-serif; background: linear-gradient(90deg, var(--accent-green), var(--accent-blue)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; margin:0; }
+    .msg-sub { color: var(--text-muted); font-size: 14px; margin: 0 0 22px; line-height:1.6; }
+    .msg-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 20px 22px; margin-bottom: 16px; }
+    .msg-card h3 { margin: 0 0 10px; font-size: 17px; }
+    .msg-body { white-space: pre-wrap; word-break: break-word; font-size: 14.5px; line-height: 1.7; background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin: 0 0 14px; }
+    .msg-actions { display:flex; gap:8px; flex-wrap:wrap; }
+    .msg-btn { padding: 10px 18px; border-radius: 10px; border: 1px solid var(--border); background: rgba(255,255,255,.06); color: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+    .msg-btn.copy { background: var(--accent-green); color: #03140e; border-color: var(--accent-green); }
+    .msg-btn.copy.done { background: #2563eb; border-color: #2563eb; color: #fff; }
+    .msg-btn.danger { color: #f87171; border-color: rgba(239,68,68,.4); }
+    .msg-btn.add { background: var(--accent-green); color: #03140e; border-color: var(--accent-green); padding: 12px 22px; }
+    .msg-flash { padding: 12px 16px; border-radius: 12px; margin-bottom: 14px; font-size: 14px; background: rgba(0,200,150,.12); border: 1px solid rgba(0,200,150,.3); }
+    .msg-flash.error { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.35); }
+    .msg-empty { text-align:center; color: var(--text-muted); padding: 40px 20px; }
+    #msgOverlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:2000; align-items:center; justify-content:center; padding:16px; }
+    #msgOverlay.show { display:flex; }
+    #msgBox { background:#fff; color:#1f2937; border-radius:16px; padding:22px; width:100%; max-width:640px; max-height:92vh; overflow-y:auto; }
+    #msgBox h4 { margin:0 0 14px; font-size:18px; }
+    #msgBox label { display:block; font-size:13px; font-weight:700; margin:12px 0 6px; color:#4b5563; }
+    #msgBox input, #msgBox textarea { width:100%; box-sizing:border-box; padding:12px 14px; border:1px solid #d1d5db; border-radius:10px; font-size:15px; color:#1f2937; background:#fff; font-family:inherit; }
+    #msgBox textarea { min-height:260px; line-height:1.6; resize:vertical; }
+    .msg-form-btns { display:flex; gap:8px; margin-top:16px; }
+    .msg-form-btns button { flex:1; padding:13px; border-radius:10px; border:1px solid #d1d5db; background:#fff; color:#4b5563; font-size:15px; font-weight:800; cursor:pointer; }
+    .msg-form-btns button.go { background:#10b981; border-color:#10b981; color:#fff; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="msg-wrap">
+    <div class="msg-head">
+        <h1 class="msg-title">📋 안내 메시지</h1>
+        <button type="button" class="msg-btn add" onclick="openMsgForm()">+ 안내 메시지 추가</button>
+    </div>
+    <p class="msg-sub">학부모·회원에게 자주 보내는 안내 문구를 저장해 두세요. <b>복사</b> 버튼을 누르면 문구가 바로 복사돼서 문자·카톡에 붙여 넣을 수 있어요.</p>
+
+    {% for message in messages %}<div class="msg-flash {{ message.tags }}">{{ message }}</div>{% endfor %}
+
+    {% for item in items %}
+    <div class="msg-card">
+        <h3>{{ item.title }}</h3>
+        <pre class="msg-body" id="body-{{ item.pk }}">{{ item.body }}</pre>
+        <div class="msg-actions">
+            <button type="button" class="msg-btn copy" onclick="copyMsg({{ item.pk }}, this)">📋 복사</button>
+            <button type="button" class="msg-btn" onclick="openMsgForm({{ item.pk }})">✏️ 수정</button>
+            <form method="post" action="{% url 'admin_message_delete' item.pk %}" style="margin:0;" onsubmit="return confirm('{{ item.title|escapejs }} 안내 메시지를 삭제할까요? 되돌릴 수 없어요.');">
+                {% csrf_token %}<button type="submit" class="msg-btn danger">🗑 삭제</button>
+            </form>
+        </div>
+    </div>
+    {% empty %}
+    <div class="msg-card msg-empty">저장된 안내 메시지가 없어요. 오른쪽 위 <b>+ 안내 메시지 추가</b>로 만들어 보세요.</div>
+    {% endfor %}
+</div>
+
+<div id="msgOverlay" onclick="if(event.target===this) closeMsgForm();">
+    <form id="msgBox" method="post" action="{% url 'admin_message_save' %}">
+        {% csrf_token %}
+        <h4 id="msgFormTitle">안내 메시지 추가</h4>
+        <label for="msgTitle">제목</label>
+        <input type="text" id="msgTitle" name="title" maxlength="100" placeholder="예: 가입 안내" required>
+        <label for="msgBodyInput">내용</label>
+        <textarea id="msgBodyInput" name="body" placeholder="보낼 안내 문구를 입력하세요" required></textarea>
+        <label for="msgOrder">표시 순서 <span style="font-weight:500;">(작은 숫자가 위, 비우면 맨 아래)</span></label>
+        <input type="number" id="msgOrder" name="display_order" min="0" placeholder="비워 두면 맨 아래">
+        <div class="msg-form-btns">
+            <button type="button" onclick="closeMsgForm()">취소</button>
+            <button type="submit" class="go">저장</button>
+        </div>
+    </form>
+</div>
+
+{{ items_json|json_script:"msgItems" }}
+<script>
+    var SAVE_URL = "{% url 'admin_message_save' %}";
+    var UPDATE_URL = "{% url 'admin_message_update' 0 %}";
+    var ITEMS = {};
+    JSON.parse(document.getElementById('msgItems').textContent).forEach(function (m) { ITEMS[m.id] = m; });
+
+    function openMsgForm(id) {
+        var form = document.getElementById('msgBox');
+        var item = id ? ITEMS[id] : null;
+        form.action = item ? UPDATE_URL.replace('/0/', '/' + id + '/') : SAVE_URL;
+        document.getElementById('msgFormTitle').textContent = item ? '안내 메시지 수정' : '안내 메시지 추가';
+        document.getElementById('msgTitle').value = item ? item.title : '';
+        document.getElementById('msgBodyInput').value = item ? item.body : '';
+        document.getElementById('msgOrder').value = item ? item.order : '';
+        document.getElementById('msgOverlay').classList.add('show');
+        document.getElementById('msgTitle').focus();
+    }
+    function closeMsgForm() { document.getElementById('msgOverlay').classList.remove('show'); }
+
+    function copyMsg(id, button) {
+        var text = ITEMS[id].body;
+        function done() {
+            var old = button.textContent;
+            button.textContent = '✅ 복사했어요!';
+            button.classList.add('done');
+            setTimeout(function () { button.textContent = old; button.classList.remove('done'); }, 1600);
+        }
+        function fallback() {
+            var area = document.createElement('textarea');
+            area.value = text; area.style.position = 'fixed'; area.style.opacity = '0';
+            document.body.appendChild(area); area.select();
+            try { document.execCommand('copy'); done(); } catch (e) { alert('복사하지 못했어요. 내용을 직접 선택해서 복사해 주세요.'); }
+            document.body.removeChild(area);
+        }
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(done, fallback);
+        } else { fallback(); }
+    }
+</script>
+{% endblock %}
