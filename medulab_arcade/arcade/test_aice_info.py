@@ -17,3 +17,13 @@ class AiceInfoTests(TestCase):
         names = list(NavItem.objects.filter(section='learning').order_by('order', 'id').values_list('name', flat=True))
         self.assertEqual(names[:2], ['커리큘럼 로드맵', 'AICE 과정 안내'])
         self.assertEqual(NavItem.objects.get(name='AICE 과정 안내').url_name, 'aice_info')
+
+
+class WorksGalleryMenuTests(TestCase):
+    def test_gallery_moved_from_class_menu_to_bottom_of_play_menu(self):
+        self.assertFalse(NavItem.objects.filter(url_name='works_gallery').exists())
+        html = self.client.get(reverse('aice_info')).content.decode()
+        play = html[html.index('🎮 플레이'):html.index('🏫 클래스')]
+        self.assertIn('🎨 작품 전시관', play)
+        self.assertLess(play.index('🧩 메듀코드'), play.index('🎨 작품 전시관'))
+        self.assertNotIn('학생 작품 갤러리', html[html.index('🏫 클래스'):html.index('🏫 클래스') + 1500])
