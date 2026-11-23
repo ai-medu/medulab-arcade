@@ -1093,8 +1093,14 @@ class SchoolClassForm(forms.ModelForm):
 class ConsultInquiryForm(forms.ModelForm):
     class Meta:
         model = ConsultInquiry
-        fields = ['applicant_type', 'name', 'age_or_grade', 'phone_number', 'message']
+        fields = ['applicant_type', 'name', 'age_or_grade', 'phone_number', 'message',
+                  'address', 'experience', 'preferred_time', 'consult_method', 'referral_source']
         widgets = {
+            'address': forms.TextInput(attrs={'class': 'fi', 'placeholder': '주소 검색을 눌러 주세요 (상세주소는 안 적으셔도 돼요)', 'id': 'id_address'}),
+            'experience': forms.Select(attrs={'class': 'fi'}),
+            'preferred_time': forms.Select(attrs={'class': 'fi'}),
+            'consult_method': forms.Select(attrs={'class': 'fi'}),
+            'referral_source': forms.Select(attrs={'class': 'fi'}),
             'applicant_type': forms.RadioSelect(attrs={'class': 'applicant-radio'}),
             'name': forms.TextInput(attrs={'class': 'fi', 'placeholder': '이름'}),
             'age_or_grade': forms.TextInput(attrs={'class': 'fi', 'placeholder': '나이 또는 학년 (예: 8세, 초등 3학년)'}),
@@ -1110,6 +1116,12 @@ class ConsultInquiryForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['name'].required = False
         self.fields['age_or_grade'].required = False
+        from .models import CONSULT_EXPERIENCE, CONSULT_METHODS, CONSULT_REFERRALS, CONSULT_TIMES
+        for name, options in (('experience', CONSULT_EXPERIENCE), ('preferred_time', CONSULT_TIMES),
+                              ('consult_method', CONSULT_METHODS), ('referral_source', CONSULT_REFERRALS)):
+            self.fields[name] = forms.ChoiceField(
+                required=False, label=self.fields[name].label, widget=self.fields[name].widget,
+                choices=[('', '선택해 주세요')] + [(o, o) for o in options])
 
     def clean_phone_number(self):
         phone_number = self.cleaned_data.get('phone_number', '')

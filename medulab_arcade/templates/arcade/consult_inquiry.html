@@ -23,6 +23,17 @@ label.fl { display:block; color:var(--text-muted); margin-bottom:7px; font-weigh
 .applicant-toggle-btn { display:block; text-align:center; padding:12px; border-radius:10px; border:1px solid var(--border); background:rgba(255,255,255,0.04); color:var(--text-muted); font-weight:800; font-size:14px; cursor:pointer; transition:all .15s; }
 .applicant-toggle input[type="radio"]:checked + .applicant-toggle-btn { background:rgba(0,255,180,0.12); border-color:var(--accent-green); color:var(--accent-green); }
 
+.consult-extra { border:1px solid var(--border); border-radius:14px; padding:18px 18px 4px; margin-bottom:18px; background:rgba(255,255,255,0.03); }
+.consult-extra-title { font-weight:800; font-size:14px; margin-bottom:14px; }
+.consult-extra-title span { font-weight:500; font-size:12px; color:var(--text-muted); }
+.fl small { font-weight:500; opacity:.8; }
+.chip-group { display:flex; flex-wrap:wrap; gap:8px; }
+.chip input { display:none; }
+.chip span { display:inline-block; padding:9px 14px; border-radius:999px; border:1px solid var(--border); background:rgba(255,255,255,0.05); color:var(--text-muted); font-size:13.5px; font-weight:700; cursor:pointer; transition:all .15s; }
+.chip input:checked + span { background:rgba(0,255,180,0.14); border-color:var(--accent-green); color:var(--accent-green); }
+.two-col { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+@media (max-width:520px) { .two-col { grid-template-columns:1fr; gap:0; } }
+select.fi option { color:#111; background:#fff; }
 .child-row { display:flex; gap:10px; margin-bottom:10px; align-items:center; }
 .child-row .fi { flex:1; }
 .child-row-remove { flex:none; width:38px; height:38px; border-radius:10px; border:1px solid var(--border); background:rgba(239,68,68,0.1); color:#fca5a5; font-weight:800; cursor:pointer; }
@@ -33,6 +44,7 @@ label.fl { display:block; color:var(--text-muted); margin-bottom:7px; font-weigh
 {% endblock %}
 
 {% block content %}
+<script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 <div class="consult-wrap">
     <h1 class="consult-title">💬 상담 문의</h1>
     <p style="color:var(--text-muted); font-size:14px; margin-bottom:28px;">전화·카카오톡으로 바로 문의하시거나, 아래 양식으로 남겨주시면 확인 후 연락드리겠습니다.</p>
@@ -76,16 +88,16 @@ label.fl { display:block; color:var(--text-muted); margin-bottom:7px; font-weigh
 
             <div class="applicant-toggle">
                 <label>
-                    <input type="radio" name="applicant_type" value="self" checked onchange="toggleApplicantType(this.form)">
-                    <span class="applicant-toggle-btn">🙋 본인</span>
+                    <input type="radio" name="applicant_type" value="parent" checked onchange="toggleApplicantType(this.form)">
+                    <span class="applicant-toggle-btn">👨‍👩‍👧 학부모</span>
                 </label>
                 <label>
-                    <input type="radio" name="applicant_type" value="parent" onchange="toggleApplicantType(this.form)">
-                    <span class="applicant-toggle-btn">👨‍👩‍👧 학부모</span>
+                    <input type="radio" name="applicant_type" value="self" onchange="toggleApplicantType(this.form)">
+                    <span class="applicant-toggle-btn">🙋 본인</span>
                 </label>
             </div>
 
-            <div class="consult-self-fields">
+            <div class="consult-self-fields" style="display:none;">
                 <div class="fgroup">
                     <label class="fl">이름 <span style="color:#ef4444;">*</span></label>
                     {{ form.name }}
@@ -96,7 +108,7 @@ label.fl { display:block; color:var(--text-muted); margin-bottom:7px; font-weigh
                 </div>
             </div>
 
-            <div class="consult-parent-fields" style="display:none;">
+            <div class="consult-parent-fields">
                 <div class="fgroup">
                     <label class="fl">자녀 정보 (이름 · 나이 또는 학년) <span style="color:#ef4444;">*</span></label>
                     <div id="childRows"></div>
@@ -108,6 +120,39 @@ label.fl { display:block; color:var(--text-muted); margin-bottom:7px; font-weigh
                 <label class="fl">{{ form.phone_number.label }} <span style="color:#ef4444;">*</span></label>
                 {{ form.phone_number }}
             </div>
+            <div class="fgroup">
+                <label class="fl">주소</label>
+                <div style="display:flex; gap:8px;">
+                    {{ form.address }}
+                    <button type="button" id="consultAddrBtn" class="child-add-btn" style="flex:none; border-style:solid; color:#fff;">🔍 주소 검색</button>
+                </div>
+            </div>
+
+            <div class="consult-extra">
+                <div class="consult-extra-title">🎯 상담에 도움이 되는 정보 <span>(선택 — 적어 주시면 더 알맞게 안내해 드려요)</span></div>
+
+                <div class="fgroup">
+                    <label class="fl">관심 있는 수업 <small>(여러 개 선택 가능)</small></label>
+                    <div class="chip-group">
+                        {% for item in interest_options %}<label class="chip"><input type="checkbox" name="interest_areas" value="{{ item }}"><span>{{ item }}</span></label>{% endfor %}
+                    </div>
+                </div>
+                <div class="fgroup">
+                    <label class="fl">희망 수업 요일 <small>(여러 개 선택 가능)</small></label>
+                    <div class="chip-group">
+                        {% for item in day_options %}<label class="chip"><input type="checkbox" name="preferred_days" value="{{ item }}"><span>{{ item }}</span></label>{% endfor %}
+                    </div>
+                </div>
+                <div class="two-col">
+                    <div class="fgroup"><label class="fl">희망 시간대</label>{{ form.preferred_time }}</div>
+                    <div class="fgroup"><label class="fl">코딩·로봇 경험</label>{{ form.experience }}</div>
+                </div>
+                <div class="two-col">
+                    <div class="fgroup"><label class="fl">희망 상담 방식</label>{{ form.consult_method }}</div>
+                    <div class="fgroup"><label class="fl">알게 된 경로</label>{{ form.referral_source }}</div>
+                </div>
+            </div>
+
             <div class="fgroup">
                 <label class="fl">{{ form.message.label }}</label>
                 {{ form.message }}
@@ -140,6 +185,19 @@ function toggleApplicantType(form) {
 }
 document.addEventListener('DOMContentLoaded', function () {
     if (document.getElementById('childRows').children.length === 0) addChildRow();
+    toggleApplicantType(document.getElementById('consultForm'));
+    var addrBtn = document.getElementById('consultAddrBtn');
+    var addrInput = document.getElementById('id_address');
+    function openPostcode() {
+        if (!window.daum || !window.daum.Postcode) { addrInput.focus(); return; }
+        new daum.Postcode({
+            oncomplete: function (data) {
+                addrInput.value = data.roadAddress || data.jibunAddress || data.address;
+            }
+        }).open();
+    }
+    addrBtn.addEventListener('click', openPostcode);
+    addrInput.addEventListener('click', function () { if (!addrInput.value) openPostcode(); });
 });
 </script>
 {% endblock %}

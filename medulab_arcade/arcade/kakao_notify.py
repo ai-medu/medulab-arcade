@@ -98,6 +98,13 @@ def notify_new_consult_inquiry(inquiry) -> bool:
     ]
     if inquiry.finder_track:
         lines.append(f'추천 트랙: {inquiry.finder_track}')
+    if inquiry.interest_areas:
+        lines.append(f'관심 수업: {inquiry.interest_areas}')
+    wish = ' '.join(x for x in (inquiry.preferred_days and f'{inquiry.preferred_days}요일', inquiry.preferred_time) if x)
+    if wish:
+        lines.append(f'희망 시간: {wish}')
+    if inquiry.address:
+        lines.append(f'주소: {inquiry.address}')
     if inquiry.message:
         lines.append(f'문의내용: {inquiry.message[:80]}')
 

@@ -749,6 +749,14 @@ class ParentChildLink(models.Model):
         return f'{self.parent.username} → {self.child.username}'
 
 
+CONSULT_INTERESTS = ['블록코딩(스크래치)', '파이썬 코딩', '로봇 코딩', 'AI 활용·인공지능', 'AICE 자격증', '대회·공모전 준비', '잘 모르겠어요']
+CONSULT_DAYS = ['월', '화', '수', '목', '금', '토']
+CONSULT_EXPERIENCE = ['처음이에요', '조금 해봤어요', '꽤 해봤어요']
+CONSULT_TIMES = ['오전', '오후', '저녁', '상관없어요']
+CONSULT_METHODS = ['전화 상담', '방문 상담', '카카오톡 상담', '상관없어요']
+CONSULT_REFERRALS = SIGNUP_SOURCE_CHOICES + ['기타']
+
+
 class ConsultInquiry(models.Model):
     APPLICANT_SELF = 'self'
     APPLICANT_PARENT = 'parent'
@@ -767,6 +775,14 @@ class ConsultInquiry(models.Model):
     phone_number = models.CharField('연락처', max_length=20)
     message = models.TextField('문의 내용', blank=True)
     finder_track = models.CharField('프로그램 찾기 추천 트랙', max_length=50, blank=True)
+    # 상담에 도움이 되는 추가 정보 (모두 선택 입력)
+    address = models.CharField('주소', max_length=200, blank=True)
+    interest_areas = models.CharField('관심 수업', max_length=200, blank=True, help_text='여러 개 선택 시 콤마로 구분')
+    experience = models.CharField('코딩·로봇 경험', max_length=30, blank=True)
+    preferred_days = models.CharField('희망 수업 요일', max_length=50, blank=True)
+    preferred_time = models.CharField('희망 시간대', max_length=30, blank=True)
+    consult_method = models.CharField('희망 상담 방식', max_length=30, blank=True)
+    referral_source = models.CharField('알게 된 경로', max_length=30, blank=True)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='consult_inquiries', verbose_name='작성 회원')
     is_handled = models.BooleanField('처리 완료', default=False)
     created_at = models.DateTimeField('접수일', auto_now_add=True)

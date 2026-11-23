@@ -5853,6 +5853,9 @@ def _save_consult_inquiry(request):
         inquiry.children_info = []
 
     inquiry.finder_track = (request.POST.get('finder_track') or '').strip()[:50]
+    from .models import CONSULT_DAYS, CONSULT_INTERESTS
+    inquiry.interest_areas = ', '.join(v for v in CONSULT_INTERESTS if v in request.POST.getlist('interest_areas'))
+    inquiry.preferred_days = ', '.join(v for v in CONSULT_DAYS if v in request.POST.getlist('preferred_days'))
     if request.user.is_authenticated:
         inquiry.user = request.user
     inquiry.save()
@@ -5869,6 +5872,7 @@ def _save_consult_inquiry(request):
 def consult_inquiry(request):
     """상담 문의 접수 페이지"""
     from .forms import ConsultInquiryForm
+    from .models import CONSULT_DAYS, CONSULT_INTERESTS
 
     if request.method == 'POST':
         inquiry, form = _save_consult_inquiry(request)
@@ -5887,6 +5891,8 @@ def consult_inquiry(request):
         'academy_phone': getattr(settings, 'ACADEMY_PHONE', ''),
         'academy_phone_mobile': getattr(settings, 'ACADEMY_PHONE_MOBILE', ''),
         'academy_kakao_channel_url': getattr(settings, 'ACADEMY_KAKAO_CHANNEL_URL', ''),
+        'interest_options': CONSULT_INTERESTS,
+        'day_options': CONSULT_DAYS,
     }
     return render(request, 'arcade/consult_inquiry.html', context)
 
@@ -5957,6 +5963,32 @@ def kakao_notify_callback(request):
     return redirect('consult_inquiry_admin_list')
 
 
+def _consult_detail(i):
+    """상담 문의 상세 모달에 보여 줄 값들 (빈 항목은 화면에서 뺀다)"""
+    children = ', '.join(f"{c.get('name', '')}({c.get('age', '')})" for c in i.children_info or [] if c.get('name'))
+    return {
+        'id': i.pk,
+        'who': i.get_applicant_type_display(),
+        'is_parent': i.applicant_type == 'parent',
+        'name': i.name,
+        'age': i.age_or_grade,
+        'children': children,
+        'phone': i.phone_number,
+        'address': i.address,
+        'interest': i.interest_areas,
+        'experience': i.experience,
+        'days': i.preferred_days,
+        'time': i.preferred_time,
+        'method': i.consult_method,
+        'referral': i.referral_source,
+        'track': i.finder_track,
+        'member': (i.user.profile.real_name or i.user.username) if i.user else '',
+        'message': i.message,
+        'created': timezone.localtime(i.created_at).strftime('%Y.%m.%d %H:%M'),
+        'handled': i.is_handled,
+    }
+
+
 @login_required
 @user_passes_test(staff_check)
 def consult_inquiry_admin_list(request):
@@ -5967,6 +5999,7 @@ def consult_inquiry_admin_list(request):
     return render(request, 'arcade/admin/consult_inquiry_list.html', {
         'inquiries': inquiries,
         'kakao_connected': kakao_connected,
+        'inquiries_json': [_consult_detail(i) for i in inquiries],
     })
 
 

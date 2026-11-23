@@ -4,24 +4,53 @@
 
 {% block extra_css %}
 <style>
-    .admin-wrap { max-width: 1000px; margin: 40px auto; padding: 0 24px; animation: fadeSlideIn 0.4s ease; }
+    .admin-wrap { max-width: 1100px; margin: 40px auto; padding: 0 24px; animation: fadeSlideIn 0.4s ease; }
     .page-title { font: 900 28px 'Orbitron', sans-serif; background: linear-gradient(90deg, var(--accent-green), var(--accent-blue)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; margin-bottom:28px; }
     .table-wrap { background: var(--bg-card); border-radius: 18px; border: 1px solid var(--border); overflow-x: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-    table { width: 100%; border-collapse: collapse; text-align: left; min-width: 700px; }
-    th { padding: 16px 20px; background: rgba(255,255,255,0.03); color: var(--text-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; }
-    td { padding: 16px 20px; border-top: 1px solid var(--border); font-size: 14px; vertical-align:top; }
-    .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; text-align: left; min-width: 860px; table-layout: auto; }
+    th { padding: 14px 16px; background: rgba(255,255,255,0.03); color: var(--text-muted); font-size: 13px; font-weight: 700; white-space: nowrap; }
+    td { padding: 16px; border-top: 1px solid var(--border); font-size: 14.5px; vertical-align: middle; }
+    tbody tr.inq-row { cursor: pointer; }
+    tbody tr.inq-row:hover td { background: rgba(255,255,255,0.04); }
+    .col-who { width: 210px; }
+    .col-phone { white-space: nowrap; width: 130px; }
+    .col-date { white-space: nowrap; width: 110px; color: var(--text-muted); font-size: 13px; line-height: 1.5; }
+    .col-status { white-space: nowrap; width: 90px; }
+    .col-act { white-space: nowrap; width: 110px; text-align: right; }
+    .who-name { font-weight: 800; font-size: 15px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .who-sub { font-size: 12.5px; color: var(--text-muted); margin-top: 5px; line-height: 1.5; }
+    .msg-cell { color: var(--text-secondary); line-height: 1.55; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+    .msg-empty { color: var(--text-muted); }
+    .tags { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; }
+    .tag { font-size: 11.5px; padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,0.07); color: var(--text-muted); white-space: nowrap; }
+    .status-badge { display: inline-block; padding: 4px 11px; border-radius: 20px; font-size: 12px; font-weight: 700; white-space: nowrap; }
     .status-handled { background: rgba(0,255,180,0.15); color: var(--accent-green); }
     .status-pending { background: rgba(255,193,7,0.15); color: #ffc107; }
-    .toggle-btn { padding:6px 14px; border-radius:8px; border:1px solid var(--border); background:rgba(255,255,255,0.05); color:#fff; font-size:12px; cursor:pointer; }
+    .toggle-btn { padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border); background: rgba(255,255,255,0.05); color: #fff; font-size: 12.5px; cursor: pointer; white-space: nowrap; }
     .kakao-banner { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:16px 20px; border-radius:14px; margin-bottom:20px; }
     .kakao-banner.on { background:rgba(0,255,180,0.1); border:1px solid rgba(0,255,180,0.3); color:var(--accent-green); }
     .kakao-banner.off { background:rgba(254,229,0,0.1); border:1px solid rgba(254,229,0,0.3); color:#FEE500; }
     .kakao-connect-btn { padding:9px 16px; border-radius:10px; border:none; background:#FEE500; color:#111; font-weight:800; font-size:13px; text-decoration:none; }
-    .applicant-tag { display:inline-block; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:800; margin-right:6px; }
+    .applicant-tag { display:inline-block; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:800; }
     .applicant-tag.self { background:rgba(59,130,246,0.15); color:#93c5fd; }
     .applicant-tag.parent { background:rgba(168,85,247,0.15); color:#c4b5fd; }
-    .children-list { font-size:12px; color:var(--text-muted); margin-top:4px; }
+
+    #inqOverlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:2000; align-items:center; justify-content:center; padding:16px; }
+    #inqOverlay.show { display:flex; }
+    #inqBox { background:#fff; color:#1f2937; border-radius:18px; width:100%; max-width:560px; max-height:92vh; overflow-y:auto; padding:24px; position:relative; }
+    #inqBox h3 { margin:0 0 4px; font-size:20px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    #inqBox .inq-when { font-size:13px; color:#6b7280; margin-bottom:16px; }
+    .inq-close { position:absolute; top:14px; right:16px; border:none; background:none; font-size:20px; cursor:pointer; color:#6b7280; }
+    .inq-grid { display:grid; grid-template-columns:96px 1fr; gap:0; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; }
+    .inq-grid > div { padding:11px 14px; border-bottom:1px solid #f1f5f9; font-size:14.5px; line-height:1.55; word-break:break-word; }
+    .inq-grid > .k { background:#f8fafc; color:#6b7280; font-weight:700; font-size:13px; }
+    .inq-grid > :nth-last-child(-n+2) { border-bottom:none; }
+    .inq-msg { margin-top:16px; }
+    .inq-msg b { display:block; font-size:13px; color:#6b7280; margin-bottom:6px; }
+    .inq-msg div { white-space:pre-wrap; word-break:break-word; background:#f8fafc; border:1px solid #e5e7eb; border-radius:12px; padding:14px 16px; font-size:15px; line-height:1.7; min-height:48px; }
+    .inq-foot { display:flex; gap:8px; margin-top:18px; }
+    .inq-foot a, .inq-foot button { flex:1; text-align:center; padding:13px; border-radius:10px; font-size:15px; font-weight:800; cursor:pointer; text-decoration:none; border:1px solid #d1d5db; background:#fff; color:#374151; }
+    .inq-foot .go { background:#10b981; border-color:#10b981; color:#fff; }
 </style>
 {% endblock %}
 
@@ -41,40 +70,110 @@
     <div class="table-wrap">
         <table>
             <thead>
-                <tr><th>구분/이름</th><th>연락처</th><th>추천 트랙</th><th>문의 내용</th><th>회원</th><th>접수일</th><th>상태</th><th></th></tr>
+                <tr><th>신청자</th><th>연락처</th><th>문의 내용 <small style="font-weight:500;">(눌러서 자세히 보기)</small></th><th>접수일</th><th>상태</th><th></th></tr>
             </thead>
             <tbody>
                 {% for i in inquiries %}
-                <tr>
-                    <td style="font-weight:700;">
-                        {% if i.applicant_type == 'parent' %}<span class="applicant-tag parent">학부모</span>{% else %}<span class="applicant-tag self">본인</span>{% endif %}
-                        {{ i.name }}
-                        {% if i.applicant_type == 'self' and i.age_or_grade %}<div class="children-list">{{ i.age_or_grade }}</div>{% endif %}
+                <tr class="inq-row" onclick="openInquiry({{ i.pk }})">
+                    <td class="col-who">
+                        <div class="who-name">
+                            {% if i.applicant_type == 'parent' %}<span class="applicant-tag parent">학부모</span>{% else %}<span class="applicant-tag self">본인</span>{% endif %}
+                            {{ i.name }}
+                        </div>
+                        {% if i.applicant_type == 'self' and i.age_or_grade %}<div class="who-sub">{{ i.age_or_grade }}</div>{% endif %}
                         {% if i.applicant_type == 'parent' and i.children_info %}
-                        <div class="children-list">{% for c in i.children_info %}{{ c.name }}({{ c.age }}){% if not forloop.last %}, {% endif %}{% endfor %}</div>
+                        <div class="who-sub">자녀 · {% for c in i.children_info %}{{ c.name }}({{ c.age }}){% if not forloop.last %}, {% endif %}{% endfor %}</div>
                         {% endif %}
                     </td>
-                    <td>{{ i.phone_number }}</td>
-                    <td style="color:var(--text-muted); font-size:12px;">{{ i.finder_track|default:"-" }}</td>
-                    <td style="color:var(--text-secondary); max-width:220px;">{{ i.message|default:"-"|truncatechars:80 }}</td>
-                    <td>{% if i.user %}{{ i.user.profile.real_name|default:i.user.username }}{% else %}-{% endif %}</td>
-                    <td style="color:var(--text-muted); font-size:12px;">{{ i.created_at|date:"Y.m.d H:i" }}</td>
+                    <td class="col-phone">{{ i.phone_number }}</td>
                     <td>
+                        {% if i.message %}<div class="msg-cell">{{ i.message }}</div>{% else %}<div class="msg-empty">문의 내용 없음</div>{% endif %}
+                        {% if i.interest_areas or i.preferred_days or i.finder_track %}
+                        <div class="tags">
+                            {% if i.finder_track %}<span class="tag">추천 {{ i.finder_track }}</span>{% endif %}
+                            {% if i.interest_areas %}<span class="tag">🎯 {{ i.interest_areas }}</span>{% endif %}
+                            {% if i.preferred_days %}<span class="tag">📅 {{ i.preferred_days }}</span>{% endif %}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td class="col-date">{{ i.created_at|date:"Y.m.d" }}<br>{{ i.created_at|date:"H:i" }}</td>
+                    <td class="col-status">
                         {% if i.is_handled %}<span class="status-badge status-handled">처리완료</span>
                         {% else %}<span class="status-badge status-pending">대기중</span>{% endif %}
                     </td>
-                    <td>
-                        <form method="post" action="{% url 'consult_inquiry_toggle_handled' i.pk %}">
+                    <td class="col-act" onclick="event.stopPropagation();">
+                        <form method="post" action="{% url 'consult_inquiry_toggle_handled' i.pk %}" style="margin:0;">
                             {% csrf_token %}
                             <button type="submit" class="toggle-btn">{% if i.is_handled %}대기로 변경{% else %}처리완료로{% endif %}</button>
                         </form>
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="8" style="text-align:center; padding:60px; color:var(--text-muted);">접수된 상담 문의가 없습니다.</td></tr>
+                <tr><td colspan="6" style="text-align:center; padding:60px; color:var(--text-muted);">접수된 상담 문의가 없습니다.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+
+<div id="inqOverlay" onclick="if(event.target===this) closeInquiry();">
+    <div id="inqBox" role="dialog" aria-label="상담 문의 상세">
+        <button type="button" class="inq-close" onclick="closeInquiry()" title="닫기">✕</button>
+        <h3 id="inqTitle"></h3>
+        <div class="inq-when" id="inqWhen"></div>
+        <div class="inq-grid" id="inqGrid"></div>
+        <div class="inq-msg"><b>문의 내용</b><div id="inqMsg"></div></div>
+        <div class="inq-foot">
+            <a id="inqCall" href="#">📞 전화하기</a>
+            <form method="post" id="inqToggleForm" style="margin:0; flex:1; display:flex;">
+                {% csrf_token %}
+                <button type="submit" class="go" id="inqToggleBtn" style="flex:1;"></button>
+            </form>
+        </div>
+    </div>
+</div>
+
+{{ inquiries_json|json_script:"inqData" }}
+<script>
+    var DATA = {};
+    JSON.parse(document.getElementById('inqData').textContent).forEach(function (d) { DATA[d.id] = d; });
+    var TOGGLE_URL = "{% url 'consult_inquiry_toggle_handled' 0 %}";
+
+    function fmtPhone(p) {
+        var d = (p || '').replace(/\D/g, '');
+        if (d.length === 11) return d.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+        if (d.length === 10) return d.replace(/(\d{2,3})(\d{3,4})(\d{4})/, '$1-$2-$3');
+        return p;
+    }
+    function esc(t) { var d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
+    function openInquiry(id) {
+        var d = DATA[id];
+        document.getElementById('inqTitle').innerHTML = '<span class="applicant-tag ' + (d.is_parent ? 'parent' : 'self') + '">' + esc(d.who) + '</span> ' + esc(d.name);
+        document.getElementById('inqWhen').textContent = '접수 ' + d.created + (d.handled ? ' · 처리완료' : ' · 대기중');
+        var rows = [];
+        if (d.is_parent) { if (d.children) rows.push(['자녀', d.children]); }
+        else if (d.age) rows.push(['나이/학년', d.age]);
+        rows.push(['연락처', fmtPhone(d.phone)]);
+        if (d.address) rows.push(['주소', d.address]);
+        if (d.interest) rows.push(['관심 수업', d.interest]);
+        if (d.experience) rows.push(['경험', d.experience]);
+        if (d.days) rows.push(['희망 요일', d.days + '요일']);
+        if (d.time) rows.push(['희망 시간대', d.time]);
+        if (d.method) rows.push(['상담 방식', d.method]);
+        if (d.referral) rows.push(['알게 된 경로', d.referral]);
+        if (d.track) rows.push(['추천 트랙', d.track]);
+        if (d.member) rows.push(['작성 회원', d.member]);
+        document.getElementById('inqGrid').innerHTML = rows.map(function (r) {
+            return '<div class="k">' + esc(r[0]) + '</div><div>' + esc(r[1]) + '</div>';
+        }).join('');
+        document.getElementById('inqMsg').textContent = d.message || '(문의 내용 없음)';
+        document.getElementById('inqCall').href = 'tel:' + d.phone;
+        document.getElementById('inqToggleForm').action = TOGGLE_URL.replace('/0/', '/' + id + '/');
+        document.getElementById('inqToggleBtn').textContent = d.handled ? '대기로 변경' : '✅ 처리완료로 변경';
+        document.getElementById('inqOverlay').classList.add('show');
+    }
+    function closeInquiry() { document.getElementById('inqOverlay').classList.remove('show'); }
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeInquiry(); });
+</script>
 {% endblock %}
