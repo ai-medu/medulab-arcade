@@ -27,3 +27,9 @@ class WorksGalleryMenuTests(TestCase):
         self.assertIn('🎨 플레이존', play)
         self.assertLess(play.index('🧩 메듀코드'), play.index('🎨 플레이존'))
         self.assertNotIn('학생 작품 갤러리', html[html.index('🏫 클래스'):html.index('🏫 클래스') + 1500])
+
+
+class FinderMenuTests(TestCase):
+    def test_finder_renamed_and_third(self):
+        names = list(NavItem.objects.filter(section='learning').order_by('order', 'id').values_list('name', flat=True))
+        self.assertEqual(names[:3], ['커리큘럼 로드맵', 'AICE 과정 안내', '내게 맞는 수업'])
