@@ -20,6 +20,11 @@ def notify_admins(kind, title, body='', url=''):
             AdminNotification.objects.filter(id__lte=stale[0]).delete()
     except Exception:
         logger.exception('관리자 알림 저장 실패')
+    try:
+        from .telegram_notify import send_telegram
+        send_telegram(f'{title}\n{body}'.strip(), url)
+    except Exception:
+        logger.exception('텔레그램 알림 실패')
 
 
 def _staff(user):

@@ -36,6 +36,8 @@ SOLAPI_SENDER = os.environ.get('SOLAPI_SENDER', '')  # 등록된 발신번호 (�
 SOLAPI_SMS_FALLBACK = os.environ.get('SOLAPI_SMS_FALLBACK', '1') == '1'
 SOLAPI_TEMPLATE_ATTENDANCE = os.environ.get('SOLAPI_TEMPLATE_ATTENDANCE', '')  # 출석 알림 템플릿 ID
 SOLAPI_TEMPLATE_ABSENCE = os.environ.get('SOLAPI_TEMPLATE_ABSENCE', '')  # 수업 시작 후 미출석 안내 템플릿 ID
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')  # 관리자 알림용 텔레그램 봇 토큰 (비면 꺼짐)
+TELEGRAM_CHAT_IDS = os.environ.get('TELEGRAM_CHAT_IDS', '')    # 받을 채팅 ID (여러 명이면 쉼표로 구분)
 SOLAPI_TEMPLATE_INVOICE = os.environ.get('SOLAPI_TEMPLATE_INVOICE', '')  # 학원비 청구/미납 안내 템플릿 ID
 SOLAPI_TEMPLATE_SPECIAL = os.environ.get('SOLAPI_TEMPLATE_SPECIAL', '')  # 특강 예약 확정 안내 템플릿 ID
 SOLAPI_TEMPLATE_SPECIAL_REMINDER = os.environ.get('SOLAPI_TEMPLATE_SPECIAL_REMINDER', '')  # 특강 하루 전 안내 템플릿 ID
