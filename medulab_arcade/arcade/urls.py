@@ -1,5 +1,5 @@
 from django.urls import path, re_path
-from . import views, special_lecture, meducode, absence_report, admin_messages, admin_notify
+from . import views, special_lecture, meducode, absence_report, admin_messages, admin_notify, aice_info
 
 urlpatterns = [
     path('', views.home, name='home'),
@@ -184,6 +184,7 @@ urlpatterns = [
     path('project/<int:project_id>/approve/', views.approve_project, name='approve_project'),
     path('classes/', views.public_class_list, name='public_class_list'),
     path('consult/', views.consult_inquiry, name='consult_inquiry'),
+    path('aice/', aice_info.aice_info, name='aice_info'),
     path('consult/submit/', views.consult_inquiry_submit, name='consult_inquiry_submit'),
     path('terms/', views.terms_of_service, name='terms_of_service'),
     path('privacy/', views.privacy_policy, name='privacy_policy'),

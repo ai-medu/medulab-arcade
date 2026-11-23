@@ -1,0 +1,188 @@
+{% extends "arcade/base.html" %}
+{% block title %}AICE 과정 안내 - 메듀랩{% endblock %}
+
+{% block extra_css %}
+<style>
+.ai-wrap { max-width: 1100px; margin: 36px auto 80px; padding: 0 20px; }
+.ai-title { font: 900 28px 'Orbitron', sans-serif; background: linear-gradient(90deg, var(--accent-green), var(--accent-blue)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; text-align: center; }
+.ai-sub { text-align: center; color: var(--text-secondary); font-size: 15px; line-height: 1.7; margin-bottom: 28px; }
+
+/* 로드맵 */
+.ai-road { background: var(--bg-card); border: 1px solid var(--border); border-radius: 22px; padding: 22px 18px 26px; }
+.ai-tracks { display: grid; grid-template-columns: 1fr 2fr 1fr 2fr; gap: 8px; margin-bottom: 22px; }
+.ai-track { text-align: center; padding: 11px 6px; border-radius: 999px; font-weight: 800; font-size: 14px; color: #fff; }
+.ai-steps { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; align-items: end; }
+.ai-step { background: none; border: 0; cursor: pointer; text-align: center; padding: 0; font-family: inherit; color: inherit; position: relative; }
+.ai-step:nth-child(1) { margin-bottom: 0; }
+.ai-step:nth-child(2) { margin-bottom: 26px; }
+.ai-step:nth-child(3) { margin-bottom: 52px; }
+.ai-step:nth-child(4) { margin-bottom: 78px; }
+.ai-step:nth-child(5) { margin-bottom: 104px; }
+.ai-step:nth-child(6) { margin-bottom: 130px; }
+.ai-hex { width: 100%; max-width: 124px; margin: 0 auto; display: block; transition: transform .15s, filter .15s; filter: drop-shadow(0 4px 10px rgba(0,0,0,.25)); }
+.ai-step:hover .ai-hex, .ai-step.on .ai-hex { transform: translateY(-5px) scale(1.06); }
+.ai-step .ai-pill { display: inline-block; margin-top: 8px; padding: 5px 13px; border-radius: 999px; font-size: 14px; font-weight: 800; border: 2px solid var(--c); color: var(--c); background: rgba(255,255,255,.04); }
+.ai-step.on .ai-pill { background: var(--c); color: #fff; }
+.ai-step small { display: block; margin-top: 5px; font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; }
+.ai-hint { text-align: center; margin-top: 16px; font-size: 13.5px; color: var(--text-secondary); }
+
+/* 자격 상세 */
+.ai-detail { margin-top: 26px; scroll-margin-top: 80px; }
+.ai-panel { display: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 22px; padding: 28px; }
+.ai-panel.on { display: block; }
+.ai-chip { display: inline-block; padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 800; color: #fff; margin-bottom: 10px; }
+.ai-h { font-size: 30px; font-weight: 900; margin: 0 0 8px; }
+.ai-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.ai-tags span { border: 1px solid var(--border); border-radius: 6px; padding: 3px 10px; font-size: 12.5px; color: var(--text-secondary); }
+.ai-sum { font-size: 15.5px; line-height: 1.7; margin-bottom: 14px; color: var(--text-secondary); }
+.ai-facts { list-style: none; padding: 0; margin: 0 0 6px; display: grid; gap: 7px; }
+.ai-facts li { font-size: 14.5px; padding-left: 24px; position: relative; }
+.ai-facts li::before { content: '✔'; position: absolute; left: 0; color: var(--c); font-weight: 900; }
+.ai-priceline { display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; margin-top: 4px; }
+.ai-priceline small { color: var(--text-muted); font-size: 12.5px; }
+.ai-priceline b { font-size: 26px; font-weight: 900; }
+.ai-lv { display: flex; gap: 8px; margin: 4px 0 16px; flex-wrap: wrap; }
+.ai-lv button { padding: 8px 18px; border-radius: 999px; border: 2px solid var(--c); background: transparent; color: var(--c); font-weight: 800; font-size: 14px; cursor: pointer; font-family: inherit; }
+.ai-lv button.on { background: var(--c); color: #fff; }
+.ai-lvbody { display: none; }
+.ai-lvbody.on { display: block; }
+.ai-scope { margin-top: 18px; border-radius: 16px; padding: 20px 22px; background: color-mix(in srgb, var(--c) 9%, transparent); }
+.ai-scope h4 { margin: 0 0 12px; font-size: 18px; }
+.ai-scope table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.ai-scope th { text-align: center; padding: 9px 8px; border-bottom: 1px solid var(--border); font-weight: 800; }
+.ai-scope td { padding: 11px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.ai-scope td.a { font-weight: 800; width: 24%; }
+.ai-scope td.n { text-align: center; white-space: nowrap; width: 12%; }
+.ai-scope ul { margin: 0; padding-left: 18px; line-height: 1.7; }
+.ai-note { margin-top: 10px; font-size: 13px; color: var(--text-secondary); }
+.ai-qa { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 18px; }
+.ai-qa div { border: 1px solid var(--border); border-radius: 14px; padding: 16px; font-size: 14px; line-height: 1.7; }
+.ai-qa b { display: block; margin-bottom: 6px; color: var(--c); font-size: 13px; }
+.ai-road-list { margin-top: 14px; font-size: 14px; line-height: 1.8; color: var(--text-secondary); }
+.ai-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+.ai-btn { display: inline-block; padding: 11px 20px; border-radius: 12px; font-weight: 800; font-size: 14px; text-decoration: none; border: 2px solid var(--c); color: var(--c); }
+.ai-btn.fill { background: var(--c); color: #fff; }
+.ai-foot { margin-top: 20px; font-size: 12.5px; color: var(--text-muted); line-height: 1.7; text-align: center; }
+
+@media (max-width: 860px) {
+  .ai-tracks { grid-template-columns: 1fr 1fr; }
+  .ai-steps { grid-template-columns: repeat(3, 1fr); gap: 22px 10px; }
+  .ai-step:nth-child(n) { margin-bottom: 0; }
+  .ai-qa { grid-template-columns: 1fr; }
+  .ai-panel { padding: 20px 16px; }
+  .ai-h { font-size: 25px; }
+  .ai-scope { padding: 14px 10px; }
+  .ai-scope td.a { width: 30%; }
+}
+@media (max-width: 480px) {
+  .ai-steps { grid-template-columns: repeat(2, 1fr); }
+  .ai-scope table { font-size: 13px; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ai-wrap">
+  <h1 class="ai-title">🎓 AICE 과정 안내</h1>
+  <p class="ai-sub">AICE는 AI를 배우고 실전에서 활용하는 역량을 단계별로 검정하는 자격이에요.<br>아래 로드맵에서 궁금한 자격을 눌러 보세요.</p>
+
+  <div class="ai-road">
+    <div class="ai-tracks">
+      {% for name, span, color in tracks %}<div class="ai-track" style="background:{{ color }}">{{ name }}</div>{% endfor %}
+    </div>
+    <div class="ai-steps">
+      {% for c in certs %}
+      <button type="button" class="ai-step" data-key="{{ c.key }}" style="--c:{{ c.color }}">
+        <svg class="ai-hex" viewBox="0 0 120 136" aria-hidden="true">
+          <polygon points="60,4 112,34 112,102 60,132 8,102 8,34" fill="{{ c.color }}"/>
+          <polygon points="60,14 103,39 103,97 60,122 17,97 17,39" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2"/>
+          <text x="60" y="60" text-anchor="middle" font-size="13" font-weight="900" fill="#fff" font-family="Arial, sans-serif">AICE</text>
+          <text x="60" y="82" text-anchor="middle" font-size="{% if c.name|length > 9 %}10{% else %}12.5{% endif %}" font-weight="800" fill="#fff" font-family="Arial, sans-serif">{{ c.name }}</text>
+        </svg>
+        <span class="ai-pill">{{ c.tool_name }}</span>
+        <small>{{ c.target }}</small>
+      </button>
+      {% endfor %}
+    </div>
+    <p class="ai-hint">👆 자격을 누르면 아래에 시험 안내가 나와요</p>
+  </div>
+
+  <div class="ai-detail" id="aiDetail">
+    {% for c in certs %}
+    <section class="ai-panel" id="panel-{{ c.key }}" style="--c:{{ c.color }}">
+      <span class="ai-chip" style="background:{{ c.color }}">{{ c.track }}</span>
+      {% if c.levels|length > 1 %}
+      <div class="ai-lv">
+        {% for lv in c.levels %}<button type="button" data-lv="{{ c.key }}-{{ forloop.counter0 }}" class="{% if forloop.first %}on{% endif %}">{{ lv.label }}</button>{% endfor %}
+      </div>
+      {% endif %}
+      {% for lv in c.levels %}
+      <div class="ai-lvbody {% if forloop.first %}on{% endif %}" id="lv-{{ c.key }}-{{ forloop.counter0 }}">
+        <h2 class="ai-h">{{ lv.title }}</h2>
+        <div class="ai-tags">{% for t in lv.tags %}<span>{{ t }}</span>{% endfor %}</div>
+        <p class="ai-sum">{{ c.summary }}</p>
+        <ul class="ai-facts">{% for f in lv.facts %}<li>{{ f }}</li>{% endfor %}</ul>
+        <div class="ai-priceline"><small>(VAT 포함)</small><b>₩ {{ lv.price }}원</b></div>
+        <div class="ai-scope">
+          <h4>{{ lv.title }} 출제범위</h4>
+          <table>
+            <thead><tr><th>출제 분야</th><th>상세 내용</th>{% if lv.scope.0.count %}<th>문항수</th><th>배점</th>{% endif %}</tr></thead>
+            <tbody>
+            {% for r in lv.scope %}
+              <tr><td class="a">{{ r.area }}</td><td><ul>{% for i in r.items %}<li>{{ i }}</li>{% endfor %}</ul></td>
+              {% if lv.scope.0.count %}<td class="n">{{ r.count }}</td><td class="n">{{ r.score }}</td>{% endif %}</tr>
+            {% endfor %}
+            </tbody>
+          </table>
+          {% if lv.note %}<p class="ai-note">※ {{ lv.note }}</p>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+
+      <div class="ai-qa">
+        <div><b>👍 이런 분께 추천해요</b>{{ c.recommend }}</div>
+        <div><b>📝 이렇게 준비해요</b>{{ c.prepare }}</div>
+        <div><b>🌱 이렇게 성장해요</b>{{ c.grow }}</div>
+      </div>
+      <p class="ai-road-list"><b>배우는 내용</b> · {{ c.roadmap|join:" · " }} &nbsp;|&nbsp; <b>{{ c.project }}</b>{% if c.school %} &nbsp;|&nbsp; <b>연계 교과</b> · {{ c.school|join:", " }}{% endif %}</p>
+      <div class="ai-actions">
+        <a class="ai-btn fill" href="{% url 'consult_inquiry' %}">📞 메듀랩에서 준비하고 싶어요 (상담 신청)</a>
+        <a class="ai-btn" href="{{ c.url }}" target="_blank" rel="noopener">🔗 AICE 공식 안내 보기</a>
+      </div>
+    </section>
+    {% endfor %}
+  </div>
+
+  <p class="ai-foot">{{ private_note }}<br>시험 일정·가격·출제범위는 변경될 수 있으니 접수 전에 <a href="{{ official_url }}" target="_blank" rel="noopener">AICE 공식 사이트</a>에서 꼭 확인해 주세요.</p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var steps = document.querySelectorAll('.ai-step');
+  var panels = document.querySelectorAll('.ai-panel');
+  function show(key, scroll) {
+    var found = false;
+    steps.forEach(function (s) { var on = s.dataset.key === key; s.classList.toggle('on', on); found = found || on; });
+    panels.forEach(function (p) { p.classList.toggle('on', p.id === 'panel-' + key); });
+    if (found && scroll) document.getElementById('aiDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  steps.forEach(function (s) {
+    s.addEventListener('click', function () {
+      show(s.dataset.key, true);
+      try { history.replaceState(null, '', '#' + s.dataset.key); } catch (e) {}
+    });
+  });
+  document.querySelectorAll('.ai-lv button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var panel = b.closest('.ai-panel');
+      panel.querySelectorAll('.ai-lv button').forEach(function (x) { x.classList.toggle('on', x === b); });
+      panel.querySelectorAll('.ai-lvbody').forEach(function (x) { x.classList.toggle('on', x.id === 'lv-' + b.dataset.lv); });
+    });
+  });
+  var hash = (location.hash || '').replace('#', '');
+  show(hash || 'future', !!hash);
+})();
+</script>
+{% endblock %}
