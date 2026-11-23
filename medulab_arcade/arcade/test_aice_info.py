@@ -24,6 +24,6 @@ class WorksGalleryMenuTests(TestCase):
         self.assertFalse(NavItem.objects.filter(url_name='works_gallery').exists())
         html = self.client.get(reverse('aice_info')).content.decode()
         play = html[html.index('🎮 플레이'):html.index('🏫 클래스')]
-        self.assertIn('🎨 작품 전시관', play)
-        self.assertLess(play.index('🧩 메듀코드'), play.index('🎨 작품 전시관'))
+        self.assertIn('🎨 플레이존', play)
+        self.assertLess(play.index('🧩 메듀코드'), play.index('🎨 플레이존'))
         self.assertNotIn('학생 작품 갤러리', html[html.index('🏫 클래스'):html.index('🏫 클래스') + 1500])
