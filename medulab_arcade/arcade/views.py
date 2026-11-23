@@ -2813,6 +2813,16 @@ JSON 외에 다른 텍스트는 절대 포함하지 마세요.
     return JsonResponse({'error': f'분석 실패: {last_error}'}, status=500)
 
 
+def _notify_new_member(user):
+    """새 회원이 가입을 마치면 관리자 종 버튼에 알린다"""
+    from .admin_notify import notify_admins
+    profile = getattr(user, 'profile', None)
+    name = (profile.real_name if profile and profile.real_name else user.username)
+    kind = profile.get_user_type_display() if profile else ''
+    pending = ' · 승인 필요' if profile and not profile.is_approved else ''
+    notify_admins('signup', f'🆕 새 회원가입 — {name}', f'{kind}{pending}', reverse('member_list'))
+
+
 def signup(request):
     """회원가입"""
     if request.method == 'POST':
@@ -5860,6 +5870,9 @@ def _save_consult_inquiry(request):
         inquiry.user = request.user
     inquiry.save()
 
+    from .admin_notify import notify_admins
+    detail = ' · '.join(x for x in (inquiry.interest_areas, inquiry.message[:40]) if x)
+    notify_admins('consult', f'📥 새 상담 문의 — {inquiry.name}', detail, reverse('consult_inquiry_admin_list'))
     try:
         from .kakao_notify import notify_new_consult_inquiry
         notify_new_consult_inquiry(inquiry)
@@ -6023,7 +6036,8 @@ def signup(request):
     if request.method == 'POST':
         form = SignUpForm(request.POST)
         if form.is_valid():
-            form.save()
+            new_user = form.save()
+            _notify_new_member(new_user)
             messages.success(request, '회원가입이 완료되었습니다. 이제 로그인할 수 있습니다.')
             return redirect('home')
     else:
@@ -6117,6 +6131,7 @@ def social_onboarding(request):
             request.session.pop('pending_signup_locked_type', None)
             from .special_lecture import grant_welcome_coupon
             grant_welcome_coupon(request.user)   # 회원가입 선물: 특강 1회 무료 참여 쿠폰
+            _notify_new_member(request.user)
             messages.success(request, '추가정보 입력이 완료되었습니다.')
             return redirect('home')
     else:

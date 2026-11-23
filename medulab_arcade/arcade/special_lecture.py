@@ -126,6 +126,10 @@ def _send_admin_mail(reservation_id, label):
 
 
 def notify_admin(reservation, label):
+    from .admin_notify import notify_admins
+    count = reservation.participants.count()
+    notify_admins('special', f'🎤 특강 {label} — {reservation.applicant_name}',
+                  f'{reservation.lecture.title} · 참가 {count}명', reverse('special_admin_list') + f'?lecture={reservation.lecture_id}')
     _spawn(_send_admin_mail, reservation.pk, label)
 
 

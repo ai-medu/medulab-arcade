@@ -1,9 +1,12 @@
 from django.urls import path, re_path
-from . import views, special_lecture, meducode, absence_report, admin_messages
+from . import views, special_lecture, meducode, absence_report, admin_messages, admin_notify
 
 urlpatterns = [
     path('', views.home, name='home'),
     path('works/', views.works_gallery, name='works_gallery'),
+    path('admin-services/notifications/', admin_notify.notification_list, name='admin_notification_list'),
+    path('admin-services/notifications/read/', admin_notify.notification_read, name='admin_notification_read_all'),
+    path('admin-services/notifications/<int:pk>/read/', admin_notify.notification_read, name='admin_notification_read'),
     path('admin-services/messages/', admin_messages.message_list, name='admin_message_list'),
     path('admin-services/messages/save/', admin_messages.message_save, name='admin_message_save'),
     path('admin-services/messages/<int:pk>/save/', admin_messages.message_save, name='admin_message_update'),

@@ -1013,6 +1013,19 @@
                     {% if user.is_authenticated %}
                     {% if user.is_staff %}
                     <a href="{% url 'profile' %}" class="nav-link accent-text">👤 {{ user.profile.nickname|default:user.profile.real_name|default:user.username }}</a>
+                    <div class="nav-dropdown notranslate" id="bellBox">
+                        <button type="button" class="nav-link dropdown-toggle" id="bellBtn" title="알림" aria-label="알림"
+                            style="position:relative; border:none; background:rgba(255,255,255,0.06); cursor:pointer; font-size:17px; padding:6px 10px;">
+                            🔔<span id="bellBadge" style="display:none; position:absolute; top:-4px; right:-4px; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:#ef4444; color:#fff; font-size:11px; font-weight:800; line-height:18px; text-align:center;">0</span>
+                        </button>
+                        <div class="dropdown-content" id="bellPanel" style="right:0; left:auto; width:340px; max-width:92vw; padding:0; max-height:70vh; overflow-y:auto;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 14px; border-bottom:1px solid var(--border); position:sticky; top:0; background:inherit;">
+                                <strong style="font-size:14px;">🔔 알림</strong>
+                                <button type="button" id="bellReadAll" style="border:none; background:none; color:#60a5fa; font-size:12.5px; cursor:pointer;">모두 읽음</button>
+                            </div>
+                            <div id="bellList"><div style="padding:22px; text-align:center; color:var(--text-muted); font-size:13px;">불러오는 중…</div></div>
+                        </div>
+                    </div>
                     <div class="nav-dropdown">
                         <button class="nav-link dropdown-toggle"
                             style="color: #60a5fa; border: none; background: rgba(255,255,255,0.06); cursor: pointer; display: flex; align-items: center; gap: 4px;">
@@ -1156,6 +1169,47 @@
             }
         })();
     </script>
+    {% if user.is_authenticated and user.is_staff %}
+    <script>
+        /* ── 관리자 알림 종 ── */
+        (function () {
+            var LIST_URL = "{% url 'admin_notification_list' %}";
+            var READ_ALL_URL = "{% url 'admin_notification_read_all' %}";
+            var READ_URL = "{% url 'admin_notification_read' 0 %}";
+            var badge = document.getElementById('bellBadge');
+            var listEl = document.getElementById('bellList');
+            if (!badge || !listEl) return;
+            function csrf() { var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/); return m ? decodeURIComponent(m[1]) : '{{ csrf_token }}'; }
+            function post(url) { return fetch(url, { method: 'POST', headers: { 'X-CSRFToken': csrf() }, credentials: 'same-origin' }).then(function (r) { return r.json(); }); }
+            function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : t; return d.innerHTML; }
+            function setCount(n) { badge.textContent = n > 99 ? '99+' : n; badge.style.display = n > 0 ? 'block' : 'none'; }
+            function render(data) {
+                setCount(data.unread);
+                if (!data.items.length) { listEl.innerHTML = '<div style="padding:26px; text-align:center; color:var(--text-muted); font-size:13px;">새 알림이 없어요.</div>'; return; }
+                listEl.innerHTML = data.items.map(function (n) {
+                    return '<a href="#" data-id="' + n.id + '" data-url="' + esc(n.url) + '" style="display:block; padding:12px 14px; border-bottom:1px solid var(--border); text-decoration:none; ' + (n.read ? 'opacity:.55;' : 'background:rgba(96,165,250,.08);') + '">' +
+                        '<div style="font-weight:' + (n.read ? '600' : '800') + '; font-size:13.5px; line-height:1.4;">' + esc(n.title) + '</div>' +
+                        (n.body ? '<div style="font-size:12.5px; color:var(--text-muted); margin-top:3px; line-height:1.4;">' + esc(n.body) + '</div>' : '') +
+                        '<div style="font-size:11.5px; color:var(--text-muted); margin-top:4px;">' + esc(n.at) + '</div></a>';
+                }).join('');
+            }
+            function load() { return fetch(LIST_URL, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(render).catch(function () {}); }
+            document.getElementById('bellBtn').addEventListener('click', load);
+            document.getElementById('bellReadAll').addEventListener('click', function (e) {
+                e.stopPropagation(); post(READ_ALL_URL).then(load);
+            });
+            listEl.addEventListener('click', function (e) {
+                var a = e.target.closest('a[data-id]');
+                if (!a) return;
+                e.preventDefault();
+                var url = a.getAttribute('data-url');
+                post(READ_URL.replace('/0/', '/' + a.getAttribute('data-id') + '/')).then(function () { if (url) window.location.href = url; else load(); });
+            });
+            load();
+            setInterval(function () { if (!document.hidden) fetch(LIST_URL, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) { setCount(d.unread); if (document.getElementById('bellBox').classList.contains('is-open')) render(d); }).catch(function () {}); }, 60000);
+        })();
+    </script>
+    {% endif %}
     <script>
         /* ── 드롭다운 클릭 토글 ── */
         (function () {

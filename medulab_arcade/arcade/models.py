@@ -1878,3 +1878,21 @@ class AdminMessage(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class AdminNotification(models.Model):
+    """관리자 종 버튼에 보이는 알림. 관리자 모두가 같은 목록과 읽음 상태를 본다."""
+    kind = models.CharField('종류', max_length=20, default='info')
+    title = models.CharField('제목', max_length=150)
+    body = models.CharField('내용', max_length=300, blank=True)
+    url = models.CharField('이동 주소', max_length=300, blank=True)
+    is_read = models.BooleanField('읽음', default=False)
+    created_at = models.DateTimeField('발생 시각', auto_now_add=True)
+
+    class Meta:
+        verbose_name = '관리자 알림'
+        verbose_name_plural = '관리자 알림'
+        ordering = ['-created_at', '-id']
+
+    def __str__(self):
+        return self.title

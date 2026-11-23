@@ -73,6 +73,11 @@ def absence_report(request, token):
             enrollment=enrollment, date=date,
             defaults={'is_present': False, 'note': (NOTE_PREFIX + reason)[:100]},
         )
+        from django.urls import reverse
+        from .admin_notify import notify_admins
+        notify_admins('absence', f'❌ 결석 사유 접수 — {context["student_name"]}',
+                      f'{context["class_name"]} · {date.month}/{date.day} · {reason}',
+                      reverse('class_admin_attendance', args=[enrollment.school_class_id]))
         return render(request, 'arcade/absence_report.html', {**context, 'state': 'done', 'reason': reason})
 
     if record and record.note.startswith(NOTE_PREFIX):
