@@ -52,7 +52,7 @@ class PlayPageBackLinkTests(TestCase):
         from arcade.models import Project
         author = User.objects.create_user('maker2', password='x')
         Project.objects.create(title='폼게임', author=author, author_display_name='학생', description='d',
-                               status='approved', external_url='https://example.com/game')
+                               status='approved', project_path='projects/form-game')
         res = self.client.get(reverse('play', args=['폼게임']))
         self.assertContains(res, 'allow-forms')
         self.assertContains(res, 'allow-modals')
