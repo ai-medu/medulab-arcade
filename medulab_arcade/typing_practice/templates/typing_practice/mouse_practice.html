@@ -561,7 +561,13 @@
         drag: { name: '드래그', box: document.getElementById('mpGamesDrag') }
     };
     function passed(m) { try { return localStorage.getItem('mp_' + m + '_passed') === '1'; } catch (e) { return false; } }
-    function showGames() { Object.keys(BASIC).forEach(function (m) { BASIC[m].box.style.display = passed(m) ? '' : 'none'; }); }
+    // 지금 보고 있는 연습(또는 게임)이 속한 묶음의 게임 목록만 보여준다
+    function ownerOf(m) {
+        if (BASIC[m]) return m;
+        var btn = document.querySelector('.mp-tab[data-mode="' + m + '"]');
+        return Object.keys(BASIC).filter(function (k) { return btn && BASIC[k].box.contains(btn); })[0];
+    }
+    function showGames() { var cur = ownerOf(mode); Object.keys(BASIC).forEach(function (m) { BASIC[m].box.style.display = (m === cur && passed(m)) ? '' : 'none'; }); }
     function finish() {
         running = false; clearInterval(timer);
         var sec = ((Date.now() - t0) / 1000).toFixed(1);
