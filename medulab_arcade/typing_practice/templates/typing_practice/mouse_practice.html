@@ -7,12 +7,13 @@
 .mp-wrap { max-width: 900px; margin: 30px auto; padding: 0 20px; text-align: center; }
 .mp-wrap h1 { font-size: 26px; font-weight: 900; margin: 0 0 6px; }
 .mp-sub { color: var(--text-muted); font-size: 14px; margin-bottom: 20px; }
-.mp-tabs { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; flex-wrap: wrap; }
+.mp-tabs { display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; flex-wrap: wrap; }
 .mp-tab { padding: 10px 18px; border-radius: 12px; border: 1px solid var(--border); background: transparent; color: var(--text-secondary); font-weight: 700; cursor: pointer; font-size: 14px; }
 .mp-tab.active { background: rgba(59,130,246,0.15); border-color: rgba(59,130,246,0.5); color: #3b82f6; }
-.mp-info { display: flex; justify-content: center; gap: 24px; margin-bottom: 12px; font-weight: 700; font-size: 15px; }
+.mp-group { font-size: 12px; color: var(--text-muted); font-weight: 700; margin: 10px 0 6px; }
+.mp-info { display: flex; justify-content: center; gap: 24px; margin: 12px 0; font-weight: 700; font-size: 15px; }
 .mp-info b { color: #3b82f6; }
-.mp-board { position: relative; height: 420px; border: 2px dashed var(--border); border-radius: 18px; overflow: hidden; user-select: none; background: rgba(59,130,246,0.04); }
+.mp-board { position: relative; height: 420px; border: 2px dashed var(--border); border-radius: 18px; overflow: hidden; user-select: none; -webkit-user-select: none; background: rgba(59,130,246,0.04); }
 .mp-msg { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; padding: 20px; z-index: 5; }
 .mp-msg .big { font-size: 22px; font-weight: 900; }
 .mp-start { padding: 12px 28px; border-radius: 14px; border: none; background: linear-gradient(135deg,#3b82f6,#8b5cf6); color: #fff; font-weight: 800; font-size: 16px; cursor: pointer; }
@@ -20,6 +21,33 @@
 .mp-target.dbl { background: radial-gradient(circle at 35% 35%, #fde68a, #f59e0b); }
 .mp-drag { position: absolute; width: 60px; height: 60px; border-radius: 14px; background: radial-gradient(circle at 35% 35%, #86efac, #22c55e); border: 3px solid #fff; box-shadow: 0 4px 14px rgba(0,0,0,.3); cursor: grab; touch-action: none; }
 .mp-zone { position: absolute; width: 100px; height: 100px; border-radius: 18px; border: 3px dashed #3b82f6; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #3b82f6; font-size: 13px; }
+
+/* 클릭 게임 공통 */
+.mp-emoji { position: absolute; line-height: 1; cursor: pointer; text-align: center; touch-action: manipulation; }
+.mp-float { position: absolute; font-weight: 900; font-size: 24px; pointer-events: none; z-index: 4; animation: mp-float .7s ease-out forwards; }
+@keyframes mp-float { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-40px); } }
+.mp-shake { animation: mp-shake .3s; }
+@keyframes mp-shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+
+/* 두더지 */
+.mp-grid { display: grid; grid-template-columns: repeat(3, var(--hs)); gap: 14px; justify-content: center; align-content: center; height: 100%; --hs: min(110px, 24vw); }
+.mp-hole { position: relative; width: var(--hs); height: var(--hs); border-radius: 50%; background: radial-gradient(circle at 50% 60%, #5b3a1e, #2d1b0b); overflow: hidden; cursor: pointer; }
+.mp-mole { position: absolute; left: 0; right: 0; bottom: -100%; text-align: center; font-size: min(70px, 15vw); line-height: 1; transition: bottom .12s; }
+.mp-mole.up { bottom: 8%; }
+
+/* 과녁 */
+.mp-bull { position: absolute; border-radius: 50%; cursor: crosshair; box-shadow: 0 4px 14px rgba(0,0,0,.3);
+    background: radial-gradient(circle, #ef4444 0 20%, #fff 20% 40%, #3b82f6 40% 60%, #fff 60% 80%, #facc15 80% 100%); }
+
+/* 숫자 */
+.mp-num { position: absolute; width: 64px; height: 64px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #93c5fd, #3b82f6); color: #fff; font-weight: 900; font-size: 28px; display: flex; align-items: center; justify-content: center; border: 3px solid #fff; box-shadow: 0 4px 14px rgba(0,0,0,.3); cursor: pointer; }
+.mp-num.ok { background: radial-gradient(circle at 35% 35%, #86efac, #22c55e); opacity: .35; cursor: default; }
+
+/* 짝 맞추기 */
+.mp-cards { display: grid; grid-template-columns: repeat(4, var(--cs)); gap: 12px; justify-content: center; align-content: center; height: 100%; --cs: min(100px, 19vw); }
+.mp-card { width: var(--cs); height: calc(var(--cs) * 1.2); border-radius: 14px; background: linear-gradient(135deg,#6366f1,#8b5cf6); color: #fff; display: flex; align-items: center; justify-content: center; font-size: min(48px, 10vw); cursor: pointer; border: 3px solid #fff; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+.mp-card.open { background: #fff; }
+.mp-card.matched { background: #dcfce7; opacity: .55; cursor: default; }
 </style>
 {% endblock %}
 
@@ -27,12 +55,23 @@
 <main class="mp-wrap">
     <h1>🖱️ 마우스연습</h1>
     <p class="mp-sub">마우스와 친해지는 연습이에요. 연습 종류를 고르고 시작해 보세요!</p>
+    <div class="mp-group">기본 연습</div>
     <div class="mp-tabs">
         <button class="mp-tab active" data-mode="click">👆 클릭</button>
         <button class="mp-tab" data-mode="dbl">✌️ 더블클릭</button>
         <button class="mp-tab" data-mode="drag">✋ 드래그</button>
     </div>
-    <div class="mp-info"><span>남은 개수 <b id="mpLeft">10</b></span><span>시간 <b id="mpTime">0.0</b>초</span></div>
+    <div class="mp-group">클릭 게임</div>
+    <div class="mp-tabs">
+        <button class="mp-tab" data-mode="mole">🔨 두더지 잡기</button>
+        <button class="mp-tab" data-mode="balloon">🎈 풍선 터뜨리기</button>
+        <button class="mp-tab" data-mode="fruit">🍎 과일 골라 누르기</button>
+        <button class="mp-tab" data-mode="numbers">🔢 숫자 순서대로</button>
+        <button class="mp-tab" data-mode="target">🎯 과녁 맞히기</button>
+        <button class="mp-tab" data-mode="memory">🃏 짝 맞추기</button>
+        <button class="mp-tab" data-mode="bug">🐛 벌레 잡기</button>
+    </div>
+    <div class="mp-info"><span><span id="mpL1">남은 개수</span> <b id="mpLeft">10</b></span><span><span id="mpL2">시간</span> <b id="mpTime">0.0</b><span id="mpU2">초</span></span></div>
     <div class="mp-board" id="mpBoard"></div>
 </main>
 <script>
@@ -40,16 +79,285 @@
     var TOTAL = 10, mode = 'click', left = TOTAL, t0 = 0, timer = null, running = false;
     var board = document.getElementById('mpBoard');
     var leftEl = document.getElementById('mpLeft'), timeEl = document.getElementById('mpTime');
-    var HELP = { click: '빨간 공을 클릭하세요', dbl: '노란 공을 빠르게 두 번 클릭하세요', drag: '초록 상자를 점선 칸으로 끌어다 놓으세요' };
+    var l1El = document.getElementById('mpL1'), l2El = document.getElementById('mpL2'), u2El = document.getElementById('mpU2');
+    var HELP = {
+        click: '빨간 공을 클릭하세요', dbl: '노란 공을 빠르게 두 번 클릭하세요', drag: '초록 상자를 점선 칸으로 끌어다 놓으세요',
+        mole: '구멍에서 나온 두더지를 눌러서 잡으세요! (30초)', balloon: '떠오르는 풍선을 눌러서 터뜨리세요! (30초)',
+        fruit: '과일은 누르고, 폭탄 💣은 누르면 안 돼요! (30초)', numbers: '1부터 10까지 순서대로 눌러 보세요',
+        target: '과녁의 한가운데를 눌러 보세요. 가운데일수록 점수가 높아요!', memory: '카드를 두 장씩 뒤집어서 같은 그림을 찾아보세요',
+        bug: '기어다니는 벌레를 3번씩 눌러서 잡으세요'
+    };
+    var DEFAULT_LABELS = ['남은 개수', '시간', '초'];
 
+    /* ---------- 공통 도우미 ---------- */
+    var cleanups = [];
+    function addC(fn) { cleanups.push(fn); }
+    function stopAll() { cleanups.forEach(function (f) { try { f(); } catch (e) {} }); cleanups = []; }
+    function after(fn, ms) { var id = setTimeout(fn, ms); addC(function () { clearTimeout(id); }); return id; }
+    function every(fn, ms) { var id = setInterval(fn, ms); addC(function () { clearInterval(id); }); }
+    function frames(fn) {
+        var id, alive = true, last = 0;
+        function loop(t) {
+            if (!alive) return;
+            var dt = last ? Math.min(0.05, (t - last) / 1000) : 0.016; last = t;
+            fn(dt); id = requestAnimationFrame(loop);
+        }
+        id = requestAnimationFrame(loop);
+        addC(function () { alive = false; cancelAnimationFrame(id); });
+    }
     function rnd(a, b) { return Math.floor(a + Math.random() * (b - a)); }
+    function mk(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+    function setA(v) { leftEl.textContent = v; }
+    function setB(v) { timeEl.textContent = v; }
+    function labels(l) { l1El.textContent = l[0]; l2El.textContent = l[1]; u2El.textContent = l[2]; }
+    function hit(el, fn) { el.addEventListener('pointerdown', function (e) { e.preventDefault(); fn(e); }); }
+    function floatText(e, text, color) {
+        var r = board.getBoundingClientRect();
+        var f = mk('div', 'mp-float', text); f.style.color = color || '#16a34a';
+        f.style.left = (e.clientX - r.left - 14) + 'px'; f.style.top = (e.clientY - r.top - 20) + 'px';
+        board.appendChild(f); setTimeout(function () { if (f.parentNode) f.parentNode.removeChild(f); }, 700);
+    }
+    function bestKey() { return 'mp_best_' + mode; }
+    function readBest() { try { var v = parseFloat(localStorage.getItem(bestKey())); return isNaN(v) ? null : v; } catch (e) { return null; } }
+    function saveBest(val, lower) {
+        try {
+            var old = readBest();
+            var isNew = old === null || (lower ? val < old : val > old);
+            if (isNew) localStorage.setItem(bestKey(), val);
+            return isNew;
+        } catch (e) { return false; }
+    }
+    function bestLine() {
+        var g = G[mode], v = g ? readBest() : null;
+        return v === null ? '' : '<br>🏅 내 최고 기록: ' + v + g.unit;
+    }
     function message(big, small, btn) {
         board.innerHTML = '<div class="mp-msg"><div class="big">' + big + '</div><div>' + small + '</div><button class="mp-start" id="mpStart">' + btn + '</button></div>';
         document.getElementById('mpStart').onclick = start;
     }
+    function endGame(big, small, val, lower) {
+        stopAll(); running = false; clearInterval(timer);
+        var isNew = saveBest(val, lower);
+        message(big, small + (isNew ? '<br>🏅 새 최고 기록이에요!' : ''), '다시 하기');
+    }
+    function countdown(sec, onEnd) {
+        var end = Date.now() + sec * 1000; setB(sec);
+        every(function () {
+            var r = Math.ceil((end - Date.now()) / 1000); setB(Math.max(0, r));
+            if (r <= 0) onEnd();
+        }, 200);
+    }
+    function countUp() { var s = Date.now(); setB('0.0'); every(function () { setB(((Date.now() - s) / 1000).toFixed(1)); }, 100); return function () { return ((Date.now() - s) / 1000).toFixed(1); }; }
+    function endTimed(score) {
+        var cheer = score >= 20 ? '🏆 대단해요! 마우스 박사님이에요!' : score >= 10 ? '🎉 잘했어요! 정말 멋져요!' : '💪 괜찮아요! 다시 하면 더 잘할 수 있어요. 힘내요!';
+        endGame(cheer, '30초 동안 ' + score + '점을 얻었어요', score, false);
+    }
+
+    /* ---------- 클릭 게임들 ---------- */
+    var TIMED = ['점수', '남은 시간', '초'];
+    var G = {};
+
+    // 🔨 두더지 잡기
+    G.mole = { labels: TIMED, a0: 0, b0: 30, unit: '점', run: function () {
+        var score = 0, last = -1, holes = [];
+        setA(0); board.innerHTML = '';
+        var grid = mk('div', 'mp-grid');
+        for (var i = 0; i < 9; i++) {
+            var h = mk('div', 'mp-hole'), m = mk('div', 'mp-mole', '🐹'); h.appendChild(m); grid.appendChild(h);
+            holes.push({ m: m, up: false, tid: 0 });
+        }
+        board.appendChild(grid);
+        function hide(s) { s.up = false; s.m.classList.remove('up'); }
+        function pop() {
+            var i; do { i = rnd(0, 9); } while (i === last); last = i;
+            var s = holes[i]; s.up = true; s.m.classList.add('up');
+            s.tid = after(function () { hide(s); after(pop, 450); }, 1500);
+        }
+        holes.forEach(function (s) {
+            hit(s.m.parentNode, function (e) {
+                if (!s.up) return;
+                clearTimeout(s.tid); hide(s); score++; setA(score); floatText(e, '+1');
+                after(pop, 350);
+            });
+        });
+        countdown(30, function () { endTimed(score); });
+        after(pop, 400);
+    } };
+
+    // 🎈 풍선 터뜨리기
+    G.balloon = { labels: TIMED, a0: 0, b0: 30, unit: '점', run: function () {
+        var score = 0, list = [], W = board.clientWidth, H = board.clientHeight;
+        setA(0); board.innerHTML = '';
+        function spawn() {
+            var el = mk('div', 'mp-emoji', '🎈'); el.style.fontSize = '72px';
+            el.style.filter = 'hue-rotate(' + rnd(0, 360) + 'deg)';
+            var b = { el: el, x: rnd(8, Math.max(9, W - 90)), y: H + 10, v: rnd(55, 80), dead: false };
+            el.style.left = b.x + 'px'; el.style.top = b.y + 'px';
+            hit(el, function (e) {
+                if (b.dead) return; b.dead = true; score++; setA(score); floatText(e, '+1');
+                el.textContent = '💥'; el.style.filter = 'none';
+                setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 250);
+            });
+            board.appendChild(el); list.push(b);
+        }
+        every(spawn, 900); spawn();
+        frames(function (dt) {
+            list = list.filter(function (b) {
+                if (b.dead) return false;
+                b.y -= b.v * dt; b.el.style.top = b.y + 'px';
+                if (b.y < -90) { if (b.el.parentNode) b.el.parentNode.removeChild(b.el); return false; }
+                return true;
+            });
+        });
+        countdown(30, function () { endTimed(score); });
+    } };
+
+    // 🍎 과일 골라 누르기
+    G.fruit = { labels: TIMED, a0: 0, b0: 30, unit: '점', run: function () {
+        var score = 0, W = board.clientWidth, H = board.clientHeight, FRUITS = ['🍎', '🍌', '🍇', '🍓', '🍊', '🍉'];
+        setA(0); board.innerHTML = '';
+        function spawn() {
+            var bomb = Math.random() < 0.2;
+            var el = mk('div', 'mp-emoji', bomb ? '💣' : FRUITS[rnd(0, FRUITS.length)]); el.style.fontSize = '64px';
+            el.style.left = rnd(8, Math.max(9, W - 80)) + 'px'; el.style.top = rnd(8, Math.max(9, H - 80)) + 'px';
+            function remove() { if (el.parentNode) el.parentNode.removeChild(el); }
+            hit(el, function (e) {
+                if (bomb) {
+                    score = Math.max(0, score - 1); setA(score); floatText(e, '-1', '#dc2626');
+                    board.classList.add('mp-shake'); setTimeout(function () { board.classList.remove('mp-shake'); }, 300);
+                } else { score++; setA(score); floatText(e, '+1'); }
+                remove();
+            });
+            board.appendChild(el); after(remove, 2800);
+        }
+        every(spawn, 950); spawn();
+        countdown(30, function () { endTimed(score); });
+    } };
+
+    // 🔢 숫자 순서대로
+    G.numbers = { labels: ['다음 숫자', '시간', '초'], a0: 1, b0: '0.0', unit: '초', run: function () {
+        var N = 10, next = 1, W = board.clientWidth, H = board.clientHeight, pts = [];
+        setA(1); board.innerHTML = '';
+        var elapsed = countUp();
+        for (var n = 1; n <= N; n++) {
+            var x, y, tries = 0;
+            do { x = rnd(10, W - 74); y = rnd(10, H - 74); tries++; }
+            while (tries < 300 && pts.some(function (p) { return Math.abs(p[0] - x) < 80 && Math.abs(p[1] - y) < 80; }));
+            pts.push([x, y]);
+            (function (n, x, y) {
+                var el = mk('div', 'mp-num', n); el.style.left = x + 'px'; el.style.top = y + 'px';
+                hit(el, function () {
+                    if (n !== next) { el.classList.add('mp-shake'); setTimeout(function () { el.classList.remove('mp-shake'); }, 300); return; }
+                    el.classList.add('ok'); next++; setA(next > N ? '끝!' : next);
+                    if (next > N) {
+                        var sec = parseFloat(elapsed());
+                        endGame('🎉 잘했어요! ' + sec.toFixed(1) + '초', '1부터 ' + N + '까지 모두 눌렀어요', sec, true);
+                    }
+                });
+                board.appendChild(el);
+            })(n, x, y);
+        }
+    } };
+
+    // 🎯 과녁 맞히기
+    G.target = { labels: ['남은 과녁', '점수', '점'], a0: 10, b0: 0, unit: '점', run: function () {
+        var ROUNDS = 10, round = 0, total = 0, W = board.clientWidth, H = board.clientHeight;
+        setA(ROUNDS); setB(0);
+        function show() {
+            board.innerHTML = '';
+            var size = 160 - round * 8;
+            var el = mk('div', 'mp-bull'); el.style.width = el.style.height = size + 'px';
+            el.style.left = rnd(10, W - size - 10) + 'px'; el.style.top = rnd(10, H - size - 10) + 'px';
+            hit(el, function (e) {
+                var r = el.getBoundingClientRect();
+                var d = Math.hypot(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2)) / (r.width / 2);
+                var p = d <= 0.2 ? 10 : d <= 0.4 ? 7 : d <= 0.6 ? 4 : 2;
+                total += p; round++; setB(total); setA(ROUNDS - round);
+                floatText(e, '+' + p, p >= 7 ? '#dc2626' : '#2563eb');
+                el.style.pointerEvents = 'none';
+                if (round >= ROUNDS) {
+                    var cheer = total >= 70 ? '🏆 대단해요! 명사수예요!' : total >= 45 ? '🎉 잘했어요! 정말 멋져요!' : '💪 괜찮아요! 가운데를 노려 보면 더 잘할 수 있어요!';
+                    after(function () { endGame(cheer, '10번 쏴서 ' + total + '점을 얻었어요 (100점 만점)', total, false); }, 500);
+                } else after(show, 350);
+            });
+            board.appendChild(el);
+        }
+        show();
+    } };
+
+    // 🃏 짝 맞추기
+    G.memory = { labels: ['남은 짝', '시간', '초'], a0: 4, b0: '0.0', unit: '초', run: function () {
+        var icons = ['🐶', '🐱', '🐰', '🐻'], deck = icons.concat(icons), pairs = 4, first = null, lock = false, moves = 0;
+        for (var i = deck.length - 1; i > 0; i--) { var j = rnd(0, i + 1), t = deck[i]; deck[i] = deck[j]; deck[j] = t; }
+        setA(pairs); board.innerHTML = '';
+        var elapsed = countUp(), grid = mk('div', 'mp-cards');
+        deck.forEach(function (ic) {
+            var c = mk('div', 'mp-card', '❓'); c.dataset.ic = ic; grid.appendChild(c);
+            hit(c, function () {
+                if (lock || c.classList.contains('open') || c.classList.contains('matched')) return;
+                c.classList.add('open'); c.textContent = ic;
+                if (!first) { first = c; return; }
+                moves++;
+                if (first.dataset.ic === ic) {
+                    first.classList.add('matched'); c.classList.add('matched'); first = null; pairs--; setA(pairs);
+                    if (pairs === 0) {
+                        var sec = parseFloat(elapsed());
+                        after(function () { endGame('🎉 잘했어요! ' + sec.toFixed(1) + '초', '카드를 ' + moves + '번 뒤집어서 모두 찾았어요', sec, true); }, 500);
+                    }
+                } else {
+                    lock = true; var a = first; first = null;
+                    after(function () { a.classList.remove('open'); a.textContent = '❓'; c.classList.remove('open'); c.textContent = '❓'; lock = false; }, 800);
+                }
+            });
+        });
+        board.appendChild(grid);
+    } };
+
+    // 🐛 벌레 잡기
+    G.bug = { labels: ['남은 벌레', '시간', '초'], a0: 5, b0: '0.0', unit: '초', run: function () {
+        var COUNT = 5, HP = 3, alive = COUNT, W = board.clientWidth, H = board.clientHeight, S = 56, bugs = [];
+        setA(COUNT); board.innerHTML = '';
+        var elapsed = countUp();
+        for (var i = 0; i < COUNT; i++) {
+            (function () {
+                var el = mk('div', 'mp-emoji', '🐛'); el.style.fontSize = S + 'px';
+                var ang = Math.random() * Math.PI * 2, sp = rnd(45, 70);
+                var b = { el: el, x: rnd(10, W - S - 10), y: rnd(10, H - S - 10), vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, hp: HP, dead: false };
+                el.style.left = b.x + 'px'; el.style.top = b.y + 'px';
+                hit(el, function (e) {
+                    if (b.dead) return; b.hp--;
+                    el.style.opacity = 0.4 + 0.2 * b.hp;
+                    if (b.hp <= 0) {
+                        b.dead = true; alive--; setA(alive); floatText(e, '잡았다!'); el.textContent = '💨';
+                        setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 300);
+                        if (alive === 0) {
+                            var sec = parseFloat(elapsed());
+                            after(function () { endGame('🎉 잘했어요! ' + sec.toFixed(1) + '초', '벌레를 모두 잡았어요', sec, true); }, 400);
+                        }
+                    } else floatText(e, b.hp + '번 더!', '#d97706');
+                });
+                board.appendChild(el); bugs.push(b);
+            })();
+        }
+        frames(function (dt) {
+            bugs.forEach(function (b) {
+                if (b.dead) return;
+                b.x += b.vx * dt; b.y += b.vy * dt;
+                if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx); } else if (b.x > W - S) { b.x = W - S; b.vx = -Math.abs(b.vx); }
+                if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); } else if (b.y > H - S) { b.y = H - S; b.vy = -Math.abs(b.vy); }
+                b.el.style.left = b.x + 'px'; b.el.style.top = b.y + 'px';
+            });
+        });
+    } };
+
+    /* ---------- 기본 연습(클릭·더블클릭·드래그) ---------- */
     function reset() {
-        running = false; clearInterval(timer); left = TOTAL; leftEl.textContent = TOTAL; timeEl.textContent = '0.0';
-        message('준비되셨나요?', HELP[mode], '시작하기');
+        running = false; clearInterval(timer); stopAll();
+        var g = G[mode];
+        labels(g ? g.labels : DEFAULT_LABELS);
+        if (g) { setA(g.a0); setB(g.b0); }
+        else { left = TOTAL; setA(TOTAL); setB('0.0'); }
+        message('준비되셨나요?', HELP[mode] + bestLine(), '시작하기');
     }
     function finish() {
         running = false; clearInterval(timer);
@@ -58,6 +366,8 @@
         message('🎉 잘했어요! ' + sec + '초', TOTAL + '개를 모두 성공했어요', '다시 하기');
     }
     function start() {
+        stopAll();
+        if (G[mode]) { running = true; G[mode].run(); return; }
         running = true; left = TOTAL; leftEl.textContent = left; t0 = Date.now();
         clearInterval(timer);
         timer = setInterval(function () { timeEl.textContent = ((Date.now() - t0) / 1000).toFixed(1); }, 100);
