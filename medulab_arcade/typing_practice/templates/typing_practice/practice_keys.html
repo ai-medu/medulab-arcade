@@ -654,7 +654,11 @@
     }
 
     let targetChar = '', prevChar = '-', nextCharBuffer = [];
-    let completedCount = 0, completedStrokes = 0, errors = 0, totalCount = 40;
+    let completedCount = 0, completedStrokes = 0, errors = 0;
+    // 미션 개수: 쉬프트 단계는 30개, 나머지는 40개
+    function missionCountFor(level) { return level === 'shift' ? 30 : 40; }
+    let totalCount = missionCountFor(currentLevel);
+    document.getElementById('progress').innerText = `0/${totalCount}`;
     let timeLeft = practiceDuration, startTime = null, timerInterval = null, itemStartTime = null, cumulativeTime = 0, maxWpm = 0;
     let soundEnabled = getStorage().getItem('typingSound') === 'on';
     let showHands = getStorage().getItem('showHands') !== 'off';
@@ -775,6 +779,7 @@
         }
 
         if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+        totalCount = missionCountFor(currentLevel);
         completedCount = 0; completedStrokes = 0; errors = 0; startTime = null; itemStartTime = null; cumulativeTime = 0; maxWpm = 0; timeLeft = practiceDuration;
         targetChar = ''; prevChar = '-'; nextCharBuffer = [];
         
