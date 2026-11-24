@@ -23,7 +23,7 @@
 
     <!-- 헤더 -->
     <div class="works-header">
-        <h2 class="works-title">{{ works_title|default:"MEDULAB WORKS" }}</h2>
+        <h2 class="works-title">MEDULAB PLAYZONE</h2>
         <span class="works-count">{{ total_projects }}개 작품</span>
         {% if show_upload and user.is_authenticated %}
         <a href="{% url 'upload' %}" class="works-upload-btn">📤 작품 업로드</a>
