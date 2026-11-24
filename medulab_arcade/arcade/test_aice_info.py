@@ -45,3 +45,14 @@ class PlayPageBackLinkTests(TestCase):
         res = self.client.get(reverse('play', args=['테스트게임']))
         self.assertEqual(res.status_code, 200)
         self.assertContains(res, f'<a href="{reverse("works_gallery")}" class="back-btn">')
+
+    def test_game_frame_allows_forms_and_dialogs(self):
+        # 폼 제출을 막으면 닉네임 입력 후 '시작하기' 같은 버튼이 동작하지 않는다
+        from django.contrib.auth.models import User
+        from arcade.models import Project
+        author = User.objects.create_user('maker2', password='x')
+        Project.objects.create(title='폼게임', author=author, author_display_name='학생', description='d',
+                               status='approved', external_url='https://example.com/game')
+        res = self.client.get(reverse('play', args=['폼게임']))
+        self.assertContains(res, 'allow-forms')
+        self.assertContains(res, 'allow-modals')

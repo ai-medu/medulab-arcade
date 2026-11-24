@@ -239,7 +239,7 @@
                 </div>
             {% elif project.play_url %}
                 <div class="game-frame-stage" id="gameStage">
-                    <iframe id="projectFrame" src="{{ project.play_url }}" allowfullscreen sandbox="allow-scripts allow-same-origin allow-popups"></iframe>
+                    <iframe id="projectFrame" src="{{ project.play_url }}" allowfullscreen sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals"></iframe>
                 </div>
             {% else %}
             <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
