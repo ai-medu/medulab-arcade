@@ -33,3 +33,15 @@ class FinderMenuTests(TestCase):
     def test_finder_renamed_and_third(self):
         names = list(NavItem.objects.filter(section='learning').order_by('order', 'id').values_list('name', flat=True))
         self.assertEqual(names[:3], ['커리큘럼 로드맵', 'AICE 과정 안내', '내게 맞는 수업'])
+
+
+class PlayPageBackLinkTests(TestCase):
+    def test_back_button_goes_to_playzone_list(self):
+        from django.contrib.auth.models import User
+        from arcade.models import Project
+        author = User.objects.create_user('maker', password='x')
+        Project.objects.create(title='테스트게임', author=author, author_display_name='학생', description='d',
+                               status='approved', external_url='https://example.com/game')
+        res = self.client.get(reverse('play', args=['테스트게임']))
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, f'<a href="{reverse("works_gallery")}" class="back-btn">')
