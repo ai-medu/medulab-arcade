@@ -55,13 +55,13 @@
 <main class="mp-wrap">
     <h1>🖱️ 마우스연습</h1>
     <p class="mp-sub">마우스와 친해지는 연습이에요. 연습 종류를 고르고 시작해 보세요!</p>
-    <div class="mp-group">기본 연습</div>
     <div class="mp-tabs">
         <button class="mp-tab active" data-mode="click">👆 클릭</button>
         <button class="mp-tab" data-mode="dbl">✌️ 더블클릭</button>
         <button class="mp-tab" data-mode="drag">✋ 드래그</button>
     </div>
-    <div class="mp-group">클릭 게임</div>
+    <div id="mpGames" style="display:none">
+    <div class="mp-group">🎮 클릭 게임 (하고 싶은 게임을 골라 보세요)</div>
     <div class="mp-tabs">
         <button class="mp-tab" data-mode="mole">🔨 두더지 잡기</button>
         <button class="mp-tab" data-mode="balloon">🎈 풍선 터뜨리기</button>
@@ -70,6 +70,7 @@
         <button class="mp-tab" data-mode="target">🎯 과녁 맞히기</button>
         <button class="mp-tab" data-mode="memory">🃏 짝 맞추기</button>
         <button class="mp-tab" data-mode="bug">🐛 벌레 잡기</button>
+    </div>
     </div>
     <div class="mp-info"><span><span id="mpL1">남은 개수</span> <b id="mpLeft">10</b></span><span><span id="mpL2">시간</span> <b id="mpTime">0.0</b><span id="mpU2">초</span></span></div>
     <div class="mp-board" id="mpBoard"></div>
@@ -121,6 +122,7 @@
     function readBest() { try { var v = parseFloat(localStorage.getItem(bestKey())); return isNaN(v) ? null : v; } catch (e) { return null; } }
     function saveBest(val, lower) {
         try {
+            if (!lower && val <= 0) return false;
             var old = readBest();
             var isNew = old === null || (lower ? val < old : val > old);
             if (isNew) localStorage.setItem(bestKey(), val);
@@ -357,12 +359,26 @@
         labels(g ? g.labels : DEFAULT_LABELS);
         if (g) { setA(g.a0); setB(g.b0); }
         else { left = TOTAL; setA(TOTAL); setB('0.0'); }
-        message('준비되셨나요?', HELP[mode] + bestLine(), '시작하기');
+        var help = HELP[mode] + bestLine();
+        if (mode === 'click' && !gamesUnlocked()) help += '<br>🎮 클릭 연습을 통과하면 재미있는 클릭 게임이 열려요!';
+        showGames();
+        message('준비되셨나요?', help, '시작하기');
     }
+    var gamesEl = document.getElementById('mpGames');
+    function gamesUnlocked() { try { return localStorage.getItem('mp_click_passed') === '1'; } catch (e) { return false; } }
+    function showGames() { gamesEl.style.display = gamesUnlocked() ? '' : 'none'; }
     function finish() {
         running = false; clearInterval(timer);
         var sec = ((Date.now() - t0) / 1000).toFixed(1);
         timeEl.textContent = sec;
+        if (mode === 'click') {
+            var first = !gamesUnlocked();
+            try { localStorage.setItem('mp_click_passed', '1'); } catch (e) {}
+            showGames();
+            message('🎉 클릭 연습 통과! ' + sec + '초',
+                first ? '🎮 <b>클릭 게임</b>이 열렸어요!<br>아래에서 하고 싶은 게임을 골라 보세요.' : '아래 클릭 게임도 해 보세요!', '다시 하기');
+            return;
+        }
         message('🎉 잘했어요! ' + sec + '초', TOTAL + '개를 모두 성공했어요', '다시 하기');
     }
     function start() {
