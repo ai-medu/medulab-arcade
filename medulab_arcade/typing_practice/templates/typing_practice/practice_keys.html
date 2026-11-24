@@ -363,7 +363,7 @@
         <div class="status-panel">
             <div class="mission-status">
                 <span class="stat-label">Mission</span>
-                <span class="stat-value" id="progress">0/50</span>
+                <span class="stat-value" id="progress">0/40</span>
             </div>
             <div class="time-gauge-wrapper">
                 <div style="display: flex; justify-content: space-between; align-items: flex-end;">
@@ -650,7 +650,7 @@
     }
 
     let targetChar = '', prevChar = '-', nextCharBuffer = [];
-    let completedCount = 0, completedStrokes = 0, errors = 0, totalCount = 50;
+    let completedCount = 0, completedStrokes = 0, errors = 0, totalCount = 40;
     let timeLeft = practiceDuration, startTime = null, timerInterval = null, itemStartTime = null, cumulativeTime = 0, maxWpm = 0;
     let soundEnabled = getStorage().getItem('typingSound') === 'on';
     let showHands = getStorage().getItem('showHands') !== 'off';
