@@ -305,6 +305,10 @@
                     <span class="res-label" style="color: #60a5fa;">남은 시간 TIME</span>
                     <span class="res-value" id="final-time">0</span><span class="res-unit">초</span>
                 </div>
+                <div class="result-item" style="border-left: 4px solid #fbbf24; grid-column: 1 / -1;">
+                    <span class="res-label" style="color: #fbbf24;">남은 개수 REMAINING</span>
+                    <span class="res-value" id="final-remaining" style="color: #fbbf24;">0</span><span class="res-unit">개</span>
+                </div>
             </div>
             <div style="display: flex; gap: 10px; margin-top: 25px; width: 100%;">
                 <button class="res-btn" onclick="retryPractice()" style="flex: 1; background: linear-gradient(135deg, #6366f1, #4f46e5); box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4); border: none;">다시하기</button>
@@ -770,6 +774,7 @@
             updateLockStates();
         }
 
+        if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
         completedCount = 0; completedStrokes = 0; errors = 0; startTime = null; itemStartTime = null; cumulativeTime = 0; maxWpm = 0; timeLeft = practiceDuration;
         targetChar = ''; prevChar = '-'; nextCharBuffer = [];
         
@@ -968,7 +973,7 @@
                 if (timeLeft <= 10) timeText.style.color = '#f87171';
             }
             
-            if (timeLeft <= 0) { clearInterval(timerInterval); finishPractice(false); }
+            if (timeLeft <= 0) { clearInterval(timerInterval); timerInterval = null; finishPractice(false); }
         }, 1000);
     }
 
@@ -999,7 +1004,7 @@
             completedCount++;
             cumulativeTime += (Date.now() - itemStartTime);
             itemStartTime = null;
-            if (completedCount >= totalCount) { if (timerInterval) clearInterval(timerInterval); finishPractice(true); }
+            if (completedCount >= totalCount) { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } finishPractice(true); }
             else nextChar();
         } else {
             if (inputChar.length === 1) errors++;
@@ -1028,7 +1033,11 @@
         }
 
         document.getElementById('final-accuracy').innerText = accuracy;
-        document.getElementById('final-time').innerText = timeLeft;
+        document.getElementById('final-time').innerText = Math.max(0, timeLeft);
+        document.getElementById('final-remaining').innerText = Math.max(0, totalCount - completedCount);
+        if (!isSuccess) {
+            unlockMsg = "<span style='color:#fbbf24; font-size:16px;'>💪 아깝다! 조금만 더 연습하면 성공할 수 있어요. 다시 도전해 봐요!</span>";
+        }
         document.getElementById('final-message').innerHTML = unlockMsg;
         document.getElementById('result-modal').style.display = 'flex';
     }
