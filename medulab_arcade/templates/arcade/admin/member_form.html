@@ -82,7 +82,16 @@
     <div class="form-card">
         <form method="POST">
             {% csrf_token %}
-            
+
+            <div class="form-section-title">회원 유형</div>
+
+            <div class="form-group">
+                <label>회원 유형 *</label>
+                {{ profile_form.user_type }}
+                <div class="form-help">먼저 회원 유형을 선택해 주세요. 회원의 권한 레벨을 결정합니다.</div>
+                {% if profile_form.user_type.errors %}<div class="form-errors">{{ profile_form.user_type.errors.0 }}</div>{% endif %}
+            </div>
+
             <div class="form-section-title">기본 계정 정보</div>
             
             <div class="form-group">
@@ -157,9 +166,10 @@
             <div class="form-group">
                 <label>알림 수신</label>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                    <label class="checkbox-group">{{ profile_form.notify_attendance }}<span>출석 알림 수신</span></label>
-                    <label class="checkbox-group">{{ profile_form.notify_news }}<span>소식 알림 수신</span></label>
+                    <label class="checkbox-group" id="notifyAttBox">{{ profile_form.notify_attendance }}<span>출석 알림 수신</span></label>
+                    <label class="checkbox-group" id="notifyNewsBox">{{ profile_form.notify_news }}<span>소식 알림 수신</span></label>
                 </div>
+                <div class="form-help" id="notifyHelp">알림 수신은 <strong>메듀랩 학부모</strong> 회원일 때만 설정할 수 있어요.</div>
             </div>
             {% endif %}
 
@@ -169,12 +179,6 @@
             {% endif %}
 
             <div class="form-section-title">회원 권한 및 상태</div>
-
-            <div class="form-group">
-                <label>회원 유형</label>
-                {{ profile_form.user_type }}
-                <div class="form-help">회원의 권한 레벨을 결정합니다.</div>
-            </div>
 
             <div class="form-group">
                 <label>계정 설정</label>
@@ -501,5 +505,26 @@
     })();
     </script>
     {% endif %}
+
+    <script>
+    // 알림 수신은 메듀랩 학부모일 때만 사용
+    (function () {
+        var typeSel = document.getElementById('id_user_type');
+        var nAtt = document.getElementById('id_notify_attendance'), nNews = document.getElementById('id_notify_news');
+        var nAttBox = document.getElementById('notifyAttBox'), nNewsBox = document.getElementById('notifyNewsBox'), nHelp = document.getElementById('notifyHelp');
+        function syncNotify() {
+            if (!typeSel || !nAtt || !nNews) return;
+            var on = typeSel.value === 'medulab_parent';
+            [[nAtt, nAttBox], [nNews, nNewsBox]].forEach(function (p) {
+                p[0].disabled = !on;
+                p[1].style.opacity = on ? '' : '0.45';
+                p[1].style.cursor = on ? '' : 'not-allowed';
+            });
+            if (nHelp) nHelp.style.display = on ? 'none' : '';
+        }
+        if (typeSel) typeSel.addEventListener('change', syncNotify);
+        syncNotify();
+    })();
+    </script>
 </div>
 {% endblock %}
