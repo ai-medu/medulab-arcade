@@ -273,7 +273,7 @@ class AdminAndNavTests(TestCase):
         item = NavItem.objects.get(url_name='special_lecture_list')
         self.assertEqual((item.section, item.name), ('learning', '특강프로그램'))
         names = list(NavItem.objects.filter(section='learning').order_by('order', 'id').values_list('url_name', flat=True))
-        self.assertEqual(names[1], 'special_lecture_list')
+        self.assertEqual(names.index('special_lecture_list'), names.index('student_course_list') + 1)   # 교육프로그램 바로 다음
 
     def test_admin_pages_staff_only(self):
         self.assertEqual(self.client.get(reverse('special_admin_list')).status_code, 302)

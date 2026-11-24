@@ -95,7 +95,7 @@ class WorksGalleryPageTests(TestCase):
         self.client.force_login(user)
         res = self.client.get(reverse('works_gallery'))
         self.assertEqual(res.status_code, 200)
-        self.assertContains(res, 'MEDULAB WORKS')
+        self.assertContains(res, 'MEDULAB PLAYZONE')
         self.assertContains(res, 'class="works-upload-btn"')
         self.assertNotContains(res, '<section class="lp-hero"')
         self.assertNotContains(res, '<div class="works-tab-bar"')

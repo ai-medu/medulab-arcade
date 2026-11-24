@@ -1,10 +1,10 @@
 {% extends 'arcade/home.html' %}
 
-{% block title %}학생 작품 갤러리 - 메듀랩{% endblock %}
+{% block title %}메듀랩 플레이존{% endblock %}
 
 {% block content %}
 <div style="height:24px;"></div>
-{% include 'arcade/_works_section.html' with works_url=works_url show_tabs=False show_upload=True %}
+{% include 'arcade/_works_section.html' with works_url=works_url show_tabs=False show_upload=True works_title='MEDULAB PLAYZONE' %}
 
 <script>
 /* 스크롤 fade-up */
