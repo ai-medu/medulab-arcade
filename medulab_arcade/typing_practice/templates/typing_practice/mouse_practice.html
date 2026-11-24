@@ -72,6 +72,22 @@
         <button class="mp-tab" data-mode="bug">🐛 벌레 잡기</button>
     </div>
     </div>
+    <div id="mpGamesDbl" style="display:none">
+    <div class="mp-group">🎮 더블클릭 게임 (하고 싶은 게임을 골라 보세요)</div>
+    <div class="mp-tabs">
+        <button class="mp-tab" data-mode="egg">🥚 알 깨기</button>
+        <button class="mp-tab" data-mode="gift">🎁 선물 열기</button>
+        <button class="mp-tab" data-mode="popcorn">🍿 팝콘 터뜨리기</button>
+    </div>
+    </div>
+    <div id="mpGamesDrag" style="display:none">
+    <div class="mp-group">🎮 드래그 게임 (하고 싶은 게임을 골라 보세요)</div>
+    <div class="mp-tabs">
+        <button class="mp-tab" data-mode="basket">🧺 과일 바구니</button>
+        <button class="mp-tab" data-mode="sort">🎨 색깔 분류</button>
+        <button class="mp-tab" data-mode="slots">🔢 숫자 칸 맞추기</button>
+    </div>
+    </div>
     <div class="mp-info"><span><span id="mpL1">남은 개수</span> <b id="mpLeft">10</b></span><span><span id="mpL2">시간</span> <b id="mpTime">0.0</b><span id="mpU2">초</span></span></div>
     <div class="mp-board" id="mpBoard"></div>
 </main>
@@ -86,7 +102,11 @@
         mole: '구멍에서 나온 두더지를 눌러서 잡으세요! (30초)', balloon: '떠오르는 풍선을 눌러서 터뜨리세요! (30초)',
         fruit: '과일은 누르고, 폭탄 💣은 누르면 안 돼요! (30초)', numbers: '1부터 10까지 순서대로 눌러 보세요',
         target: '과녁의 한가운데를 눌러 보세요. 가운데일수록 점수가 높아요!', memory: '카드를 두 장씩 뒤집어서 같은 그림을 찾아보세요',
-        bug: '기어다니는 벌레를 3번씩 눌러서 잡으세요'
+        bug: '기어다니는 벌레를 3번씩 눌러서 잡으세요',
+        egg: '알을 빠르게 두 번 눌러서 깨 주세요! 병아리가 나와요 (30초)', gift: '선물 상자 8개를 두 번씩 눌러서 모두 열어 보세요',
+        popcorn: '옥수수를 두 번 눌러서 팝콘으로 터뜨려요! (30초)',
+        basket: '과일을 끌어서 바구니에 넣어 주세요', sort: '빨간 공은 빨간 칸에, 파란 공은 파란 칸에 끌어다 놓으세요',
+        slots: '숫자를 끌어서 같은 숫자 칸에 맞춰 놓으세요'
     };
     var DEFAULT_LABELS = ['남은 개수', '시간', '초'];
 
@@ -352,6 +372,177 @@
         });
     } };
 
+    /* ---------- 더블클릭 게임들 ---------- */
+    function dbl(el, fn) { el.addEventListener('dblclick', function (e) { e.preventDefault(); fn(e); }); }
+    function scatter(n, size, W, H, pts) {
+        var out = [];
+        for (var i = 0; i < n; i++) {
+            var x, y, t = 0;
+            do { x = rnd(10, W - size - 10); y = rnd(10, H - size - 10); t++; }
+            while (t < 300 && out.some(function (p) { return Math.abs(p[0] - x) < size + 14 && Math.abs(p[1] - y) < size + 14; }));
+            out.push([x, y]);
+        }
+        return out;
+    }
+
+    // 🥚 알 깨기
+    G.egg = { labels: TIMED, a0: 0, b0: 30, unit: '점', run: function () {
+        var score = 0, W = board.clientWidth, H = board.clientHeight;
+        setA(0); board.innerHTML = '';
+        function spawn() {
+            var el = mk('div', 'mp-emoji', '🥚'); el.style.fontSize = '64px';
+            el.style.left = rnd(8, Math.max(9, W - 80)) + 'px'; el.style.top = rnd(8, Math.max(9, H - 80)) + 'px';
+            var cracked = false;
+            function remove() { if (el.parentNode) el.parentNode.removeChild(el); }
+            dbl(el, function (e) {
+                if (cracked) return; cracked = true; score++; setA(score); floatText(e, '+1'); el.textContent = '🐣';
+                setTimeout(remove, 400);
+            });
+            board.appendChild(el); after(remove, 3500);
+        }
+        every(spawn, 1300); spawn();
+        countdown(30, function () { endTimed(score); });
+    } };
+
+    // 🎁 선물 열기
+    G.gift = { labels: ['남은 선물', '시간', '초'], a0: 8, b0: '0.0', unit: '초', run: function () {
+        var N = 8, open = 0, W = board.clientWidth, H = board.clientHeight;
+        setA(N); board.innerHTML = '';
+        var elapsed = countUp();
+        scatter(N, 72, W, H).forEach(function (p) {
+            var el = mk('div', 'mp-emoji', '🎁'); el.style.fontSize = '68px'; el.style.left = p[0] + 'px'; el.style.top = p[1] + 'px';
+            var done = false;
+            dbl(el, function (e) {
+                if (done) return; done = true; open++; setA(N - open); el.textContent = '🌟'; el.style.opacity = 0.5; el.style.cursor = 'default';
+                floatText(e, '짠!');
+                if (open === N) {
+                    var sec = parseFloat(elapsed());
+                    after(function () { endGame('🎉 잘했어요! ' + sec.toFixed(1) + '초', '선물 상자를 모두 열었어요', sec, true); }, 500);
+                }
+            });
+            board.appendChild(el);
+        });
+    } };
+
+    // 🍿 팝콘 터뜨리기
+    G.popcorn = { labels: TIMED, a0: 0, b0: 30, unit: '점', run: function () {
+        var score = 0;
+        setA(0); board.innerHTML = '';
+        var grid = mk('div', 'mp-cards'); grid.style.gridTemplateColumns = 'repeat(4, var(--cs))';
+        for (var i = 0; i < 12; i++) {
+            (function () {
+                var c = mk('div', 'mp-card', '🌽'); c.style.background = '#fef3c7'; c.style.borderColor = '#f59e0b';
+                c.style.height = 'calc(var(--cs) * 0.9)';
+                var busy = false;
+                dbl(c, function (e) {
+                    if (busy) return; busy = true; score++; setA(score); floatText(e, '+1'); c.textContent = '🍿';
+                    after(function () { c.textContent = '🌽'; busy = false; }, 700);
+                });
+                grid.appendChild(c);
+            })();
+        }
+        board.appendChild(grid);
+        countdown(30, function () { endTimed(score); });
+    } };
+
+    /* ---------- 드래그 게임들 ---------- */
+    function draggable(el, onDrop) {
+        var home = [el.offsetLeft, el.offsetTop], sx = 0, sy = 0, ox = 0, oy = 0, on = false;
+        el.style.touchAction = 'none'; el.style.cursor = 'grab';
+        el.addEventListener('pointerdown', function (e) {
+            e.preventDefault(); on = true; el.setPointerCapture(e.pointerId);
+            sx = e.clientX; sy = e.clientY; ox = el.offsetLeft; oy = el.offsetTop; el.style.zIndex = 3; el.style.cursor = 'grabbing';
+        });
+        el.addEventListener('pointermove', function (e) {
+            if (!on) return;
+            el.style.left = Math.max(0, Math.min(board.clientWidth - el.offsetWidth, ox + e.clientX - sx)) + 'px';
+            el.style.top = Math.max(0, Math.min(board.clientHeight - el.offsetHeight, oy + e.clientY - sy)) + 'px';
+        });
+        el.addEventListener('pointerup', function () {
+            if (!on) return; on = false; el.style.zIndex = ''; el.style.cursor = 'grab';
+            var ok = onDrop(el.offsetLeft + el.offsetWidth / 2, el.offsetTop + el.offsetHeight / 2, el);
+            if (!ok) { el.style.left = home[0] + 'px'; el.style.top = home[1] + 'px'; }
+        });
+    }
+    function inside(cx, cy, z) { return cx > z.offsetLeft && cx < z.offsetLeft + z.offsetWidth && cy > z.offsetTop && cy < z.offsetTop + z.offsetHeight; }
+    function zoneBox(text, color, left, top, w, h, fs) {
+        var z = mk('div', 'mp-zone', text); z.style.width = w + 'px'; z.style.height = h + 'px';
+        z.style.left = left + 'px'; z.style.top = top + 'px'; z.style.borderColor = color; z.style.color = color; z.style.fontSize = (fs || 36) + 'px';
+        return z;
+    }
+
+    // 🧺 과일 바구니
+    G.basket = { labels: ['남은 과일', '시간', '초'], a0: 10, b0: '0.0', unit: '초', run: function () {
+        var N = 10, left = N, W = board.clientWidth, H = board.clientHeight, FR = ['🍎', '🍌', '🍇', '🍓', '🍊', '🍉'];
+        setA(N); board.innerHTML = '';
+        var elapsed = countUp();
+        var bw = 150, bh = 100, bsk = zoneBox('🧺', '#16a34a', Math.round((W - bw) / 2), H - bh - 10, bw, bh, 56);
+        board.appendChild(bsk);
+        scatter(N, 60, W, H - bh - 30).forEach(function (p, i) {
+            var el = mk('div', 'mp-emoji', FR[i % FR.length]); el.style.fontSize = '52px'; el.style.width = '60px'; el.style.height = '60px';
+            el.style.left = p[0] + 'px'; el.style.top = p[1] + 'px';
+            board.appendChild(el);
+            draggable(el, function (cx, cy) {
+                if (!inside(cx, cy, bsk)) return false;
+                el.style.display = 'none'; left--; setA(left); floatText({ clientX: board.getBoundingClientRect().left + cx, clientY: board.getBoundingClientRect().top + cy }, '+1');
+                if (left === 0) { var sec = parseFloat(elapsed()); after(function () { endGame('🎉 잘했어요! ' + sec.toFixed(1) + '초', '과일을 모두 바구니에 담았어요', sec, true); }, 400); }
+                return true;
+            });
+        });
+    } };
+
+    // 🎨 색깔 분류
+    G.sort = { labels: ['남은 공', '시간', '초'], a0: 8, b0: '0.0', unit: '초', run: function () {
+        var N = 8, left = N, W = board.clientWidth, H = board.clientHeight;
+        setA(N); board.innerHTML = '';
+        var elapsed = countUp();
+        var zw = Math.min(150, Math.floor((W - 50) / 2)), zh = 110;
+        var red = zoneBox('빨강', '#dc2626', 15, H - zh - 10, zw, zh, 20), blue = zoneBox('파랑', '#2563eb', W - zw - 15, H - zh - 10, zw, zh, 20);
+        board.appendChild(red); board.appendChild(blue);
+        scatter(N, 56, W, H - zh - 30).forEach(function (p, i) {
+            var isRed = i % 2 === 0;
+            var el = mk('div', 'mp-emoji', isRed ? '🔴' : '🔵'); el.style.fontSize = '48px'; el.style.width = '56px'; el.style.height = '56px';
+            el.style.left = p[0] + 'px'; el.style.top = p[1] + 'px';
+            board.appendChild(el);
+            draggable(el, function (cx, cy) {
+                var z = isRed ? red : blue, other = isRed ? blue : red;
+                if (inside(cx, cy, other)) { board.classList.add('mp-shake'); setTimeout(function () { board.classList.remove('mp-shake'); }, 300); return false; }
+                if (!inside(cx, cy, z)) return false;
+                el.style.display = 'none'; left--; setA(left);
+                if (left === 0) { var sec = parseFloat(elapsed()); after(function () { endGame('🎉 잘했어요! ' + sec.toFixed(1) + '초', '공을 색깔대로 모두 옮겼어요', sec, true); }, 400); }
+                return true;
+            });
+        });
+    } };
+
+    // 🔢 숫자 칸 맞추기
+    G.slots = { labels: ['남은 숫자', '시간', '초'], a0: 5, b0: '0.0', unit: '초', run: function () {
+        var N = 5, left = N, W = board.clientWidth, H = board.clientHeight, S = 60, gap = Math.max(6, Math.floor((W - N * S) / (N + 1)));
+        setA(N); board.innerHTML = '';
+        var elapsed = countUp(), slots = [], order = [1, 2, 3, 4, 5];
+        for (var i = order.length - 1; i > 0; i--) { var j = rnd(0, i + 1), t = order[i]; order[i] = order[j]; order[j] = t; }
+        for (var n = 1; n <= N; n++) {
+            var z = zoneBox(n, '#94a3b8', gap + (n - 1) * (S + gap), 50, S, S, 26); z.style.borderRadius = '12px'; z.style.opacity = 0.7;
+            board.appendChild(z); slots.push(z);
+        }
+        order.forEach(function (n, k) {
+            var el = mk('div', 'mp-num', n); el.style.left = (gap + k * (S + gap)) + 'px'; el.style.top = (H - S - 60) + 'px';
+            el.style.width = el.style.height = S + 'px'; el.style.cursor = 'grab';
+            board.appendChild(el);
+            draggable(el, function (cx, cy) {
+                var z = slots[n - 1];
+                if (!inside(cx, cy, z)) {
+                    if (slots.some(function (o) { return inside(cx, cy, o); })) { board.classList.add('mp-shake'); setTimeout(function () { board.classList.remove('mp-shake'); }, 300); }
+                    return false;
+                }
+                el.style.left = z.offsetLeft + 'px'; el.style.top = z.offsetTop + 'px'; el.style.pointerEvents = 'none'; el.classList.add('ok'); el.style.opacity = 1;
+                left--; setA(left);
+                if (left === 0) { var sec = parseFloat(elapsed()); after(function () { endGame('🎉 잘했어요! ' + sec.toFixed(1) + '초', '숫자를 모두 맞췄어요', sec, true); }, 400); }
+                return true;
+            });
+        });
+    } };
+
     /* ---------- 기본 연습(클릭·더블클릭·드래그) ---------- */
     function reset() {
         running = false; clearInterval(timer); stopAll();
@@ -360,26 +551,27 @@
         if (g) { setA(g.a0); setB(g.b0); }
         else { left = TOTAL; setA(TOTAL); setB('0.0'); }
         var help = HELP[mode] + bestLine();
-        if (mode === 'click' && !gamesUnlocked()) help += '<br>🎮 클릭 연습을 통과하면 재미있는 클릭 게임이 열려요!';
+        if (BASIC[mode] && !passed(mode)) help += '<br>🎮 ' + BASIC[mode].name + ' 연습을 통과하면 재미있는 ' + BASIC[mode].name + ' 게임이 열려요!';
         showGames();
         message('준비되셨나요?', help, '시작하기');
     }
-    var gamesEl = document.getElementById('mpGames');
-    function gamesUnlocked() { try { return localStorage.getItem('mp_click_passed') === '1'; } catch (e) { return false; } }
-    function showGames() { gamesEl.style.display = gamesUnlocked() ? '' : 'none'; }
+    var BASIC = {
+        click: { name: '클릭', box: document.getElementById('mpGames') },
+        dbl: { name: '더블클릭', box: document.getElementById('mpGamesDbl') },
+        drag: { name: '드래그', box: document.getElementById('mpGamesDrag') }
+    };
+    function passed(m) { try { return localStorage.getItem('mp_' + m + '_passed') === '1'; } catch (e) { return false; } }
+    function showGames() { Object.keys(BASIC).forEach(function (m) { BASIC[m].box.style.display = passed(m) ? '' : 'none'; }); }
     function finish() {
         running = false; clearInterval(timer);
         var sec = ((Date.now() - t0) / 1000).toFixed(1);
         timeEl.textContent = sec;
-        if (mode === 'click') {
-            var first = !gamesUnlocked();
-            try { localStorage.setItem('mp_click_passed', '1'); } catch (e) {}
-            showGames();
-            message('🎉 클릭 연습 통과! ' + sec + '초',
-                first ? '🎮 <b>클릭 게임</b>이 열렸어요!<br>아래에서 하고 싶은 게임을 골라 보세요.' : '아래 클릭 게임도 해 보세요!', '다시 하기');
-            return;
-        }
-        message('🎉 잘했어요! ' + sec + '초', TOTAL + '개를 모두 성공했어요', '다시 하기');
+        var b = BASIC[mode];
+        var first = !passed(mode);
+        try { localStorage.setItem('mp_' + mode + '_passed', '1'); } catch (e) {}
+        showGames();
+        message('🎉 ' + b.name + ' 연습 통과! ' + sec + '초',
+            first ? '🎮 <b>' + b.name + ' 게임</b>이 열렸어요!<br>아래에서 하고 싶은 게임을 골라 보세요.' : '아래 ' + b.name + ' 게임도 해 보세요!', '다시 하기');
     }
     function start() {
         stopAll();
