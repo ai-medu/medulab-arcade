@@ -339,7 +339,16 @@ function fitProjectFrame() {
     const availableWidth = Math.max(wrap.clientWidth, 320);
     const scale = Math.min(1, availableWidth / contentWidth);
     const scaledWidth = Math.round(contentWidth * scale);
-    const scaledHeight = Math.round(contentHeight * scale);
+    let scaledHeight = Math.round(contentHeight * scale);
+
+    // 게임 화면이 너무 길면 한 화면 높이로 제한하고, 넘치는 부분은 게임 안에서 스크롤되게 한다
+    const maxScaledHeight = document.fullscreenElement
+        ? window.innerHeight
+        : Math.max(560, Math.round(window.innerHeight * 0.9));
+    if (scaledHeight > maxScaledHeight) {
+        scaledHeight = maxScaledHeight;
+        contentHeight = Math.round(maxScaledHeight / scale);
+    }
 
     frame.style.width = `${contentWidth}px`;
     frame.style.height = `${contentHeight}px`;
