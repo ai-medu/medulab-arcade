@@ -12,6 +12,21 @@ from typing_practice.views import (
 )
 
 
+class ChainDictionaryTests(TestCase):
+    def test_chain_check_known_and_unknown_words(self):
+        res = self.client.get('/typing/api/chain-check/', {'w': '가게'}).json()
+        self.assertTrue(res['known'])
+        self.assertTrue(res['ok'])
+        res = self.client.get('/typing/api/chain-check/', {'w': '아마삭쿠'}).json()
+        self.assertTrue(res['known'])
+        self.assertFalse(res['ok'])
+
+    def test_chain_words_lists(self):
+        data = self.client.get('/typing/api/chain-words/').json()
+        self.assertGreater(len(data['mid']), 1000)
+        self.assertGreater(len(data['hard']), 1000)
+
+
 class TypingRankingTests(TestCase):
     def setUp(self):
         self.client = Client()

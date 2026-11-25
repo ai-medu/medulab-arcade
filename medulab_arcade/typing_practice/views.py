@@ -1,5 +1,7 @@
 import json
+import os
 import random
+from functools import lru_cache
 from collections import defaultdict
 from datetime import date
 
@@ -666,6 +668,43 @@ def mouse_practice(request):
 def typing_game(request):
     """플레이 — 타자게임 (떨어지는 낱말 맞추기)"""
     return render(request, 'typing_practice/typing_game.html')
+
+
+_CHAIN_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+
+
+@lru_cache(maxsize=1)
+def _chain_dictionary():
+    """끝말잇기 사전 낱말 집합 (표준국어대사전, CC BY-SA 2.0 KR). 파일이 없으면 빈 집합."""
+    try:
+        with open(os.path.join(_CHAIN_DIR, 'ko_words.txt'), encoding='utf-8') as f:
+            return frozenset(line.strip() for line in f if line.strip())
+    except OSError:
+        return frozenset()
+
+
+@lru_cache(maxsize=1)
+def _chain_common():
+    try:
+        with open(os.path.join(_CHAIN_DIR, 'ko_common.json'), encoding='utf-8') as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {'mid': '', 'hard': ''}
+
+
+def chain_check(request):
+    """끝말잇기 — 사전에 있는 낱말인지 확인. 사전 파일이 없으면 검사를 건너뛴다(known=false)."""
+    word = (request.GET.get('w') or '').strip()
+    words = _chain_dictionary()
+    return JsonResponse({'known': bool(words), 'ok': word in words})
+
+
+def chain_words(request):
+    """끝말잇기 — 컴퓨터가 낼 낱말 목록(보통/어려움)"""
+    data = _chain_common()
+    resp = JsonResponse({'mid': data.get('mid', '').split(), 'hard': data.get('hard', '').split()})
+    resp['Cache-Control'] = 'public, max-age=86400'
+    return resp
 
 
 def typing_home(request):
