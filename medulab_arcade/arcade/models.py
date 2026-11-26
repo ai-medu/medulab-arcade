@@ -1863,6 +1863,37 @@ class MeduCodeProject(models.Model):
         return f'{self.user.username} - {self.name}'
 
 
+class MeduCodeTtsUsage(models.Model):
+    """메듀코드 TTS 로 하루에 만든 글자 수 (회원별). 비용이 드는 서비스라 한도를 확인하는 데 쓴다."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='meducode_tts_usage', verbose_name='회원')
+    date = models.DateField('날짜')
+    chars = models.PositiveIntegerField('글자 수', default=0)
+
+    class Meta:
+        verbose_name = '메듀코드 음성 사용량'
+        verbose_name_plural = '메듀코드 음성 사용량'
+        constraints = [models.UniqueConstraint(fields=['user', 'date'], name='meducode_tts_usage_per_day')]
+
+    def __str__(self):
+        return f'{self.user.username} {self.date} {self.chars}자'
+
+
+class MeduCodeSetting(models.Model):
+    """메듀코드 [설정] 창에서 관리자가 정한 값 (한 줄만 씀, pk=1). 비어 있는 값은 settings.py 의 값을 쓴다."""
+    tts_key_encrypted = models.TextField('TTS API 키(암호화)', blank=True, default='')
+    tts_user_daily_chars = models.PositiveIntegerField('회원별 하루 글자 수', null=True, blank=True)
+    tts_monthly_chars = models.PositiveIntegerField('월 전체 글자 수', null=True, blank=True)
+    updated_at = models.DateTimeField('수정한 날', auto_now=True)
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='+', verbose_name='수정한 사람')
+
+    class Meta:
+        verbose_name = '메듀코드 설정'
+        verbose_name_plural = '메듀코드 설정'
+
+    def __str__(self):
+        return '메듀코드 설정'
+
+
 class AdminMessage(models.Model):
     """관리자가 학부모·회원에게 보내는 안내 문구 모음 (가입 안내 등). 관리 화면에서 복사해 바로 붙여 넣어 쓴다."""
     title = models.CharField('제목', max_length=100)

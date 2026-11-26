@@ -188,6 +188,12 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 # 메듀코드(블록코딩 도구) 빌드 결과를 복사해 두는 폴더 (저장소에는 올리지 않고 서버에 직접 복사)
 MEDUCODE_DIST = BASE_DIR / 'meducode_dist'
+# 메듀코드 TTS (구글 Text-to-Speech). 키는 .env 에만 넣는다. 비어 있으면 음성 만들기가 안내와 함께 거절된다
+GOOGLE_TTS_API_KEY = os.environ.get('GOOGLE_TTS_API_KEY', '')
+MEDUCODE_TTS_VOICE = os.environ.get('MEDUCODE_TTS_VOICE', 'ko-KR-Standard-A')
+MEDUCODE_TTS_USER_DAILY_CHARS = int(os.environ.get('MEDUCODE_TTS_USER_DAILY_CHARS', '500'))   # 회원 한 명의 하루 글자 수
+MEDUCODE_TTS_MONTHLY_CHARS = int(os.environ.get('MEDUCODE_TTS_MONTHLY_CHARS', '1000000'))      # 전체의 한 달 글자 수
+MEDUCODE_TTS_CACHE = BASE_DIR / 'meducode_tts_cache'   # 한 번 만든 음성 보관
 
 # 업로드 파일 크기 제한 (50MB)
 FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800

@@ -36,5 +36,8 @@ holidays>=0.96
 django-allauth>=65.0
 PyJWT>=2.0.0
 
+# 메듀코드 설정의 API 키 암호화
+cryptography>=42.0
+
 # 결제 연동 (포트원 API 호출)
 requests>=2.31.0

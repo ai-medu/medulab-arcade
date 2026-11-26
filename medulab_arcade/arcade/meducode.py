@@ -78,6 +78,7 @@ def api_projects(request):
             return JsonResponse({'ok': True, 'logged_in': False, **_limits()})
         projects = [_summary(p) for p in request.user.meducode_projects.defer('data')]
         return JsonResponse({'ok': True, 'logged_in': True, 'username': request.user.get_username(),
+                             'is_admin': request.user.is_staff,   # 메듀코드에 [설정] 버튼을 보일지
                              'projects': projects, **_limits()})
     if not request.user.is_authenticated:
         return _json_error('로그인이 필요해요.', 401)

@@ -1,5 +1,5 @@
 from django.urls import path, re_path
-from . import views, special_lecture, meducode, absence_report, admin_messages, admin_notify, aice_info
+from . import views, special_lecture, meducode, meducode_tts, meducode_settings, absence_report, admin_messages, admin_notify, aice_info
 
 urlpatterns = [
     path('', views.home, name='home'),
@@ -14,6 +14,8 @@ urlpatterns = [
     path('absence/<str:token>/', absence_report.absence_report, name='absence_report'),
     path('meducode/api/projects/', meducode.api_projects, name='meducode_api_projects'),
     path('meducode/api/projects/<int:pk>/', meducode.api_project_detail, name='meducode_api_project'),
+    path('meducode/api/tts/', meducode_tts.api_tts, name='meducode_api_tts'),
+    path('meducode/api/settings/', meducode_settings.api_settings, name='meducode_api_settings'),
     path('meducode/', meducode.meducode_app, name='meducode'),
     path('meducode/<path:path>', meducode.meducode_app, name='meducode_file'),
     path('tools/ai-prompts/', views.ai_prompts, name='ai_prompts'),
