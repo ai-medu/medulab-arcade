@@ -25,7 +25,7 @@ from django.db.models import F, Sum
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.debug import sensitive_variables
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_http_methods
 
 from .meducode_settings import VOICES, tts_config
 from .models import MeduCodeTtsUsage
@@ -120,11 +120,20 @@ def _ask_google(text, voice, audio_config, config):
         return None
 
 
-@require_POST
+def _my_usage(user):
+    usage = MeduCodeTtsUsage.objects.filter(user=user, date=timezone.localdate()).first()
+    return JsonResponse({'ok': True, 'used_today': usage.chars if usage else 0,
+                         'user_daily_chars': tts_config()['user_daily_chars']})
+
+
+@require_http_methods(['GET', 'POST'])
 @sensitive_variables()
 def api_tts(request):
+    """GET: 내 오늘 사용량.  POST: 음성 만들기."""
     if not request.user.is_authenticated:
         return _error('로봇에 말을 저장하려면 메듀랩에 로그인해 주세요.', 401)
+    if request.method == 'GET':
+        return _my_usage(request.user)
     try:
         body = json.loads(request.body.decode('utf-8'))
         text = body['text']

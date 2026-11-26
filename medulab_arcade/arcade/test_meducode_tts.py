@@ -1,11 +1,13 @@
 import base64
 import json
 import tempfile
+from datetime import timedelta
 from unittest import mock
 
 import requests
 from django.contrib.auth.models import User
 from django.test import Client, TestCase, override_settings
+from django.utils import timezone
 
 from .models import MeduCodeSetting, MeduCodeTtsUsage
 
@@ -98,7 +100,7 @@ class MeduCodeTtsTests(TestCase):
             self.assertEqual(self.say(text).status_code, 400, repr(text))
         self.assertEqual(self.client.post(URL, 'nope', content_type='application/json').status_code, 400)
         self.assertEqual(self.client.post(URL, '[1]', content_type='application/json').status_code, 400)
-        self.assertEqual(self.client.get(URL).status_code, 405)
+        self.assertEqual(self.client.delete(URL).status_code, 405)
         post.assert_not_called()
 
     @mock.patch('arcade.meducode_tts.requests.post', side_effect=google_ok)
@@ -111,6 +113,13 @@ class MeduCodeTtsTests(TestCase):
         self.assertEqual(self.say('라', other).status_code, 429)   # 전체 월 한도
         self.assertEqual(post.call_count, 2)
         self.assertEqual(self.used(), 30)
+
+    @mock.patch('arcade.meducode_tts.requests.post', side_effect=google_ok)
+    def test_my_usage(self, post):
+        self.assertEqual(self.client.get(URL).json(), {'ok': True, 'used_today': 0, 'user_daily_chars': 20})
+        self.say('안녕하세요')
+        self.assertEqual(self.client.get(URL).json()['used_today'], 5)
+        self.assertEqual(Client().get(URL).status_code, 401)
 
     def test_google_failure_is_refunded(self):
         failures = [mock.Mock(status_code=403, text='denied'), requests.Timeout()]
@@ -189,6 +198,21 @@ class MeduCodeSettingsTests(TestCase):
         with override_settings(SECRET_KEY='another-secret-key-for-test'):
             self.client.force_login(self.admin)
             self.assertFalse(self.client.get(SETTINGS_URL).json()['has_key'])
+
+    def test_usage_by_member(self):
+        today = timezone.localdate()
+        kid = User.objects.create_user('kid2', password='pw-for-test', first_name='하늘', last_name='김')
+        MeduCodeTtsUsage.objects.create(user=kid, date=today, chars=30)
+        MeduCodeTtsUsage.objects.create(user=self.admin, date=today, chars=7)
+        if today.day > 1:
+            MeduCodeTtsUsage.objects.create(user=kid, date=today.replace(day=1), chars=100)
+        MeduCodeTtsUsage.objects.create(user=kid, date=today.replace(day=1) - timedelta(days=1), chars=999)   # 지난달
+        data = self.client.get(SETTINGS_URL).json()
+        month = 130 if today.day > 1 else 30
+        self.assertEqual(data['used_today'], 37)
+        self.assertEqual(data['used_this_month'], month + 7)
+        self.assertEqual(data['usage'], [{'user': 'kid2', 'name': '김하늘', 'today': 30, 'month': month},
+                                         {'user': 'boss', 'name': '', 'today': 7, 'month': 7}])
 
     def test_bad_values(self):
         for body in ({'api_key': 'short'}, {'api_key': 'a' * 30 + ' b'}, {'api_key': 5},

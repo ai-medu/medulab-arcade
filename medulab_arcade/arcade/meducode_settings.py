@@ -12,7 +12,7 @@ import re
 
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -60,6 +60,15 @@ def tts_config():
     }
 
 
+def _usage_by_member(month, today):
+    """이번 달에 쓴 회원별 사용량 (많이 쓴 순서, 100명까지)"""
+    rows = (month.values('user__username', 'user__last_name', 'user__first_name')
+            .annotate(month_chars=Sum('chars'), today_chars=Sum('chars', filter=Q(date=today)))
+            .filter(month_chars__gt=0).order_by('-month_chars', 'user__username')[:100])
+    return [{'user': r['user__username'], 'name': f"{r['user__last_name']}{r['user__first_name']}".strip(),
+             'today': r['today_chars'] or 0, 'month': r['month_chars']} for r in rows]
+
+
 @sensitive_variables()
 def _public_state():
     config = tts_config()
@@ -72,7 +81,9 @@ def _public_state():
         'key_hint': config['key'][-4:],
         'user_daily_chars': config['user_daily_chars'],
         'monthly_chars': config['monthly_chars'],
+        'used_today': month.filter(date=today).aggregate(total=Sum('chars'))['total'] or 0,
         'used_this_month': month.aggregate(total=Sum('chars'))['total'] or 0,
+        'usage': _usage_by_member(month, today),
     }
 
 
