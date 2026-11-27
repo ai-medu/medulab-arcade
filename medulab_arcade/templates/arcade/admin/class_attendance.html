@@ -75,6 +75,7 @@
                         </td>
                         {% for cell in row.cells %}
                         <td class="{% if cell.is_scheduled %}scheduled-day{% endif %}">
+                            {% if cell.is_present %}<input type="hidden" name="was_{{ row.enrollment.id }}_{{ cell.date|date:'Y-m-d' }}" value="1">{% endif %}
                             <input type="checkbox" class="att-check" name="att_{{ row.enrollment.id }}_{{ cell.date|date:'Y-m-d' }}" {% if cell.is_present %}checked{% endif %} title="{% if cell.is_scheduled %}정규 수업일{% else %}그 외 날짜{% endif %} · 체크 해제 = 결석{% if cell.note %} · {{ cell.note }}{% endif %}">
                         </td>
                         {% endfor %}
@@ -87,7 +88,7 @@
         </div>
         <div class="att-save-bar">
             <button type="submit" class="att-save-btn">💾 출석 저장</button>
-            <span style="font-size:12px; color:var(--text-muted);">정규 수업일(초록색)에서 체크 해제하면 결석으로 기록되어 다음 달 청구서에서 자동 차감됩니다. 기본 체크 상태는 학생의 자체 출석체크 기록을 따릅니다.</span>
+            <span style="font-size:12px; color:var(--text-muted);">정규 수업일(초록색)에서 체크 해제하면 결석으로 기록되어 다음 달 청구서에서 자동 차감됩니다. 기본 체크 상태는 학생의 자체 출석체크 기록을 따릅니다. 오늘과 앞으로의 날짜는 체크를 바꾼 칸만 저장합니다.</span>
         </div>
     </form>
 </div>

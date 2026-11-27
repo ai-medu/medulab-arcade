@@ -4525,10 +4525,16 @@ def class_admin_attendance(request, class_id):
     )
 
     if request.method == 'POST':
+        today = timezone.localdate()
         for enrollment in enrollments:
             for d in all_dates:
                 field_name = f'att_{enrollment.id}_{d.isoformat()}'
                 is_present = field_name in request.POST
+                # 오늘과 앞으로의 날짜는 선생님이 체크를 바꾼 칸만 저장한다. 빈 칸까지 '결석'으로 저장하면
+                # 나중에 학생이 직접 출석해도 결석으로 남는다. (was_ 는 화면을 열었을 때 체크되어 있던 칸)
+                was_present = f'was_{enrollment.id}_{d.isoformat()}' in request.POST
+                if d >= today and is_present == was_present:
+                    continue
                 ClassAttendance.objects.update_or_create(
                     enrollment=enrollment, date=d,
                     defaults={'is_present': is_present},
