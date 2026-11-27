@@ -16,7 +16,8 @@
             <td style="padding:8px 10px; border-bottom:1px solid rgba(255,255,255,0.05); color:#fff;">{{ cell.date|date:"n/j" }}</td>
             <td style="padding:8px 10px; border-bottom:1px solid rgba(255,255,255,0.05); color:var(--text-secondary);">{{ cell.date|date:"D" }}</td>
             <td style="padding:8px 10px; border-bottom:1px solid rgba(255,255,255,0.05);">
-                {% if cell.is_present %}<span style="color:#34d399; font-weight:700;">✅ 출석</span>
+                {% if cell.makeup_date %}<span style="color:#60a5fa; font-weight:700;">💙 결석 · {{ cell.makeup_date|date:"n/j" }} 보강 (차감 안 함)</span>
+                {% elif cell.is_present %}<span style="color:#34d399; font-weight:700;">✅ 출석</span>
                 {% else %}<span style="color:#fbbf24; font-weight:700;">❌ 결석</span>{% endif %}
             </td>
         </tr>

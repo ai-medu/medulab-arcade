@@ -17,6 +17,14 @@ def slot_label(day, start, end):
     return f'{day_label(day)} {start:%H:%M}~{end:%H:%M}'
 
 
+def made_up_dates(student_id, dates):
+    """보강에 실제로 출석한 결석일 {결석일: 보강한 날}. 아직 '보강 예정'이거나 불참한 보강은 들어가지 않는다."""
+    return dict(Attendance.objects.filter(
+        user_id=student_id, makeup_for__in=dates,
+        attendance_type__in=[Attendance.TYPE_PRESENT, Attendance.TYPE_MAKEUP],
+    ).values_list('makeup_for', 'date'))
+
+
 def sync_request_text(student, absent_date):
     """결석 칸의 보강 안내 글을 실제로 잡혀 있는 보강에 맞춘다 ('보강 어려움'은 보강이 없으면 그대로 둔다)"""
     rows = ClassAttendance.objects.filter(enrollment__student=student, date=absent_date, is_present=False)

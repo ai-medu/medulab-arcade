@@ -27,7 +27,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required, user_passes_test
 from .badge_service import get_active_badges_with_user_state, get_recent_user_badges, get_user_badge_count
-from .makeup import MAKEUP_NO, cancel_planned, day_label, set_makeup, sync_request_text
+from .makeup import MAKEUP_NO, cancel_planned, day_label, made_up_dates, set_makeup, sync_request_text
 from .parent_notify import notify_attendance
 from .tuition_alerts import notify_canceled, notify_paid
 from .models import ClassDiscountType, Badge, Project, Category, Like, Bookmark, Tag, UserProfile, EmailChangeRequest, SignupEmailVerification, ScheduleAttachment, ScheduleEvent, Notice, Award, Certification, CertInfo, CompetitionType, Contest, SchoolClass, ClassEnrollment, ParentChildLink, TuitionInvoice, ClassAttendance, TuitionBatchPayment, InstagramConfig, InstagramPost, InstagramUploadDraft, InstagramUploadDraftItem, FutureCareerSave, ContentFinderSubmission, ContentIdeaThumbnailSubmission, MugCupSubmission, AIPromptCardOrder, ContentFinderDraft, ContentIdeaFinderDraft, ContentPlanDraft, ChannelBrandingDraft
@@ -4260,6 +4260,7 @@ def _billable_session_dates(school_class, year, month):
 
 def _presence_for_dates(enrollment, dates):
     """수업일별 출석 여부 {날짜: True/False}. 출석부(class_attendance)와 같은 규칙:
+    ⓪ 그 결석분의 보강에 출석했으면 출석으로 본다 (수업비를 차감하지 않음)
     ① 출석부에 저장된 기록이 있으면 그 값  ② 없으면 학생이 직접 한 출석 체크(출석/보강)가 있으면 출석
     ③ 그것도 없으면 결석"""
     from .models import Attendance
@@ -4270,7 +4271,8 @@ def _presence_for_dates(enrollment, dates):
         user_id=enrollment.student_id, date__in=dates,
         attendance_type__in=[Attendance.TYPE_PRESENT, Attendance.TYPE_MAKEUP],
     ).values_list('date', flat=True))
-    return {d: saved[d] if d in saved else d in self_checkins for d in dates}
+    made_up = made_up_dates(enrollment.student_id, dates)
+    return {d: d in made_up or (saved[d] if d in saved else d in self_checkins) for d in dates}
 
 
 def compute_invoice_amounts(school_class, enrollment, due_date, discount_override=None, extra=None):
@@ -5167,7 +5169,8 @@ def tuition_invoice_attendance_detail(request, invoice_id):
     scheduled_dates = _billable_session_dates(invoice.school_class, prev_year, prev_month)
     enrollment = ClassEnrollment.objects.filter(school_class=invoice.school_class, student=invoice.student).first()
     present_map = _presence_for_dates(enrollment, scheduled_dates) if enrollment else {}
-    cells = [{'date': d, 'is_present': present_map.get(d, True)} for d in scheduled_dates]
+    made_up = made_up_dates(invoice.student_id, scheduled_dates)
+    cells = [{'date': d, 'is_present': present_map.get(d, True), 'makeup_date': made_up.get(d)} for d in scheduled_dates]
 
     context = {
         'invoice': invoice,
@@ -7070,10 +7073,14 @@ def _build_report_context(user, view_year=None, view_month=None):
 
     # 출석부에 결석으로 기록된 날 (수업일이거나 사유 메모가 있는 날). 등원 기록(출석/보강)이 있는 날은 제외
     checked_in_days = set(present_days) | set(makeup_days)
+    made_up_here = set(Attendance.objects.filter(
+        user=user, makeup_for__year=current_year, makeup_for__month=current_month,
+        attendance_type__in=[Attendance.TYPE_PRESENT, Attendance.TYPE_MAKEUP]).values_list('makeup_for', flat=True))
     absent_records = [
         r for r in ClassAttendance.objects.filter(
             enrollment__in=enrolled_classes, date__year=current_year, date__month=current_month, is_present=False)
-        if (r.date.day in class_scheduled_days or r.note) and r.date.day not in checked_in_days
+        if (r.date.day in class_scheduled_days or r.note)
+        and (r.date.day not in checked_in_days or r.date in made_up_here)
     ]
     absent_days = sorted({r.date.day for r in absent_records})
     state_labels = {Attendance.TYPE_MAKEUP: '출석', Attendance.TYPE_PRESENT: '출석'}
@@ -7083,6 +7090,8 @@ def _build_report_context(user, view_year=None, view_month=None):
                                          makeup_start__isnull=False).order_by('date'):
         state = state_labels.get(att.attendance_type) or ('예정' if att.date >= today else '불참')
         makeup_to[att.makeup_for.day] = f'{att.date.month}/{att.date.day}'
+        if state == '출석':
+            state = '출석 · 수업비 차감 안 함'
         makeup_links[att.makeup_for] = (
             f'→ 보강 {day_label(att.date)} {att.makeup_start:%H:%M}~{att.makeup_end:%H:%M} ({state})')
     makeup_from = {att.date.day: f'{att.makeup_for.month}/{att.makeup_for.day}'

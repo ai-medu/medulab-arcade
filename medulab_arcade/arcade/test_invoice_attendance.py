@@ -45,6 +45,22 @@ class InvoiceAttendanceTests(_KwonwooOctober, TestCase):
         self.assertEqual(_presence_for_dates(self.enrollment, dates),
                          {datetime.date(2026, 10, 10): True, datetime.date(2026, 10, 17): False})
 
+    def test_attended_makeup_is_not_deducted(self):
+        absent, makeup = datetime.date(2026, 10, 10), datetime.date(2026, 11, 3)
+        ClassAttendance.objects.create(enrollment=self.enrollment, date=absent, is_present=False)
+        record = Attendance.objects.create(user=self.kid, date=makeup, attendance_type=Attendance.TYPE_PLANNED,
+                                           makeup_for=absent)
+        self.assertEqual(self._calc()['absence_count'], 1)   # 예정만으로는 차감
+        record.attendance_type = Attendance.TYPE_MAKEUP
+        record.save()
+        calc = self._calc()
+        self.assertEqual((calc['absence_count'], calc['amount']), (0, 200000))
+        self.client.force_login(User.objects.create_user('boss', password='x', is_staff=True))
+        inv = TuitionInvoice.objects.create(student=self.kid, school_class=self.klass, amount=200000,
+                                            base_amount=200000, due_date=datetime.date(2026, 11, 30))
+        page = self.client.get(reverse('tuition_invoice_attendance_detail', args=[inv.id]))
+        self.assertContains(page, '11/3 보강 (차감 안 함)')
+
     def test_home_access_is_not_attendance(self):
         Attendance.objects.filter(date=datetime.date(2026, 10, 24)).update(attendance_type=Attendance.TYPE_ACCESS)
         self.assertEqual(self._calc()['absence_count'], 2)
