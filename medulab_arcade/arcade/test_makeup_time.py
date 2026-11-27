@@ -24,12 +24,18 @@ class MakeupTimeTests(TestCase):
         return self.client.post(self.set_url, {'date': SAT.isoformat(), 'attendance_type': kind, **extra},
                                 content_type='application/json')
 
-    def test_times_list_for_the_weekday(self):
+    def test_times_list_covers_every_weekday(self):
         url = reverse('api_admin_makeup_times', args=[self.kid.pk])
         data = self.client.get(url, {'date': SAT.isoformat()}).json()
-        self.assertEqual(data['times'], [{'start': '15:00', 'end': '16:30', 'classes': '토요반'}])
+        expected = {'date': '2030-01-05', 'weekday': '토', 'day': '1/5', 'holiday': False,
+                    'start': '15:00', 'end': '16:30', 'classes': '토요반'}
+        self.assertEqual(data['times'], [expected])
         self.assertIsNone(data['current'])
-        self.assertEqual(self.client.get(url, {'date': '2030-01-07'}).json()['times'], [])
+        monday = SchoolClass.objects.create(name='화요반', days_of_week='2', start_time=datetime.time(16, 0),
+                                            end_time=datetime.time(17, 0))
+        ClassEnrollment.objects.create(school_class=monday, student=self.kid)
+        times = self.client.get(url, {'date': SAT.isoformat()}).json()['times']
+        self.assertEqual([(t['weekday'], t['date']) for t in times], [('토', '2030-01-05'), ('화', '2030-01-08')])
         self.client.force_login(self.kid)
         self.assertNotEqual(self.client.get(url, {'date': SAT.isoformat()}).status_code, 200)
 

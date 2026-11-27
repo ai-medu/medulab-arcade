@@ -7858,28 +7858,38 @@ def api_admin_set_attendance(request, student_id):
 @login_required
 @user_passes_test(staff_check)
 def api_admin_makeup_times(request, student_id):
-    """보강 시간 설정 창: 그 날짜 요일에 수강생이 있는 수업 시간 목록과, 이미 정해 둔 보강 시간"""
+    """보강 시간 설정 창: 고른 날짜부터 일주일(모든 요일)의 수강생이 있는 수업 시간 목록과, 이미 정해 둔 보강 시간"""
     from datetime import datetime
     from .models import Attendance
 
     student = get_object_or_404(User, pk=student_id)
     try:
-        day = datetime.strptime(request.GET.get('date', ''), '%Y-%m-%d').date()
+        first = datetime.strptime(request.GET.get('date', ''), '%Y-%m-%d').date()
     except ValueError:
         return JsonResponse({'status': 'error', 'message': '날짜 형식이 올바르지 않습니다.'}, status=400)
-    code = str(day.isoweekday() % 7)
-    times = {}
-    for klass in SchoolClass.objects.filter(
-            is_active=True, start_time__isnull=False, enrollments__is_active=True).distinct():
-        if code not in (klass.days_of_week or '').split(','):
-            continue
-        start = datetime.combine(day, klass.start_time)
-        end = datetime.combine(day, klass.end_time) if klass.end_time else start + timedelta(minutes=klass.duration_minutes)
-        times.setdefault((f'{start:%H:%M}', f'{end:%H:%M}'), []).append(klass.name)
-    record = Attendance.objects.filter(user=student, date=day, makeup_start__isnull=False).first()
+    classes = list(SchoolClass.objects.filter(
+        is_active=True, start_time__isnull=False, enrollments__is_active=True).distinct())
+    holidays, months, result = set(), set(), []
+    for offset in range(7):
+        day = first + timedelta(days=offset)
+        if (day.year, day.month) not in months:
+            months.add((day.year, day.month))
+            holidays |= _holiday_dates_in_month(day.year, day.month)
+        times = {}
+        for klass in classes:
+            if str(day.isoweekday() % 7) not in (klass.days_of_week or '').split(','):
+                continue
+            start = datetime.combine(day, klass.start_time)
+            end = datetime.combine(day, klass.end_time) if klass.end_time else \
+                start + timedelta(minutes=klass.duration_minutes)
+            times.setdefault((f'{start:%H:%M}', f'{end:%H:%M}'), []).append(klass.name)
+        result += [{'date': day.isoformat(), 'weekday': '월화수목금토일'[day.weekday()], 'day': f'{day.month}/{day.day}',
+                    'holiday': day in holidays, 'start': s, 'end': e, 'classes': ', '.join(sorted(names))}
+                   for (s, e), names in sorted(times.items())]
+    record = Attendance.objects.filter(user=student, date=first, makeup_start__isnull=False).first()
     return JsonResponse({
         'status': 'success',
-        'times': [{'start': s, 'end': e, 'classes': ', '.join(sorted(names))} for (s, e), names in sorted(times.items())],
+        'times': result,
         'current': {'start': f'{record.makeup_start:%H:%M}', 'end': f'{record.makeup_end:%H:%M}'} if record else None,
     })
 

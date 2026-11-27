@@ -1,4 +1,4 @@
-{# 관리자가 '보강'으로 바꿀 때 보강 시간을 정하는 창. askMakeupTime(학생ID, 'YYYY-MM-DD', function (시작, 끝) { ... }) 로 연다 #}
+{# 관리자가 '보강'으로 바꿀 때 보강 시간을 정하는 창. askMakeupTime(학생ID, 'YYYY-MM-DD', function (보강날짜, 시작, 끝) { ... }) 로 연다 #}
 <style>
     #mkOverlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:3000; align-items:center; justify-content:center; padding:16px; }
     #mkOverlay.show { display:flex; }
@@ -7,6 +7,10 @@
     #mkBox p { margin:0 0 14px; font-size:13.5px; color:#6b7280; }
     .mk-opt { display:block; width:100%; text-align:left; padding:11px 14px; border:1px solid #d1d5db; border-radius:12px; margin-bottom:8px; cursor:pointer; background:#fff; color:#1f2937; font-size:15.5px; font-weight:800; }
     .mk-opt small { display:block; margin-top:2px; font-size:12px; font-weight:500; color:#6b7280; }
+    .mk-opt b { display:inline-block; font-size:19px; }
+    .mk-opt .mk-day { margin-right:8px; color:#2563eb; }
+    #mkList { max-height:44vh; overflow-y:auto; }
+    #mkDay { width:100%; box-sizing:border-box; margin-top:12px; padding:11px 12px; border:1px solid #d1d5db; border-radius:10px; font-size:15px; color:#1f2937; background:#fff; }
     .mk-opt.on { border-color:#3b82f6; background:#eff6ff; }
     .mk-times { display:flex; align-items:center; gap:8px; margin-top:12px; }
     .mk-times input { flex:1; min-width:0; padding:11px 12px; border:1px solid #d1d5db; border-radius:10px; font-size:15px; color:#1f2937; background:#fff; }
@@ -20,6 +24,7 @@
         <h4>💙 보강 시간 설정</h4>
         <p id="mkDate"></p>
         <div id="mkList"></div>
+        <input type="date" id="mkDay" aria-label="보강 날짜">
         <div class="mk-times">
             <input type="time" id="mkStart" aria-label="보강 시작 시간">
             <span>~</span>
@@ -38,23 +43,26 @@
         var callback = null, request = 0;
         var overlay = document.getElementById('mkOverlay');
         var list = document.getElementById('mkList');
+        var day = document.getElementById('mkDay');
         var start = document.getElementById('mkStart');
         var end = document.getElementById('mkEnd');
         var error = document.getElementById('mkError');
         function mark() {
             list.querySelectorAll('.mk-opt').forEach(function (b) {
-                b.classList.toggle('on', b.dataset.start === start.value && b.dataset.end === end.value);
+                b.classList.toggle('on', b.dataset.date === day.value && b.dataset.start === start.value && b.dataset.end === end.value);
             });
             error.textContent = '';
         }
+        day.addEventListener('input', mark);
         start.addEventListener('input', mark);
         end.addEventListener('input', mark);
         window.askMakeupTime = function (studentId, date, onPick) {
             callback = onPick;
             var mine = ++request;
-            document.getElementById('mkDate').textContent = date + ' · 수업 시간을 고르거나 직접 입력해 주세요.';
+            document.getElementById('mkDate').textContent = '보강할 수업 시간을 고르거나 날짜와 시간을 직접 입력해 주세요.';
             list.textContent = '수업 시간을 불러오는 중…';
             start.value = end.value = error.textContent = '';
+            day.value = date;
             overlay.classList.add('show');
             fetch(URL_BASE.replace('/0/', '/' + studentId + '/') + '?date=' + date, { credentials: 'same-origin' })
                 .then(function (r) { return r.json(); })
@@ -65,16 +73,21 @@
                         var b = document.createElement('button');
                         b.type = 'button';
                         b.className = 'mk-opt';
+                        b.dataset.date = t.date;
                         b.dataset.start = t.start;
                         b.dataset.end = t.end;
-                        b.textContent = t.start + ' ~ ' + t.end;
+                        var weekday = document.createElement('b');
+                        weekday.className = 'mk-day';
+                        weekday.textContent = t.weekday;
+                        var time = document.createElement('b');
+                        time.textContent = t.start + ' ~ ' + t.end;
                         var names = document.createElement('small');
-                        names.textContent = t.classes;
-                        b.appendChild(names);
-                        b.addEventListener('click', function () { start.value = t.start; end.value = t.end; mark(); });
+                        names.textContent = t.day + (t.holiday ? ' (휴원일)' : '') + ' · ' + t.classes;
+                        b.append(weekday, time, names);
+                        b.addEventListener('click', function () { day.value = t.date; start.value = t.start; end.value = t.end; mark(); });
                         list.appendChild(b);
                     });
-                    if (!list.children.length) list.textContent = '이 요일에는 수업이 없어요. 시간을 직접 입력해 주세요.';
+                    if (!list.children.length) list.textContent = '수업 시간이 없어요. 날짜와 시간을 직접 입력해 주세요.';
                     if (data.current && !start.value) { start.value = data.current.start; end.value = data.current.end; mark(); }
                 })
                 .catch(function () { if (mine === request) list.textContent = '수업 시간을 불러오지 못했어요. 직접 입력해 주세요.'; });
@@ -84,11 +97,11 @@
             callback = null;
         };
         window.confirmMakeupTime = function () {
-            if (!start.value || !end.value) { error.textContent = '보강 시작 시간과 끝 시간을 입력해 주세요.'; return; }
+            if (!day.value || !start.value || !end.value) { error.textContent = '보강 날짜와 시작·끝 시간을 입력해 주세요.'; return; }
             if (end.value <= start.value) { error.textContent = '끝 시간은 시작 시간보다 늦어야 해요.'; return; }
-            var pick = callback, s = start.value, e = end.value;
+            var pick = callback, d = day.value, s = start.value, e = end.value;
             closeMakeupTime();
-            if (pick) pick(s, e);
+            if (pick) pick(d, s, e);
         };
     })();
 </script>

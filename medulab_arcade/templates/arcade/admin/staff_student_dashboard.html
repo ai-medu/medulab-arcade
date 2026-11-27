@@ -369,7 +369,7 @@
         {% csrf_token %}
         <div class="attend-choice-list" id="attendChoices">
             <button type="button" class="attend-choice" data-type="present" onclick="setAttend('present')"><span>✅ 출석</span><small>정규 수업일에 등원</small></button>
-            <button type="button" class="attend-choice" data-type="makeup" onclick="askMakeupTime(attendStudentId, ATTEND_TODAY, function (s, e) { setAttend('makeup', '', { start_time: s, end_time: e }); })"><span>💙 보강</span><small>수업일이 아닌 날 등원</small></button>
+            <button type="button" class="attend-choice" data-type="makeup" onclick="askMakeupTime(attendStudentId, ATTEND_TODAY, function (d, s, e) { setAttend('makeup', '', { date: d, start_time: s, end_time: e }); })"><span>💙 보강</span><small>수업일이 아닌 날 등원</small></button>
             <button type="button" class="attend-choice" data-type="access" onclick="setAttend('access')"><span>📶 접속만</span><small>학원 밖에서 접속</small></button>
             <button type="button" class="attend-choice" data-type="absent" onclick="askAbsenceReason(function (r) { setAttend('absent', r); })"><span>❌ 결석</span><small>사유를 고르고 결석 처리</small></button>
             <button type="button" class="attend-choice" data-type="none" onclick="setAttend('none')"><span>미출석 (기록 삭제)</span><small>오늘 기록을 지웁니다</small></button>
