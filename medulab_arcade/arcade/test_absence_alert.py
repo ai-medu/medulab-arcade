@@ -75,6 +75,20 @@ class AbsenceAlertTests(TestCase):
         _, post = self.run_alert(at(16, 20))
         self.assertEqual(post.call_count, 0)
 
+    def test_marked_absent_is_skipped(self):
+        enrollment = ClassEnrollment.objects.get(student=self.student)
+        for note in ('관리자 결석 처리', '학부모 신청: 몸이 아파서 못 가요'):
+            ClassAttendance.objects.update_or_create(
+                enrollment=enrollment, date=DAY, defaults={'is_present': False, 'note': note})
+            _, post = self.run_alert(at(16, 20))
+            self.assertEqual(post.call_count, 0)
+
+    def test_blank_sheet_row_without_note_still_sends(self):
+        enrollment = ClassEnrollment.objects.get(student=self.student)
+        ClassAttendance.objects.create(enrollment=enrollment, date=DAY, is_present=False)
+        _, post = self.run_alert(at(16, 20))
+        self.assertEqual(post.call_count, 1)
+
     def test_only_medulab_students_and_class_days_and_class_hours(self):
         self.student.profile.user_type = 'student'
         self.student.profile.save()

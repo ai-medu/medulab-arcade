@@ -2,7 +2,7 @@
 
 서버 스케줄(cron)에 1~5분마다 실행하도록 등록해 둔다. 같은 학생에게는 하루에 한 번만 나간다.
 - 대상: 메듀랩 학생 중 오늘 요일에 배정된 수업이 있고, 그 수업 시작 시각 + 기준 시간이 지났으며 아직 수업이 끝나지 않은 학생
-- 제외: 오늘 이미 출석(출석/보강)한 학생, 휴원일, 학부모 '출석 알림 수신'을 끈 경우
+- 제외: 오늘 이미 출석(출석/보강)한 학생, 출결체크에 결석이 체크된 학생, 휴원일, 학부모 '출석 알림 수신'을 끈 경우
 """
 import datetime
 
@@ -54,8 +54,11 @@ def send_absence_alerts(now=None, minutes=10):
             end = start + datetime.timedelta(minutes=klass.duration_minutes)
         if not (start + datetime.timedelta(minutes=minutes) <= now <= end):
             continue
-        if ClassAttendance.objects.filter(enrollment=enrollment, date=today, is_present=True).exists():
-            continue   # 선생님이 출석부에 이미 출석으로 표시한 학생
+        # 선생님이 출석부에 출석으로 표시했거나, 결석으로 체크(관리자 결석 처리·학부모 결석 사유, 메모가 남는다)한 학생.
+        # 메모 없는 '미출석' 기록은 출석부 저장 때 빈 칸까지 저장된 것이라 결석 체크로 보지 않는다.
+        if ClassAttendance.objects.filter(enrollment=enrollment, date=today).filter(
+                Q(is_present=True) | ~Q(note='')).exists():
+            continue
         handled.add(student.pk)
         targets += 1
         if send_absence_notice(student, today, klass.name, klass.start_time.strftime('%H:%M'), enrollment.pk):
