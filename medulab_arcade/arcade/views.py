@@ -27,6 +27,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required, user_passes_test
 from .badge_service import get_active_badges_with_user_state, get_recent_user_badges, get_user_badge_count
+from .makeup import MAKEUP_NO, cancel_planned, day_label, set_makeup, sync_request_text
 from .parent_notify import notify_attendance
 from .tuition_alerts import notify_canceled, notify_paid
 from .models import ClassDiscountType, Badge, Project, Category, Like, Bookmark, Tag, UserProfile, EmailChangeRequest, SignupEmailVerification, ScheduleAttachment, ScheduleEvent, Notice, Award, Certification, CertInfo, CompetitionType, Contest, SchoolClass, ClassEnrollment, ParentChildLink, TuitionInvoice, ClassAttendance, TuitionBatchPayment, InstagramConfig, InstagramPost, InstagramUploadDraft, InstagramUploadDraftItem, FutureCareerSave, ContentFinderSubmission, ContentIdeaThumbnailSubmission, MugCupSubmission, AIPromptCardOrder, ContentFinderDraft, ContentIdeaFinderDraft, ContentPlanDraft, ChannelBrandingDraft
@@ -4526,6 +4527,9 @@ def class_admin_attendance(request, class_id):
 
     if request.method == 'POST':
         today = timezone.localdate()
+        linked_absences = set(Attendance.objects.filter(
+            user_id__in=[e.student_id for e in enrollments], makeup_for__in=all_dates,
+        ).values_list('user_id', 'makeup_for'))
         for enrollment in enrollments:
             for d in all_dates:
                 field_name = f'att_{enrollment.id}_{d.isoformat()}'
@@ -4539,6 +4543,8 @@ def class_admin_attendance(request, class_id):
                 if is_present:
                     defaults['note'] = defaults['makeup_request'] = ''   # 출석으로 바꾸면 결석 사유·보강 희망은 지운다
                 ClassAttendance.objects.update_or_create(enrollment=enrollment, date=d, defaults=defaults)
+                if is_present and (enrollment.student_id, d) in linked_absences:
+                    cancel_planned(enrollment.student, d)
         messages.success(request, '출석 정보를 저장했습니다.')
         return redirect(f"{reverse('class_admin_attendance', args=[school_class.id])}?year={year}&month={month}")
 
@@ -7070,15 +7076,28 @@ def _build_report_context(user, view_year=None, view_month=None):
         if (r.date.day in class_scheduled_days or r.note) and r.date.day not in checked_in_days
     ]
     absent_days = sorted({r.date.day for r in absent_records})
+    state_labels = {Attendance.TYPE_MAKEUP: '출석', Attendance.TYPE_PRESENT: '출석'}
+    makeup_to = {}      # 결석일(일) -> 보강일 '12/5'
+    makeup_links = {}   # 결석일 -> 보강 안내 글
+    for att in Attendance.objects.filter(user=user, makeup_for__year=current_year, makeup_for__month=current_month,
+                                         makeup_start__isnull=False).order_by('date'):
+        state = state_labels.get(att.attendance_type) or ('예정' if att.date >= today else '불참')
+        makeup_to[att.makeup_for.day] = f'{att.date.month}/{att.date.day}'
+        makeup_links[att.makeup_for] = (
+            f'→ 보강 {day_label(att.date)} {att.makeup_start:%H:%M}~{att.makeup_end:%H:%M} ({state})')
+    makeup_from = {att.date.day: f'{att.makeup_for.month}/{att.makeup_for.day}'
+                   for att in attendances if att.makeup_for}   # 보강일(일) -> 결석일
 
     # 달력 아래 '결석·보강 내역' (결석 사유, 학부모 보강 희망, 정한 보강 시간)
     absent_texts = {}
     for r in absent_records:
         texts = absent_texts.setdefault(r.date, [])
-        for text in (r.note, r.makeup_request):
+        # 연결된 보강이 있으면 그 안내를 아래에서 붙이므로 저장해 둔 글은 빼 둔다
+        for text in (r.note, '' if r.date in makeup_links else r.makeup_request):
             if text and text not in texts:
                 texts.append(text)
-    day_history = [{'date': d, 'kind': 'absent', 'label': '결석', 'text': ' · '.join(t) or '사유 없음'}
+    day_history = [{'date': d, 'kind': 'absent', 'label': '결석', 'text': ' · '.join(t) or '사유 없음',
+                    'link': makeup_links.get(d, '')}
                    for d, t in absent_texts.items()]
     makeup_times = {}
     for att in attendances:
@@ -7092,7 +7111,8 @@ def _build_report_context(user, view_year=None, view_month=None):
         else:
             kind, label = 'noshow', '보강 불참'
         day_history.append({'date': att.date, 'kind': kind, 'label': label,
-                            'text': f'{att.makeup_start:%H:%M}~{att.makeup_end:%H:%M}'})
+                            'text': f'{att.makeup_start:%H:%M}~{att.makeup_end:%H:%M}',
+                            'link': f'← {day_label(att.makeup_for)} 결석분' if att.makeup_for else ''})
     day_history.sort(key=lambda item: item['date'])
 
     holiday_days_labels = {}
@@ -7318,6 +7338,8 @@ def _build_report_context(user, view_year=None, view_month=None):
         'makeup_times': makeup_times,
         'planned_days': planned_days,
         'noshow_days': noshow_days,
+        'makeup_to': makeup_to,
+        'makeup_from': makeup_from,
         'enrolled_classes': enrolled_classes,
         'class_scheduled_days': class_scheduled_days,
         'holiday_days': holiday_days,
@@ -7823,55 +7845,99 @@ def api_admin_set_attendance(request, student_id):
 
     enrollments = ClassEnrollment.objects.filter(student=student, is_active=True)
 
-    makeup_start = makeup_end = None
-    if attendance_type == 'makeup' and (payload.get('start_time') or payload.get('end_time')):
+    def parse_times():
         try:
-            makeup_start = datetime.strptime(str(payload.get('start_time')), '%H:%M').time()
-            makeup_end = datetime.strptime(str(payload.get('end_time')), '%H:%M').time()
+            start = datetime.strptime(str(payload.get('start_time')), '%H:%M').time()
+            end = datetime.strptime(str(payload.get('end_time')), '%H:%M').time()
         except ValueError:
-            return JsonResponse({'status': 'error', 'message': '보강 시작 시간과 끝 시간을 모두 입력해 주세요.'}, status=400)
-        if makeup_end <= makeup_start:
-            return JsonResponse({'status': 'error', 'message': '보강 끝 시간은 시작 시간보다 늦어야 합니다.'}, status=400)
+            return None, '보강 시작 시간과 끝 시간을 모두 입력해 주세요.'
+        if end <= start:
+            return None, '보강 끝 시간은 시작 시간보다 늦어야 합니다.'
+        return (start, end), ''
 
-    # 앞으로의 시간(오늘 나중 시간 포함)으로 잡은 보강은 '보강 예정'. 학생이 등원해 출석하면 '보강'이 된다.
-    if makeup_start:
-        now = timezone.localtime()
-        if (target_date, makeup_start) > (now.date(), now.time()):
-            attendance_type = Attendance.TYPE_PLANNED
+    def parse_date(key):
+        try:
+            return datetime.strptime(str(payload.get(key)), '%Y-%m-%d').date()
+        except ValueError:
+            return None
+
+    def fail(message):
+        return JsonResponse({'status': 'error', 'message': message}, status=400)
+
+    existing = Attendance.objects.filter(user=student, date=target_date).first()
+    old_link = existing.makeup_for if existing else None
 
     if attendance_type == 'absent':
         # 결석: 수강 중인 수업의 출석부에 결석으로 기록한다 (다음 달 청구서 결석 차감에 반영됨). 등원 기록은 지운다.
         if not enrollments.exists():
-            return JsonResponse({'status': 'error', 'message': '수강 중인 수업이 없어 결석으로 처리할 수 없습니다.'}, status=400)
+            return fail('수강 중인 수업이 없어 결석으로 처리할 수 없습니다.')
+        makeup = payload.get('makeup') or ''
+        times = makeup_date = None
+        if makeup == 'yes':
+            times, error = parse_times()
+            makeup_date = parse_date('makeup_date')
+            if error or not makeup_date:
+                return fail(error or '보강 날짜를 입력해 주세요.')
         reason = str(payload.get('reason') or '').strip()[:60]
         note = f'관리자 결석 처리: {reason}' if reason else '관리자 결석 처리'
         Attendance.objects.filter(user=student, date=target_date).delete()
         for enrollment in enrollments:
-            ClassAttendance.objects.update_or_create(
-                enrollment=enrollment, date=target_date,
-                defaults={'is_present': False, 'note': note},
-            )
+            defaults = {'is_present': False, 'note': note}
+            if makeup == 'no':
+                defaults['makeup_request'] = MAKEUP_NO
+            ClassAttendance.objects.update_or_create(enrollment=enrollment, date=target_date, defaults=defaults)
+        if old_link and old_link != target_date:
+            sync_request_text(student, old_link)   # 보강하기로 한 날에 결석하면 원래 결석의 안내도 정리
+        if makeup == 'yes':
+            set_makeup(student, makeup_date, *times, absent_date=target_date)
+        elif makeup == 'no':
+            cancel_planned(student, target_date)
+        else:
+            sync_request_text(student, target_date)
         return JsonResponse({'status': 'success', 'attendance_type': 'absent', 'attendance_type_display': '결석'})
 
-    # 결석이 아닌 구분으로 바꾸면 출석부의 결석 표시도 함께 정리해, 달력과 수업비 차감이 어긋나지 않게 한다
-    absent_rows = ClassAttendance.objects.filter(enrollment__in=enrollments, date=target_date, is_present=False)
-    if attendance_type in ('present', 'makeup'):
-        absent_rows.update(is_present=True, note='', makeup_request='')
-    elif attendance_type != Attendance.TYPE_PLANNED:   # 보강 예정은 결석 기록을 건드리지 않는다
-        absent_rows.delete()
+    if attendance_type not in dict(Attendance.TYPE_CHOICES) and attendance_type != 'none':
+        return fail('알 수 없는 출석 구분입니다.')
+
+    times = None
+    if attendance_type == 'makeup' and (payload.get('start_time') or payload.get('end_time')):
+        times, error = parse_times()
+        if error:
+            return fail(error)
+
+    # 결석한 날에서 다른 날로 보강을 잡으면 그 결석분으로 연결한다
+    absent_date = parse_date('for_date')
+    if not (times and absent_date and absent_date != target_date and ClassAttendance.objects.filter(
+            enrollment__in=enrollments, date=absent_date, is_present=False).exists()):
+        absent_date = None
+
+    planned = bool(times) and (target_date, times[0]) > (timezone.localdate(), timezone.localtime().time())
+    if not planned:
+        # 결석이 아닌 구분으로 바꾸면 출석부의 결석 표시도 함께 정리해, 달력과 수업비 차감이 어긋나지 않게 한다
+        absent_rows = ClassAttendance.objects.filter(enrollment__in=enrollments, date=target_date, is_present=False)
+        had_absence = absent_rows.exists()
+        if attendance_type in ('present', 'makeup'):
+            absent_rows.update(is_present=True, note='', makeup_request='')
+        else:
+            absent_rows.delete()
+        if had_absence:
+            cancel_planned(student, target_date)
 
     if attendance_type == 'none':
         Attendance.objects.filter(user=student, date=target_date).delete()
+        if old_link:
+            sync_request_text(student, old_link)
         return JsonResponse({'status': 'success', 'attendance_type': None, 'attendance_type_display': '기록 없음'})
 
-    valid_types = dict(Attendance.TYPE_CHOICES)
-    if attendance_type not in valid_types:
-        return JsonResponse({'status': 'error', 'message': '알 수 없는 출석 구분입니다.'}, status=400)
-
-    attendance, _created = Attendance.objects.update_or_create(
-        user=student, date=target_date,
-        defaults={'attendance_type': attendance_type, 'makeup_start': makeup_start, 'makeup_end': makeup_end},
-    )
+    if times:
+        attendance = set_makeup(student, target_date, *times, absent_date=absent_date)
+    else:
+        defaults = {'attendance_type': attendance_type, 'makeup_start': None, 'makeup_end': None}
+        if attendance_type != 'makeup':
+            defaults['makeup_for'] = None
+        attendance, _created = Attendance.objects.update_or_create(user=student, date=target_date, defaults=defaults)
+        if old_link:
+            sync_request_text(student, old_link)
     notify_attendance(attendance)   # 보강 예정은 알림톡 대상이 아니다
     return JsonResponse({
         'status': 'success',

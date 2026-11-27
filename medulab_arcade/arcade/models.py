@@ -1066,6 +1066,7 @@ class Attendance(models.Model):
     attendance_type = models.CharField('구분', max_length=10, choices=TYPE_CHOICES, default=TYPE_ACCESS)
     makeup_start = models.TimeField('보강 시작', null=True, blank=True)
     makeup_end = models.TimeField('보강 끝', null=True, blank=True)
+    makeup_for = models.DateField('보강 대상 결석일', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

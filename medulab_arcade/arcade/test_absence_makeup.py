@@ -6,7 +6,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from arcade.absence_report import make_absence_token, makeup_slots
-from arcade.models import AdminNotification, ClassAttendance, ClassEnrollment, ScheduleEvent, SchoolClass
+from arcade.models import AdminNotification, Attendance, ClassAttendance, ClassEnrollment, ScheduleEvent, SchoolClass
 
 SAT = datetime.date(2030, 1, 5)   # 토요일
 
@@ -58,9 +58,15 @@ class MakeupTests(TestCase):
 
     def test_chosen_time_is_saved_and_notified(self):
         res = self.client.post(self.url, {'reason': 'sick', 'makeup': 'yes', 'makeup_slot': '2030-01-07 16:00~17:00'})
-        self.assertContains(res, '보강 희망: 1/7(월) 16:00~17:00')
-        self.assertEqual(ClassAttendance.objects.get().makeup_request, '보강 희망: 1/7(월) 16:00~17:00')
+        self.assertContains(res, '보강 예정: 1/7(월) 16:00~17:00')
+        self.assertEqual(ClassAttendance.objects.get().makeup_request, '보강 예정: 1/7(월) 16:00~17:00')
         self.assertIn('1/7(월) 16:00', AdminNotification.objects.get(kind='absence').body)
         self.assertContains(self.client.get(self.url), '1/7(월) 16:00~17:00)')   # 다시 열면 알린 내용이 보인다
+        planned = Attendance.objects.get(user=self.kid)
+        self.assertEqual((planned.date.day, planned.attendance_type, planned.makeup_for), (7, 'planned', SAT))
+        # 시간을 바꾸면 예정도 옮겨지고, 어렵다고 바꾸면 지워진다
+        self.client.post(self.url, {'reason': 'sick', 'makeup': 'yes', 'makeup_slot': '2030-01-12 15:00~16:00'})
+        self.assertEqual([a.date.day for a in Attendance.objects.all()], [12])
         self.client.post(self.url, {'reason': 'sick', 'makeup': 'no'})
         self.assertEqual(ClassAttendance.objects.get().makeup_request, '보강 어려움')
+        self.assertFalse(Attendance.objects.exists())

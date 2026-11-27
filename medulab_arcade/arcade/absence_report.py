@@ -7,9 +7,11 @@
 import datetime
 
 from django.core import signing
+from django.db.models import Q
 from django.shortcuts import render
 from django.utils import timezone
 
+from .makeup import MAKEUP_NO, MAKEUP_PREFIX, WEEKDAYS, cancel_planned, set_makeup
 from .models import Attendance, ClassAttendance, ClassEnrollment, SchoolClass
 
 SALT = 'absence-report'
@@ -27,9 +29,6 @@ NOTE_PREFIX = '학부모 신청: '
 
 
 MAKEUP_DAYS = 14   # 결석일부터 이 기간 안의 수업 시간을 보강 후보로 보여 준다
-MAKEUP_NO = '보강 어려움'
-MAKEUP_PREFIX = '보강 희망: '
-WEEKDAYS = '월화수목금토일'
 
 
 def makeup_slots(student, absent_date, now=None):
@@ -52,6 +51,11 @@ def makeup_slots(student, absent_date, now=None):
     def meets(klass, day):
         return str(day.isoweekday() % 7) in (klass.days_of_week or '').split(',')
 
+    # 이미 출석했거나 다른 결석의 보강이 잡힌 날은 뺀다
+    taken = set(Attendance.objects.filter(user=student).filter(
+        Q(attendance_type__in=[Attendance.TYPE_PRESENT, Attendance.TYPE_MAKEUP])
+        | Q(attendance_type=Attendance.TYPE_PLANNED) & ~Q(makeup_for=absent_date)
+    ).exclude(date=absent_date).values_list('date', flat=True))
     holidays, months, groups = set(), set(), []
     first = max(absent_date, now.date())
     for offset in range((absent_date + datetime.timedelta(days=MAKEUP_DAYS) - first).days + 1):
@@ -59,7 +63,7 @@ def makeup_slots(student, absent_date, now=None):
         if (day.year, day.month) not in months:
             months.add((day.year, day.month))
             holidays |= _holiday_dates_in_month(day.year, day.month)
-        if day in holidays:
+        if day in holidays or day in taken:
             continue
         busy = [span(k, day) for k in own if meets(k, day)]
         times = set()
@@ -140,6 +144,12 @@ def absence_report(request, token):
             enrollment=enrollment, date=date,
             defaults={'is_present': False, 'note': (NOTE_PREFIX + reason)[:100], 'makeup_request': makeup_text[:60]},
         )
+        if makeup == 'yes' and slot in slot_labels:
+            day_text, time_text = slot.split(' ')
+            start, end = (datetime.datetime.strptime(x, '%H:%M').time() for x in time_text.split('~'))
+            set_makeup(student, datetime.date.fromisoformat(day_text), start, end, absent_date=date)
+        else:
+            cancel_planned(student, date)   # 보강을 바꾸거나 취소하면 전에 잡은 예정은 지운다
         from django.urls import reverse
         from .admin_notify import notify_admins
         notify_admins('absence', f'❌ 결석 사유 접수 — {context["student_name"]}',

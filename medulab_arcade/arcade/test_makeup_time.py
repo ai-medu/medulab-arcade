@@ -19,6 +19,9 @@ class MakeupTimeTests(TestCase):
         ClassEnrollment.objects.create(school_class=self.klass, student=self.kid)
         self.client.force_login(User.objects.create_user('boss', password='x', is_staff=True))
         self.set_url = reverse('api_admin_set_attendance', args=[self.kid.pk])
+        patcher = mock.patch('arcade.parent_notify._spawn')   # 알림톡 발송 스레드는 띄우지 않는다
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def _set(self, kind, **extra):
         return self.client.post(self.set_url, {'date': SAT.isoformat(), 'attendance_type': kind, **extra},
@@ -114,3 +117,33 @@ class MakeupTimeTests(TestCase):
         page = self.client.get(reverse('admin_student_report', args=[self.kid.pk]) + '?year=2030&month=1')
         self.assertContains(page, '이 달의 결석·보강 내역')
         self.assertContains(page, '관리자 결석 처리: 몸이 아파서 · 보강 희망: 1/12(토) 15:00~16:30')
+
+    def test_admin_absence_with_makeup_links_both_days(self):
+        next_sat = datetime.date(2030, 1, 12)
+        with self._at(SAT, 10):
+            self._login(User.objects.get(username='boss'))
+            self.assertEqual(self._set('absent', reason='가족 여행', makeup='yes').status_code, 400)
+            self._set('absent', reason='가족 여행', makeup='yes', makeup_date=next_sat.isoformat(),
+                      start_time='15:00', end_time='16:30')
+            record = Attendance.objects.get(user=self.kid)
+            self.assertEqual((record.date, record.attendance_type, record.makeup_for), (next_sat, 'planned', SAT))
+            self.assertEqual(ClassAttendance.objects.get().makeup_request, '보강 예정: 1/12(토) 15:00~16:30')
+            page = self.client.get(reverse('admin_student_report', args=[self.kid.pk]))
+            self.assertEqual((page.context['makeup_to'], page.context['makeup_from']), ({5: '1/12'}, {12: '1/5'}))
+            self.assertContains(page, '→ 보강 1/12(토) 15:00~16:30 (예정)')
+            self.assertContains(page, '← 1/5(토) 결석분')
+            # 보강 날짜의 기록을 지우면 결석 칸의 안내도 사라진다
+            self.client.post(self.set_url, {'date': next_sat.isoformat(), 'attendance_type': 'none'},
+                             content_type='application/json')
+            self.assertEqual(ClassAttendance.objects.get().makeup_request, '')
+
+    def test_makeup_from_absent_day_links_and_cancel_absence_removes_plan(self):
+        with self._at(SAT, 10):
+            self._login(User.objects.get(username='boss'))
+            self._set('absent', reason='몸이 아파서')
+            self.client.post(self.set_url, {'date': '2030-01-12', 'attendance_type': 'makeup', 'start_time': '15:00',
+                                            'end_time': '16:30', 'for_date': SAT.isoformat()},
+                             content_type='application/json')
+            self.assertEqual(Attendance.objects.get().makeup_for, SAT)
+            self._set('present')   # 결석을 취소하면 잡아 둔 예정도 사라진다
+            self.assertEqual([a.date for a in Attendance.objects.all()], [SAT])

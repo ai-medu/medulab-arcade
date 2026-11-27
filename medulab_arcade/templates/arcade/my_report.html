@@ -233,6 +233,16 @@
         border: 2px dashed rgba(59, 130, 246, 0.6);
         color: #60a5fa;
     }
+    .makeup-link {
+        position: absolute;
+        top: 1px;
+        left: 4px;
+        font-size: 9px;
+        font-weight: 800;
+        line-height: 1.2;
+    }
+    .makeup-link.from { color: #2563eb; }
+    .makeup-link.to { color: #dc2626; }
     .calendar-cell.class-day {
         border-color: rgba(245, 158, 11, 0.4);
     }
@@ -829,6 +839,9 @@
                                     {% elif day in absent_days %}
                                     <span class="attendance-stamp"><span class="stamp-icon">❌</span><span class="stamp-label">결석</span></span>
                                     {% endif %}
+                                    {% with src=makeup_from|get_item:day dst=makeup_to|get_item:day %}
+                                    {% if src %}<span class="makeup-link from">←{{ src }}</span>{% elif dst %}<span class="makeup-link to">→{{ dst }}</span>{% endif %}
+                                    {% endwith %}
                                     {% with label=holiday_days_labels|get_item:day %}
                                     {% if label %}
                                     <span class="holiday-label">{{ label }}</span>
@@ -846,7 +859,7 @@
                     <div class="day-history-row" style="display:flex; gap:10px; align-items:baseline; padding:6px 0; font-size:13px; line-height:1.5;">
                         <span style="flex:0 0 44px; font-weight:800; color:var(--text-primary, #1f2937);">{{ item.date|date:"n/j" }}</span>
                         <span style="flex:0 0 66px; font-weight:800; color:{% if item.kind == 'absent' or item.kind == 'noshow' %}#dc2626{% elif item.kind == 'planned' %}#d97706{% else %}#2563eb{% endif %};">{{ item.label }}</span>
-                        <span style="color:var(--text-muted); word-break:keep-all;">{{ item.text }}</span>
+                        <span style="color:var(--text-muted); word-break:keep-all;">{{ item.text }}{% if item.link %}<br><b style="color:#2563eb;">{{ item.link }}</b>{% endif %}</span>
                     </div>
                     {% endfor %}
                 </div>
@@ -861,9 +874,9 @@
                 <h4 id="adminAttendanceModalTitle" style="margin:0 0 16px; color:#fff; font-size:16px;">출석 기록 수정</h4>
                 <div style="display:flex; flex-direction:column; gap:8px;">
                     <button type="button" onclick="setAdminAttendance('present')" style="padding:12px; border-radius:10px; border:1px solid rgba(16,185,129,0.35); background:rgba(16,185,129,0.12); color:#10b981; font-weight:700; cursor:pointer;">💚 출석으로 변경</button>
-                    <button type="button" onclick="askMakeupTime(ADMIN_ATTENDANCE_STUDENT_ID, adminAttendanceDate(), function (d, s, e) { setAdminAttendance('makeup', '', { date: d, start_time: s, end_time: e }); })" style="padding:12px; border-radius:10px; border:1px solid rgba(96,165,250,0.35); background:rgba(96,165,250,0.12); color:#60a5fa; font-weight:700; cursor:pointer;">💙 보강으로 변경</button>
+                    <button type="button" onclick="askMakeupTime(ADMIN_ATTENDANCE_STUDENT_ID, adminAttendanceDate(), function (d, s, e) { setAdminAttendance('makeup', '', { date: d, start_time: s, end_time: e, for_date: adminAttendanceDate() }); })" style="padding:12px; border-radius:10px; border:1px solid rgba(96,165,250,0.35); background:rgba(96,165,250,0.12); color:#60a5fa; font-weight:700; cursor:pointer;">💙 보강으로 변경</button>
                     <button type="button" onclick="setAdminAttendance('access')" style="padding:12px; border-radius:10px; border:1px solid rgba(148,163,184,0.35); background:rgba(148,163,184,0.12); color:#94a3b8; font-weight:700; cursor:pointer;">📶 접속으로 변경</button>
-                    <button type="button" onclick="askAbsenceReason(function (r) { setAdminAttendance('absent', r); })" style="padding:12px; border-radius:10px; border:1px solid rgba(239,68,68,0.5); background:rgba(239,68,68,0.18); color:#ef4444; font-weight:700; cursor:pointer;">❌ 결석으로 변경</button>
+                    <button type="button" onclick="askAbsence(ADMIN_ATTENDANCE_STUDENT_ID, adminAttendanceDate(), function (r, extra) { setAdminAttendance('absent', r, extra); })" style="padding:12px; border-radius:10px; border:1px solid rgba(239,68,68,0.5); background:rgba(239,68,68,0.18); color:#ef4444; font-weight:700; cursor:pointer;">❌ 결석으로 변경</button>
                     <button type="button" onclick="setAdminAttendance('none')" style="padding:12px; border-radius:10px; border:1px solid rgba(239,68,68,0.35); background:rgba(239,68,68,0.1); color:#f87171; font-weight:700; cursor:pointer;">🗑️ 기록 삭제</button>
                 </div>
                 <button type="button" onclick="closeAdminAttendanceModal()" style="margin-top:16px; width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--text-muted); cursor:pointer;">취소</button>

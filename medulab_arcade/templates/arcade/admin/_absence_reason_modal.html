@@ -1,4 +1,4 @@
-{# 관리자가 '결석'으로 바꿀 때 결석 사유를 고르는 창. askAbsenceReason(function (reason) { ... }) 로 연다 #}
+{# 관리자가 '결석'으로 바꿀 때 결석 사유를 고르는 창. askAbsence(학생ID, 날짜, function (사유, 추가값) { ... }) 로 연다 #}
 <style>
     #absReasonOverlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:3000; align-items:center; justify-content:center; padding:16px; }
     #absReasonOverlay.show { display:flex; }
@@ -25,6 +25,10 @@
         <label class="abs-opt"><input type="radio" name="absReason" value="연락 없이 결석"> 연락 없이 결석</label>
         <label class="abs-opt"><input type="radio" name="absReason" value="__other__"> 기타 (직접 입력)</label>
         <input type="text" id="absReasonDetail" maxlength="60" placeholder="결석 사유를 직접 입력해 주세요 (60자까지)">
+        <p style="margin:16px 0 8px; font-weight:800; color:#1f2937; font-size:15px;">보강</p>
+        <label class="abs-opt"><input type="radio" name="absMakeup" value="yes"> 보강 가능 (다음에 시간 선택)</label>
+        <label class="abs-opt"><input type="radio" name="absMakeup" value="no"> 보강 어려움</label>
+        <label class="abs-opt"><input type="radio" name="absMakeup" value=""> 나중에 정하기</label>
         <div id="absReasonError"></div>
         <div class="abs-btns">
             <button type="button" onclick="closeAbsenceReason()">취소</button>
@@ -48,12 +52,22 @@
             overlay.querySelectorAll('input[name=absReason]').forEach(function (r) { r.checked = false; });
             detail.value = '';
             detail.style.display = 'none';
+            overlay.querySelectorAll('input[name=absMakeup]').forEach(function (r) { r.checked = false; });
             error.textContent = '';
             overlay.classList.add('show');
         };
         window.closeAbsenceReason = function () {
             overlay.classList.remove('show');
             callback = null;
+        };
+        // 사유와 보강 여부를 고르고, 보강 가능이면 이어서 시간을 정한다. done(사유, 보낼 추가 값)
+        window.askAbsence = function (studentId, date, done) {
+            askAbsenceReason(function (reason, makeup) {
+                if (makeup !== 'yes') { done(reason, { makeup: makeup }); return; }
+                askMakeupTime(studentId, date, function (d, s, e) {
+                    done(reason, { makeup: 'yes', makeup_date: d, start_time: s, end_time: e });
+                });
+            });
         };
         window.confirmAbsenceReason = function () {
             var chosen = overlay.querySelector('input[name=absReason]:checked');
@@ -63,9 +77,11 @@
                 reason = detail.value.trim();
                 if (!reason) { error.textContent = '기타 사유를 입력해 주세요.'; return; }
             }
+            var makeup = overlay.querySelector('input[name=absMakeup]:checked');
+            if (!makeup) { error.textContent = '보강 가능 여부를 선택해 주세요.'; return; }
             var pick = callback;
             closeAbsenceReason();
-            if (pick) pick(reason);
+            if (pick) pick(reason, makeup.value);
         };
     })();
 </script>
