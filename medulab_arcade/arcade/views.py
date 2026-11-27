@@ -28,6 +28,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required, user_passes_test
 from .badge_service import get_active_badges_with_user_state, get_recent_user_badges, get_user_badge_count
 from .parent_notify import notify_attendance
+from .tuition_alerts import notify_canceled, notify_paid
 from .models import ClassDiscountType, Badge, Project, Category, Like, Bookmark, Tag, UserProfile, EmailChangeRequest, SignupEmailVerification, ScheduleAttachment, ScheduleEvent, Notice, Award, Certification, CertInfo, CompetitionType, Contest, SchoolClass, ClassEnrollment, ParentChildLink, TuitionInvoice, ClassAttendance, TuitionBatchPayment, InstagramConfig, InstagramPost, InstagramUploadDraft, InstagramUploadDraftItem, FutureCareerSave, ContentFinderSubmission, ContentIdeaThumbnailSubmission, MugCupSubmission, AIPromptCardOrder, ContentFinderDraft, ContentIdeaFinderDraft, ContentPlanDraft, ChannelBrandingDraft
 from .forms import AdminOnboardingForm, apply_signup_extras, normalize_children_info, ProjectUploadForm, SignUpForm, AdminUserForm, AdminUserProfileForm, BadgeForm, ScheduleEventForm, TimetableForm, UserProfileUpdateForm, MedulabParentUpgradeForm, SocialOnboardingForm, SchoolClassForm
 from .holiday_utils import ensure_holidays
@@ -4924,6 +4925,7 @@ def tuition_invoice_cancel(request, invoice_id):
             'error': '환불은 처리됐지만 청구서 상태 저장에 실패했어요. 상태를 "취소"로 직접 수정해 주세요.' if refunded else '저장 중 오류가 발생했어요.',
         }, status=500)
 
+    notify_canceled(invoice, refunded, reason, request.user.profile.real_name or request.user.username)
     msg = f'{invoice.amount:,}원을 환불하고 청구서를 취소했어요.' if refunded else '청구서를 "취소" 상태로 바꿨어요. (환불은 하지 않았어요)'
     return JsonResponse({'ok': True, 'message': msg})
 
@@ -5267,11 +5269,29 @@ def _verify_invoice_payment(invoice):
     if paid_amount != invoice.amount:
         return JsonResponse({'ok': False, 'error': '결제 금액이 청구 금액과 일치하지 않습니다.'}, status=400)
 
-    invoice.status = TuitionInvoice.STATUS_PAID
-    invoice.paid_at = timezone.now()
-    invoice.portone_pay_method = _portone_method_label(data.get('method'))
-    invoice.save(update_fields=['status', 'paid_at', 'portone_pay_method'])
+    _mark_invoice_paid(invoice, _portone_method_label(data.get('method')))
     return JsonResponse({'ok': True})
+
+
+def _mark_invoice_paid(invoice, method):
+    """청구서를 완납 처리. 화면 확인과 웹훅이 동시에 들어와도 먼저 처리한 쪽만 관리자 알림을 남긴다."""
+    now = timezone.now()
+    changed = TuitionInvoice.objects.filter(pk=invoice.pk).exclude(status=TuitionInvoice.STATUS_PAID).update(
+        status=TuitionInvoice.STATUS_PAID, paid_at=now, portone_pay_method=method)
+    invoice.status, invoice.paid_at, invoice.portone_pay_method = TuitionInvoice.STATUS_PAID, now, method
+    if changed:
+        notify_paid([invoice], method)
+
+
+def _mark_batch_paid(batch, method):
+    """일괄결제와 포함된 청구서를 모두 완납 처리하고, 처음 처리할 때만 관리자 알림 한 줄을 남긴다."""
+    now = timezone.now()
+    changed = TuitionBatchPayment.objects.filter(pk=batch.pk).exclude(status=TuitionInvoice.STATUS_PAID).update(
+        status=TuitionInvoice.STATUS_PAID, paid_at=now, portone_pay_method=method)
+    batch.status, batch.paid_at, batch.portone_pay_method = TuitionInvoice.STATUS_PAID, now, method
+    if changed:
+        batch.invoices.update(status=TuitionInvoice.STATUS_PAID, paid_at=now, portone_pay_method=method)
+        notify_paid(batch.invoices.select_related('student__profile', 'school_class').order_by('due_date', 'id'), method)
 
 
 def _public_pay_invoice_or_404(token):
@@ -5416,13 +5436,7 @@ def _verify_batch_payment(batch):
     if paid_amount != batch.amount:
         return JsonResponse({'ok': False, 'error': '결제 금액이 청구 금액과 일치하지 않습니다.'}, status=400)
 
-    method = _portone_method_label(data.get('method'))
-    now = timezone.now()
-    batch.status = TuitionInvoice.STATUS_PAID
-    batch.paid_at = now
-    batch.portone_pay_method = method
-    batch.save(update_fields=['status', 'paid_at', 'portone_pay_method'])
-    batch.invoices.update(status=TuitionInvoice.STATUS_PAID, paid_at=now, portone_pay_method=method)
+    _mark_batch_paid(batch, _portone_method_label(data.get('method')))
     return JsonResponse({'ok': True})
 
 
@@ -5522,13 +5536,10 @@ def tuition_webhook(request):
 
     if data.get('status') == 'PAID' and (data.get('amount') or {}).get('total') == target.amount:
         method = _portone_method_label(data.get('method'))
-        now = timezone.now()
-        target.status = TuitionInvoice.STATUS_PAID
-        target.paid_at = now
-        target.portone_pay_method = method
-        target.save(update_fields=['status', 'paid_at', 'portone_pay_method'])
         if is_batch:
-            target.invoices.update(status=TuitionInvoice.STATUS_PAID, paid_at=now, portone_pay_method=method)
+            _mark_batch_paid(target, method)
+        else:
+            _mark_invoice_paid(target, method)
 
     return JsonResponse({'ok': True})
 

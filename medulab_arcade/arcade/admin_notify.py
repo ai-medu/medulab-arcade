@@ -41,6 +41,8 @@ def _row(n):
 @user_passes_test(_staff)
 def notification_list(request):
     """종 버튼 목록 + 안 읽은 개수 (화면에서 주기적으로 불러 온다)"""
+    from .tuition_alerts import notify_due_summary
+    notify_due_summary()   # 미납이 있으면 하루 한 번 알림을 만든다
     items = [_row(n) for n in AdminNotification.objects.all()[:20]]
     return JsonResponse({'unread': AdminNotification.objects.filter(is_read=False).count(), 'items': items})
 
