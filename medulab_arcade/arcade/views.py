@@ -7038,11 +7038,17 @@ def _build_report_context(user, view_year=None, view_month=None):
     current_month = view_month or today.month
     attendances = Attendance.objects.filter(user=user, date__year=current_year, date__month=current_month)
     # "출석 횟수" 집계에는 실제 등원 확인(출석/보강)만 포함하고, 위치 미확인 접속 체크는 제외한다.
-    attendance_dates = [att.date.day for att in attendances if att.attendance_type != Attendance.TYPE_ACCESS]
+    attendance_dates = [att.date.day for att in attendances
+                        if att.attendance_type in (Attendance.TYPE_PRESENT, Attendance.TYPE_MAKEUP)]
     present_days = [att.date.day for att in attendances if att.attendance_type == Attendance.TYPE_PRESENT]
     makeup_days = [att.date.day for att in attendances if att.attendance_type == Attendance.TYPE_MAKEUP]
     access_days = [att.date.day for att in attendances if att.attendance_type == Attendance.TYPE_ACCESS]
-    today_attendance = Attendance.objects.filter(user=user, date=today).first()
+    planned = [att for att in attendances if att.attendance_type == Attendance.TYPE_PLANNED]
+    planned_days = [att.date.day for att in planned if att.date >= today]
+    noshow_days = [att.date.day for att in planned if att.date < today]   # 잡아 둔 보강에 오지 않은 날
+    # 보강 예정만 있는 날은 아직 오늘 출석을 하지 않은 것
+    today_attendance = Attendance.objects.filter(user=user, date=today).exclude(
+        attendance_type=Attendance.TYPE_PLANNED).first()
     has_attended_today = today_attendance is not None
     today_attendance_type_display = today_attendance.get_attendance_type_display() if today_attendance else ''
 
@@ -7072,13 +7078,21 @@ def _build_report_context(user, view_year=None, view_month=None):
         for text in (r.note, r.makeup_request):
             if text and text not in texts:
                 texts.append(text)
-    day_history = [{'date': d, 'kind': 'absent', 'text': ' · '.join(t) or '사유 없음'} for d, t in absent_texts.items()]
+    day_history = [{'date': d, 'kind': 'absent', 'label': '결석', 'text': ' · '.join(t) or '사유 없음'}
+                   for d, t in absent_texts.items()]
     makeup_times = {}
     for att in attendances:
-        if att.attendance_type == Attendance.TYPE_MAKEUP and att.makeup_start:
-            makeup_times[att.date.day] = f'{att.makeup_start:%H:%M}'
-            day_history.append({'date': att.date, 'kind': 'makeup',
-                                'text': f'{att.makeup_start:%H:%M}~{att.makeup_end:%H:%M}'})
+        if att.attendance_type not in (Attendance.TYPE_MAKEUP, Attendance.TYPE_PLANNED) or not att.makeup_start:
+            continue
+        makeup_times[att.date.day] = f'{att.makeup_start:%H:%M}'
+        if att.attendance_type == Attendance.TYPE_MAKEUP:
+            kind, label = 'makeup', '보강 출석'
+        elif att.date >= today:
+            kind, label = 'planned', '보강 예정'
+        else:
+            kind, label = 'noshow', '보강 불참'
+        day_history.append({'date': att.date, 'kind': kind, 'label': label,
+                            'text': f'{att.makeup_start:%H:%M}~{att.makeup_end:%H:%M}'})
     day_history.sort(key=lambda item: item['date'])
 
     holiday_days_labels = {}
@@ -7302,6 +7316,8 @@ def _build_report_context(user, view_year=None, view_month=None):
         'absent_days': absent_days,
         'day_history': day_history,
         'makeup_times': makeup_times,
+        'planned_days': planned_days,
+        'noshow_days': noshow_days,
         'enrolled_classes': enrolled_classes,
         'class_scheduled_days': class_scheduled_days,
         'holiday_days': holiday_days,
@@ -7734,7 +7750,8 @@ def api_submit_attendance(request):
         user=request.user, date=today,
         defaults={'attendance_type': attendance_type},
     )
-    if not created and attendance.attendance_type == Attendance.TYPE_ACCESS and attendance_type != Attendance.TYPE_ACCESS:
+    if (not created and attendance.attendance_type in (Attendance.TYPE_ACCESS, Attendance.TYPE_PLANNED)
+            and attendance_type != Attendance.TYPE_ACCESS):
         attendance.attendance_type = attendance_type
         attendance.save(update_fields=['attendance_type'])
     notify_attendance(attendance)
@@ -7762,14 +7779,18 @@ def api_daily_checkin(request):
         payload = {}
 
     attendance_type = payload.get('attendance_type')
-    if attendance_type not in dict(Attendance.TYPE_CHOICES):
+    if attendance_type not in Attendance.CHECKIN_TYPES:
         return JsonResponse({'status': 'error', 'message': '알 수 없는 출석 구분입니다.'}, status=400)
 
     today = timezone.localdate()
-    attendance, _created = Attendance.objects.update_or_create(
-        user=request.user, date=today,
-        defaults={'attendance_type': attendance_type},
-    )
+    planned = Attendance.objects.filter(user=request.user, date=today, attendance_type=Attendance.TYPE_PLANNED).first()
+    if planned and attendance_type == Attendance.TYPE_ACCESS:
+        attendance = planned   # 학원 밖에서 접속한 것만으로는 보강 예정을 지우지 않는다
+    else:
+        attendance, _created = Attendance.objects.update_or_create(
+            user=request.user, date=today,
+            defaults={'attendance_type': attendance_type},
+        )
     notify_attendance(attendance)
     return JsonResponse({
         'status': 'success',
@@ -7812,6 +7833,12 @@ def api_admin_set_attendance(request, student_id):
         if makeup_end <= makeup_start:
             return JsonResponse({'status': 'error', 'message': '보강 끝 시간은 시작 시간보다 늦어야 합니다.'}, status=400)
 
+    # 앞으로의 시간(오늘 나중 시간 포함)으로 잡은 보강은 '보강 예정'. 학생이 등원해 출석하면 '보강'이 된다.
+    if makeup_start:
+        now = timezone.localtime()
+        if (target_date, makeup_start) > (now.date(), now.time()):
+            attendance_type = Attendance.TYPE_PLANNED
+
     if attendance_type == 'absent':
         # 결석: 수강 중인 수업의 출석부에 결석으로 기록한다 (다음 달 청구서 결석 차감에 반영됨). 등원 기록은 지운다.
         if not enrollments.exists():
@@ -7830,7 +7857,7 @@ def api_admin_set_attendance(request, student_id):
     absent_rows = ClassAttendance.objects.filter(enrollment__in=enrollments, date=target_date, is_present=False)
     if attendance_type in ('present', 'makeup'):
         absent_rows.update(is_present=True, note='', makeup_request='')
-    else:
+    elif attendance_type != Attendance.TYPE_PLANNED:   # 보강 예정은 결석 기록을 건드리지 않는다
         absent_rows.delete()
 
     if attendance_type == 'none':
@@ -7845,9 +7872,7 @@ def api_admin_set_attendance(request, student_id):
         user=student, date=target_date,
         defaults={'attendance_type': attendance_type, 'makeup_start': makeup_start, 'makeup_end': makeup_end},
     )
-    # 오늘 나중 시간으로 잡은 보강은 아직 등원 전이므로 출석 알림톡을 보내지 않는다
-    if not (makeup_start and target_date == timezone.localdate() and makeup_start > timezone.localtime().time()):
-        notify_attendance(attendance)
+    notify_attendance(attendance)   # 보강 예정은 알림톡 대상이 아니다
     return JsonResponse({
         'status': 'success',
         'attendance_type': attendance.attendance_type,

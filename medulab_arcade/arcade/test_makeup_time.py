@@ -40,7 +40,9 @@ class MakeupTimeTests(TestCase):
         self.assertNotEqual(self.client.get(url, {'date': SAT.isoformat()}).status_code, 200)
 
     def test_time_is_saved_shown_and_cleared(self):
-        with mock.patch('arcade.views.notify_attendance'):
+        later = SAT + datetime.timedelta(days=1)
+        with self._at(later, 10), mock.patch('arcade.views.notify_attendance'):
+            self._login(User.objects.get(username='boss'))
             self.assertEqual(self._set('makeup', start_time='15:00', end_time='16:30').status_code, 200)
             record = Attendance.objects.get(user=self.kid)
             self.assertEqual((record.makeup_start, record.makeup_end), (datetime.time(15), datetime.time(16, 30)))
@@ -56,15 +58,55 @@ class MakeupTimeTests(TestCase):
         self.assertEqual(self._set('makeup', start_time='16:00', end_time='15:00').status_code, 400)
         self.assertFalse(Attendance.objects.exists())
 
-    def test_later_today_does_not_send_attendance_notice(self):
-        now = timezone.make_aware(datetime.datetime.combine(SAT, datetime.time(10, 0)))
-        with mock.patch.object(timezone, 'now', return_value=now), \
-                mock.patch('arcade.views.notify_attendance') as notify:
-            self.client.force_login(User.objects.get(username='boss'))   # 로그인 유효기간은 바꾼 시각 기준
-            self.assertEqual(self._set('makeup', start_time='15:00', end_time='16:30').status_code, 200)
-            notify.assert_not_called()
-            self._set('makeup', start_time='09:00', end_time='10:30')
-            notify.assert_called_once()
+    def _at(self, day, hour):
+        return mock.patch.object(timezone, 'now',
+                                 return_value=timezone.make_aware(datetime.datetime.combine(day, datetime.time(hour))))
+
+    def _login(self, user):
+        self.client.force_login(user)   # 로그인 유효기간은 바꾼 시각 기준
+
+    def test_future_time_is_planned_and_past_time_is_attended(self):
+        with self._at(SAT, 10), mock.patch('arcade.parent_notify._spawn') as spawn:
+            self._login(User.objects.get(username='boss'))
+            self.assertEqual(self._set('makeup', start_time='15:00', end_time='16:30').json()['attendance_type'], 'planned')
+            spawn.assert_not_called()
+            page = self.client.get(reverse('admin_student_report', args=[self.kid.pk]))
+            self.assertEqual((page.context['planned_days'], page.context['makeup_days']), ([5], []))
+            self.assertEqual(page.context['attendance_dates'], [])   # 예정은 출석 횟수에 안 들어간다
+            self.assertContains(page, '예정 15:00')
+            self.assertContains(page, '보강 예정')
+            self.assertEqual(self._set('makeup', start_time='09:00', end_time='10:30').json()['attendance_type'], 'makeup')
+            spawn.assert_called_once()
+
+    def test_planned_keeps_absence_record_and_turns_into_no_show(self):
+        with self._at(SAT, 10):
+            self._login(User.objects.get(username='boss'))
+            self._set('absent', reason='몸이 아파서')
+            self._set('makeup', start_time='15:00', end_time='16:30')
+            self.assertFalse(ClassAttendance.objects.get().is_present)
+        with self._at(SAT + datetime.timedelta(days=1), 10):
+            self._login(User.objects.get(username='boss'))
+            page = self.client.get(reverse('admin_student_report', args=[self.kid.pk]))
+            self.assertEqual((page.context['noshow_days'], page.context['planned_days']), ([5], []))
+            self.assertContains(page, '보강 불참')
+
+    def test_student_check_in_turns_planned_into_attended(self):
+        profile = self.kid.profile
+        profile.user_type = 'medulab_member'
+        profile.save()
+        ClassEnrollment.objects.all().delete()
+        with self._at(SAT, 10):
+            Attendance.objects.create(user=self.kid, date=SAT, attendance_type='planned',
+                                      makeup_start=datetime.time(15), makeup_end=datetime.time(16))
+            self._login(self.kid)
+            self.assertContains(self.client.get(reverse('home')), '오늘 보강: 15:00')
+            url = reverse('api_daily_checkin')
+            post = lambda kind: self.client.post(url, {'attendance_type': kind}, content_type='application/json')
+            self.assertEqual(post('planned').status_code, 400)
+            self.assertEqual(post('access').json()['attendance_type'], 'planned')
+            with mock.patch('arcade.views.notify_attendance'):
+                self.assertEqual(post('makeup').json()['attendance_type'], 'makeup')
+        self.assertEqual(Attendance.objects.get().makeup_start, datetime.time(15))
 
     def test_absence_reason_is_listed_under_calendar(self):
         self._set('absent', reason='몸이 아파서')

@@ -1051,11 +1051,14 @@ class Attendance(models.Model):
     TYPE_ACCESS = 'access'   # 집 등 학원 밖에서 로그인 (접속)
     TYPE_PRESENT = 'present'  # 학원에서 로그인 + 오늘이 정규 수업일 (출석)
     TYPE_MAKEUP = 'makeup'    # 학원에서 로그인 + 오늘이 정규 수업일이 아님 (보강)
+    TYPE_PLANNED = 'planned'  # 관리자가 시간을 잡아 둔 보강, 아직 등원 전 (출석으로 세지 않는다)
     TYPE_CHOICES = [
         (TYPE_ACCESS, '접속'),
         (TYPE_PRESENT, '출석'),
         (TYPE_MAKEUP, '보강'),
+        (TYPE_PLANNED, '보강 예정'),
     ]
+    CHECKIN_TYPES = (TYPE_ACCESS, TYPE_PRESENT, TYPE_MAKEUP)   # 학생이 직접 남길 수 있는 구분
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='attendances', verbose_name='학생')
     date = models.DateField('출석일', default=timezone.localdate)

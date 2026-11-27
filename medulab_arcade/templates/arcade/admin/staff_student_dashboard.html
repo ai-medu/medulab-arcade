@@ -278,6 +278,7 @@
                         <button type="button" class="attend-edit-btn" title="눌러서 오늘 출석 변경" onclick="openAttendModal({{ s.id }}, '{{ s.profile.real_name|default:s.username|escapejs }}', '{{ s.today_attendance_type|default:'none' }}')">
                         {% if s.today_attendance_type == 'present' %}<span class="attend-badge attend-yes">✅ 출석</span>
                         {% elif s.today_attendance_type == 'makeup' %}<span class="attend-badge attend-yes">💙 보강</span>
+                        {% elif s.today_attendance_type == 'planned' %}<span class="attend-badge" style="background:rgba(245,158,11,0.14); color:#d97706; border:1px solid rgba(245,158,11,0.4);">🕒 보강 예정</span>
                         {% elif s.today_attendance_type == 'access' %}<span class="attend-badge" style="background:rgba(148,163,184,0.12); color:#94a3b8; border:1px solid rgba(148,163,184,0.3);">📶 접속만</span>
                         {% elif s.today_attendance_type == 'absent' %}<span class="attend-badge" style="background:rgba(239,68,68,0.14); color:#f87171; border:1px solid rgba(239,68,68,0.4);" title="{{ s.today_absent_note }}">❌ 결석</span>
                         {% else %}<span class="attend-badge attend-no">미출석</span>{% endif %}<span class="attend-edit-icon">✎</span>

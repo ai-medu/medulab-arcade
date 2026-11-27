@@ -27,8 +27,10 @@ def checkin_modal(request):
     from .models import Attendance, ClassEnrollment
 
     today = timezone.localdate()
-    if Attendance.objects.filter(user=request.user, date=today).exists():
+    records = Attendance.objects.filter(user=request.user, date=today)
+    if records.exclude(attendance_type=Attendance.TYPE_PLANNED).exists():
         return {'show_checkin_modal': False}
+    planned = records.first()   # 남아 있다면 오늘 잡아 둔 보강
 
     code_for_py_weekday = {0: '1', 1: '2', 2: '3', 3: '4', 4: '5', 5: '6', 6: '0'}
     code = code_for_py_weekday[today.weekday()]
@@ -46,6 +48,7 @@ def checkin_modal(request):
     return {
         'show_checkin_modal': True,
         'checkin_today_class': today_class,
+        'checkin_makeup_time': planned.makeup_start if planned else None,
     }
 
 

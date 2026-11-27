@@ -1444,6 +1444,8 @@
                 <h3 style="color:#fff; margin:0 0 8px; font-size:18px;">지금 학원 안에 있나요?</h3>
                 {% if checkin_today_class %}
                 <p style="color:#10b981; font-size:14px; font-weight:700; margin:0 0 16px;">오늘 수업: {% if checkin_today_class.start_time %}{{ checkin_today_class.start_time|time:"H:i" }} {% endif %}{{ checkin_today_class.name }}</p>
+                {% elif checkin_makeup_time %}
+                <p style="color:#60a5fa; font-size:14px; font-weight:700; margin:0 0 16px;">오늘 보강: {{ checkin_makeup_time|time:"H:i" }}</p>
                 {% else %}
                 <p style="color:#9ca3af; font-size:13px; margin:0 0 16px;">오늘은 배정된 수업이 없는 날이에요.</p>
                 {% endif %}
