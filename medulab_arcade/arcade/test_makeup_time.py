@@ -167,3 +167,15 @@ class MakeupTimeTests(TestCase):
         self._set('absent', reason='몸이 아파서')
         page = self.client.get(reverse('admin_student_report', args=[self.kid.pk]) + '?year=2030&month=1')
         self.assertNotIn(5, page.context['class_tags'])
+
+    def test_calendar_opens_up_to_next_month(self):
+        with self._at(datetime.date(2030, 12, 7), 10):
+            self._login(User.objects.get(username='boss'))
+            url = reverse('admin_student_report', args=[self.kid.pk])
+            this_month = self.client.get(url)
+            self.assertTrue(this_month.context['can_go_next'])
+            self.assertContains(this_month, '?year=2031&month=1')
+            next_month = self.client.get(url + '?year=2031&month=1')
+            self.assertFalse(next_month.context['can_go_next'])
+            self.assertNotContains(next_month, '?year=2031&month=2')
+            self.assertEqual(sorted(next_month.context['class_tags']), [4, 11, 18, 25])

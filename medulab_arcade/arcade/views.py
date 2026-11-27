@@ -7166,6 +7166,9 @@ def _build_report_context(user, view_year=None, view_month=None):
     prev_year, prev_month = (current_year - 1, 12) if current_month == 1 else (current_year, current_month - 1)
     next_year, next_month = (current_year + 1, 1) if current_month == 12 else (current_year, current_month + 1)
 
+    # 다음 달 수업일을 미리 볼 수 있게 이번 달의 다음 달까지만 넘어간다
+    can_go_next = (current_year, current_month) < _prev_next_month(today.year, today.month)[2:]
+
     # 4. 날짜별 타속 기록 - 유형×언어별 분리
     CHART_TYPES = [('word', '단어연습'), ('short', '짧은글'), ('long', '긴글')]
     CHART_LANGS = ['ko', 'en']
@@ -7362,6 +7365,7 @@ def _build_report_context(user, view_year=None, view_month=None):
         'noshow_days': noshow_days,
         'makeup_to': makeup_to,
         'class_tags': class_tags,
+        'can_go_next': can_go_next,
         'makeup_from': makeup_from,
         'enrolled_classes': enrolled_classes,
         'class_scheduled_days': class_scheduled_days,
