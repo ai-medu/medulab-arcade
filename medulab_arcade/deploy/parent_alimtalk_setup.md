@@ -41,11 +41,12 @@ SOLAPI_SMS_FALLBACK=1   # 0이면 알림톡 실패 시 문자 대체발송 안 �
 ```
 저장 후 `sudo systemctl restart medulab`. 값이 하나라도 비어 있으면 발송하지 않고 기록만 남습니다.
 
-## 4. 미납 안내 예약 (하루 한 번)
+## 4. 미납 안내 예약 (매일 오전 10시, 서버 시간은 UTC라서 1시)
 ```
-0 10 * * * cd ~/medulab_arcade/medulab_arcade && venv/bin/python manage.py send_tuition_reminders >> /tmp/tuition_reminders.log 2>&1
+0 1 * * * cd ~/medulab_arcade/medulab_arcade && venv/bin/python manage.py send_tuition_reminders >> ~/cron_logs/tuition_reminders.log 2>&1
 ```
-옵션: `--before 3`(기한 며칠 전부터), `--every 3`(같은 청구서 재안내 최소 간격).
+청구서 안내를 보낸 미납 청구서에, 마지막 안내 10일 뒤부터 청구서마다 최대 2번 보냅니다.
+옵션: `--every 10`(마지막 안내 후 며칠 뒤), `--max 2`(최대 횟수), `--dry-run`(보내지 않고 대상만 확인).
 
 ## 5. 확인
 - 학부모 회원의 휴대폰 번호가 프로필에 있고, 학생과 '학부모-자녀 연결'이 되어 있어야 합니다.

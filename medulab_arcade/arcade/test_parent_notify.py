@@ -1,4 +1,5 @@
 from datetime import timedelta
+from io import StringIO
 from unittest import mock
 
 from django.contrib.auth.models import User
@@ -109,15 +110,52 @@ class ParentNotifyTests(TestCase):
         post.assert_not_called()
 
     @override_settings(**SOLAPI)
-    def test_reminder_command_respects_interval(self):
+    def test_reminder_every_10_days_after_notice_up_to_twice(self):
         inv = self._invoice(due_date=timezone.localdate() - timedelta(days=2))
+        start = timezone.now()
+
+        def run(day):
+            with mock.patch('django.utils.timezone.now', return_value=start + timedelta(days=day)):
+                call_command('send_tuition_reminders', stdout=StringIO())
+            return post.call_count
+
         with mock.patch('arcade.parent_notify.requests.post') as post:
             post.return_value.status_code = 200
-            call_command('send_tuition_reminders')
-            call_command('send_tuition_reminders')
-        self.assertEqual(post.call_count, 1)
+            self.assertEqual(run(0), 0)      # 청구 안내를 보낸 적이 없으면 보내지 않는다
+            parent_notify.send_invoice_notice(inv)
+            self.assertEqual(run(9), 1)
+            self.assertEqual(run(10), 2)     # 첫 번째 미납 안내
+            self.assertEqual(run(10), 2)
+            self.assertEqual(run(19), 2)
+            self.assertEqual(run(20), 3)     # 두 번째
+            self.assertEqual(run(30), 3)     # 최대 2번
+            self.assertEqual(run(60), 3)
         self.assertIn('미납', post.call_args.kwargs['json']['message']['kakaoOptions']['variables']['#{납부상태}'])
-        self.assertEqual(NotificationLog.objects.filter(invoice=inv, kind='reminder', status='sent').count(), 1)
+        # 로그 시각(auto_now_add)도 바꾼 시각을 따라가야 간격이 계산된다
+        self.assertEqual(NotificationLog.objects.filter(invoice=inv, kind='reminder', status='sent').count(), 2)
+
+    @override_settings(**SOLAPI)
+    def test_reminder_skips_paid_dry_run_and_repeated_failures(self):
+        inv = self._invoice()
+        start = timezone.now()
+
+        def run(day, **options):
+            with mock.patch('django.utils.timezone.now', return_value=start + timedelta(days=day)):
+                call_command('send_tuition_reminders', stdout=StringIO(), **options)
+            return post.call_count
+
+        with mock.patch('arcade.parent_notify.requests.post') as post:
+            post.return_value.status_code = 200
+            parent_notify.send_invoice_notice(inv)
+            self.assertEqual(run(10, dry_run=True), 1)
+            TuitionInvoice.objects.update(status=TuitionInvoice.STATUS_PAID)
+            self.assertEqual(run(10), 1)
+            TuitionInvoice.objects.update(status=TuitionInvoice.STATUS_UNPAID)
+            post.return_value.status_code = 400
+            post.return_value.text = 'bad'
+            for day in range(10, 20):
+                run(day)
+        self.assertEqual(post.call_count, 4)   # 청구 안내 1 + 실패한 시도 3일
 
     def test_public_pay_page(self):
         inv = self._invoice()
