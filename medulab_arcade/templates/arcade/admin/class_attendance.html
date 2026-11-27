@@ -26,7 +26,10 @@
 }
 .att-name { display:flex; align-items:baseline; gap:4px; }
 .att-check { width:18px; height:18px; accent-color: var(--accent-green); cursor:pointer; }
-.att-count { color:var(--accent-blue); font-weight:800; font-size:12px; }
+.att-table td.absent-day { background:rgba(239,68,68,0.16); }
+.att-absent { display:block; margin-top:3px; font-size:11px; font-weight:800; color:#dc2626; cursor:help; }
+.att-table td.absent-day .att-check:checked ~ .att-absent { visibility:hidden; }
+.att-count {color:var(--accent-blue); font-weight:800; font-size:12px; }
 .att-save-bar {
     margin-top:20px; padding-top:16px;
     border-top:1px solid var(--border);
@@ -50,6 +53,7 @@
     <div class="att-legend">
         <span><span class="swatch" style="background:rgba(0,255,180,0.3);"></span>이 수업의 정규 수업일</span>
         <span><span class="swatch" style="background:rgba(255,255,255,0.08);"></span>그 외 날짜 (보강/변경 출석용)</span>
+        <span><span class="swatch" style="background:rgba(239,68,68,0.35);"></span>✕ 결석 (마우스를 올리면 사유)</span>
     </div>
 
     <form method="post" id="att-form">
@@ -74,9 +78,10 @@
                             </div>
                         </td>
                         {% for cell in row.cells %}
-                        <td class="{% if cell.is_scheduled %}scheduled-day{% endif %}">
+                        <td class="{% if cell.is_scheduled %}scheduled-day{% endif %}{% if cell.is_absent %} absent-day{% endif %}">
                             {% if cell.is_present %}<input type="hidden" name="was_{{ row.enrollment.id }}_{{ cell.date|date:'Y-m-d' }}" value="1">{% endif %}
                             <input type="checkbox" class="att-check" name="att_{{ row.enrollment.id }}_{{ cell.date|date:'Y-m-d' }}" {% if cell.is_present %}checked{% endif %} title="{% if cell.is_scheduled %}정규 수업일{% else %}그 외 날짜{% endif %} · 체크 해제 = 결석{% if cell.note %} · {{ cell.note }}{% endif %}">
+                            {% if cell.is_absent %}<span class="att-absent" title="{{ cell.note|default:'결석' }}">✕ 결석</span>{% endif %}
                         </td>
                         {% endfor %}
                     </tr>

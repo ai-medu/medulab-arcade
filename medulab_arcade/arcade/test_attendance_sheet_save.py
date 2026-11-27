@@ -51,6 +51,19 @@ class AttendanceSheetSaveTests(TestCase):
         cell = next(c for c in rows[0]['cells'] if c['date'].day == 12)
         self.assertTrue(cell['is_present'])
 
+    def test_marked_absence_is_shown_and_cleared_when_checked(self):
+        ClassAttendance.objects.create(enrollment=self.enrollment, date=datetime.date(2030, 12, 12),
+                                       is_present=False, note='관리자 결석 처리: 가족 여행')
+        res = self.client.get(self.url)
+        self.assertContains(res, 'class="att-absent"', count=1)
+        self.assertContains(res, '가족 여행')
+        self._save()   # 건드리지 않고 저장해도 결석과 사유가 남는다
+        record = ClassAttendance.objects.get(enrollment=self.enrollment, date__day=12)
+        self.assertEqual((record.is_present, record.note), (False, '관리자 결석 처리: 가족 여행'))
+        self._save(checked=[12])
+        record.refresh_from_db()
+        self.assertEqual((record.is_present, record.note), (True, ''))
+
     def test_page_marks_checked_cells(self):
         Attendance.objects.create(user=self.kid, date=TODAY, attendance_type='present')
         self.assertContains(self.client.get(self.url), f'name="was_{self.enrollment.pk}_2030-12-05"')

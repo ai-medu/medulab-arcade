@@ -4535,10 +4535,10 @@ def class_admin_attendance(request, class_id):
                 was_present = f'was_{enrollment.id}_{d.isoformat()}' in request.POST
                 if d >= today and is_present == was_present:
                     continue
-                ClassAttendance.objects.update_or_create(
-                    enrollment=enrollment, date=d,
-                    defaults={'is_present': is_present},
-                )
+                defaults = {'is_present': is_present}
+                if is_present:
+                    defaults['note'] = ''   # 출석으로 바꾸면 결석 사유는 지운다
+                ClassAttendance.objects.update_or_create(enrollment=enrollment, date=d, defaults=defaults)
         messages.success(request, '출석 정보를 저장했습니다.')
         return redirect(f"{reverse('class_admin_attendance', args=[school_class.id])}?year={year}&month={month}")
 
@@ -4565,7 +4565,11 @@ def class_admin_attendance(request, class_id):
                 is_present = (enrollment.student_id, d) in self_checkin_dates
             if is_present:
                 present_count += 1
-            cells.append({'date': d, 'is_present': is_present, 'is_scheduled': d in scheduled_dates, 'note': notes.get(key, '')})
+            note = notes.get(key, '')
+            # 결석으로 기록된 칸은 빈 칸과 구분해 보여 준다 (학생 출석 달력과 같은 기준: 수업일이거나 사유 메모가 있는 날)
+            is_absent = existing.get(key) is False and bool(note or d in scheduled_dates)
+            cells.append({'date': d, 'is_present': is_present, 'is_scheduled': d in scheduled_dates, 'note': note,
+                          'is_absent': is_absent})
         rows.append({'enrollment': enrollment, 'cells': cells, 'present_count': present_count})
 
     prev_year, prev_month, next_year, next_month = _prev_next_month(year, month)
