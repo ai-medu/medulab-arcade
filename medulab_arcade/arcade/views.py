@@ -4537,7 +4537,7 @@ def class_admin_attendance(request, class_id):
                     continue
                 defaults = {'is_present': is_present}
                 if is_present:
-                    defaults['note'] = ''   # 출석으로 바꾸면 결석 사유는 지운다
+                    defaults['note'] = defaults['makeup_request'] = ''   # 출석으로 바꾸면 결석 사유·보강 희망은 지운다
                 ClassAttendance.objects.update_or_create(enrollment=enrollment, date=d, defaults=defaults)
         messages.success(request, '출석 정보를 저장했습니다.')
         return redirect(f"{reverse('class_admin_attendance', args=[school_class.id])}?year={year}&month={month}")
@@ -4545,6 +4545,7 @@ def class_admin_attendance(request, class_id):
     records = list(ClassAttendance.objects.filter(enrollment__school_class=school_class, date__year=year, date__month=month))
     existing = {(r.enrollment_id, r.date): r.is_present for r in records}
     notes = {(r.enrollment_id, r.date): r.note for r in records if r.note}
+    makeups = {(r.enrollment_id, r.date): r.makeup_request for r in records if r.makeup_request}
     student_ids = [e.student_id for e in enrollments]
     self_checkin_dates = set(
         Attendance.objects.filter(
@@ -4569,7 +4570,7 @@ def class_admin_attendance(request, class_id):
             # 결석으로 기록된 칸은 빈 칸과 구분해 보여 준다 (학생 출석 달력과 같은 기준: 수업일이거나 사유 메모가 있는 날)
             is_absent = existing.get(key) is False and bool(note or d in scheduled_dates)
             cells.append({'date': d, 'is_present': is_present, 'is_scheduled': d in scheduled_dates, 'note': note,
-                          'is_absent': is_absent})
+                          'is_absent': is_absent, 'makeup': makeups.get(key, '')})
         rows.append({'enrollment': enrollment, 'cells': cells, 'present_count': present_count})
 
     prev_year, prev_month, next_year, next_month = _prev_next_month(year, month)
@@ -7437,9 +7438,10 @@ def _render_staff_student_dashboard(request):
 
     # 오늘 출석부에 결석으로 기록된 학생 (등원 기록이 없는 경우에만 '결석'으로 보여 준다)
     today_absent_notes = {}
-    for uid, note in ClassAttendance.objects.filter(
+    for uid, note, makeup in ClassAttendance.objects.filter(
             enrollment__student_id__in=student_ids, enrollment__is_active=True, date=today, is_present=False,
-    ).values_list('enrollment__student_id', 'note'):
+    ).values_list('enrollment__student_id', 'note', 'makeup_request'):
+        note = ' · '.join(x for x in (note, makeup) if x)
         if note or uid not in today_absent_notes:
             today_absent_notes[uid] = note
 
@@ -7798,7 +7800,7 @@ def api_admin_set_attendance(request, student_id):
     # 결석이 아닌 구분으로 바꾸면 출석부의 결석 표시도 함께 정리해, 달력과 수업비 차감이 어긋나지 않게 한다
     absent_rows = ClassAttendance.objects.filter(enrollment__in=enrollments, date=target_date, is_present=False)
     if attendance_type in ('present', 'makeup'):
-        absent_rows.update(is_present=True, note='')
+        absent_rows.update(is_present=True, note='', makeup_request='')
     else:
         absent_rows.delete()
 

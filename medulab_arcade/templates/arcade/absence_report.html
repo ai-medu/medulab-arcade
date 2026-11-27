@@ -18,6 +18,9 @@
 .ab-reason { display:flex; align-items:center; gap:12px; padding:17px 18px; border:1px solid var(--border); border-radius:14px; margin-bottom:12px; cursor:pointer; font-size:18px; font-weight:600; line-height:1.4; word-break:keep-all; background:var(--bg-card); }
 .ab-reason input { width:22px; height:22px; flex-shrink:0; }
 .ab-reason:has(input:checked) { border-color:var(--accent-blue); box-shadow:0 0 0 2px rgba(59,130,246,.25); }
+.ab-makeup { display:none; }
+.sp-card:has(input[name=makeup][value=yes]:checked) .ab-makeup { display:block; }
+.ab-makeup select option, .ab-makeup select optgroup { color:#1f2937; background:#fff; }
 </style>
 {% endblock %}
 
@@ -35,8 +38,10 @@
     <h1 class="sp-title">📨 전달되었어요</h1>
     <div class="sp-notice good">
         <b>{{ student_name }}</b> 학생의 {{ date|date:"n월 j일" }} <b>{{ class_name }}</b> 수업 <b>결석</b>이 접수되었어요.<br>
-        사유: {{ reason }}
+        사유: {{ reason }}<br>
+        {{ makeup_text }}
     </div>
+    {% if makeup_text != '보강 어려움' %}<p class="sp-sub">보강 시간은 선생님이 확인한 뒤 확정해 드려요.</p>{% endif %}
     <p class="sp-sub">사유를 바꾸고 싶으면 이 링크를 다시 열어 새로 선택해 주세요. 선생님께서 확인하세요.</p>
 
     {% else %}
@@ -47,7 +52,7 @@
         <div class="ab-row"><span class="ab-key">일시</span><span class="ab-val">{{ date|date:"n월 j일 (D)" }}{% if start_time %} {{ start_time|time:"H:i" }} 시작{% endif %}</span></div>
     </div>
     <p class="ab-lead">오늘 수업에 오지 못하는 이유를 선택해 주세요.<br><span>제출하면 출석부에 <b>결석</b>으로 기록돼요.</span></p>
-    {% if already %}<div class="sp-notice info">이미 <b>"{{ already }}"</b> 사유로 알려 주셨어요. 바꾸려면 다시 선택해 제출해 주세요.</div>{% endif %}
+    {% if already %}<div class="sp-notice info">이미 <b>"{{ already }}"</b> 사유로 알려 주셨어요.{% if already_makeup %} ({{ already_makeup }}){% endif %} 바꾸려면 다시 선택해 제출해 주세요.</div>{% endif %}
     {% if error %}<div class="sp-notice err">{{ error }}</div>{% endif %}
 
     <form method="post" class="sp-card">
@@ -55,7 +60,26 @@
         {% for code, label in reasons %}
         <label class="ab-reason"><input type="radio" name="reason" value="{{ code }}" {% if selected == code %}checked{% endif %} required> {{ label }}</label>
         {% endfor %}
-        <input class="sp-input" name="detail" maxlength="60" placeholder="기타 사유를 직접 입력해 주세요 (60자까지)" style="margin-top:4px;">
+        <input class="sp-input" name="detail" maxlength="60" value="{{ detail|default:'' }}" placeholder="기타 사유를 직접 입력해 주세요 (60자까지)" style="margin-top:4px;">
+
+        <p class="ab-lead" style="margin:26px 0 14px;">보강이 가능한가요?</p>
+        <label class="ab-reason"><input type="radio" name="makeup" value="yes" {% if makeup == 'yes' %}checked{% endif %} required> 보강 가능해요</label>
+        <label class="ab-reason"><input type="radio" name="makeup" value="no" {% if makeup == 'no' %}checked{% endif %}> 보강은 어려워요</label>
+        <div class="ab-makeup">
+            {% if slots %}
+            <label class="ab-key" for="makeupSlot" style="display:block; margin:6px 0 8px;">보강 가능한 시간</label>
+            <select class="sp-input" id="makeupSlot" name="makeup_slot">
+                <option value="">시간을 선택해 주세요</option>
+                {% for day, options in slots %}
+                <optgroup label="{{ day }}">
+                    {% for value, text in options %}<option value="{{ value }}" {% if slot == value %}selected{% endif %}>{{ text }}</option>{% endfor %}
+                </optgroup>
+                {% endfor %}
+            </select>
+            {% else %}
+            <p class="sp-sub">지금은 고를 수 있는 수업 시간이 없어요. 선생님이 따로 연락드릴게요.</p>
+            {% endif %}
+        </div>
         <button type="submit" class="sp-btn" style="width:100%; margin-top:18px;">결석 사유 제출</button>
     </form>
     <p class="sp-sub" style="font-size:15px;">※ 지금 학원에 오는 중이라면 제출하지 않으셔도 돼요. 출석하면 자동으로 확인돼요.</p>

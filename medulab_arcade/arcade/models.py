@@ -585,6 +585,8 @@ class ClassAttendance(models.Model):
     date = models.DateField('수업일')
     is_present = models.BooleanField('출석', default=True)
     note = models.CharField('비고', max_length=100, blank=True)
+    makeup_request = models.CharField('보강 희망', max_length=60, blank=True,
+                                      help_text='학부모가 결석 사유와 함께 알린 보강 가능 여부와 희망 시간')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

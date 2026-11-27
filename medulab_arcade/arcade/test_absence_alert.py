@@ -162,13 +162,13 @@ class AbsenceReportTests(TestCase):
         self.assertContains(res, '몸이 아파서 못 가요')
 
     def test_submitting_reason_marks_absence_in_attendance_sheet(self):
-        res = self.client.post(self.url, {'reason': 'sick'})
+        res = self.client.post(self.url, {'reason': 'sick', 'makeup': 'no'})
         self.assertContains(res, '결석</b>이 접수')
         record = ClassAttendance.objects.get(enrollment=self.enrollment, date=self.date)
         self.assertFalse(record.is_present)
         self.assertEqual(record.note, '학부모 신청: 몸이 아파서 못 가요')
         self.assertContains(self.client.get(self.url), '몸이 아파서 못 가요')   # 다시 열면 알린 사유가 보인다
-        self.client.post(self.url, {'reason': 'other', 'detail': '치과 진료'})
+        self.client.post(self.url, {'reason': 'other', 'makeup': 'no', 'detail': '치과 진료'})
         self.assertEqual(ClassAttendance.objects.get(enrollment=self.enrollment, date=self.date).note, '학부모 신청: 치과 진료')
 
     def test_reason_is_required_and_other_needs_text(self):
@@ -178,12 +178,12 @@ class AbsenceReportTests(TestCase):
 
     def test_already_attended_cannot_be_marked_absent(self):
         Attendance.objects.create(user=self.student, date=self.date, attendance_type='present')
-        self.assertContains(self.client.post(self.url, {'reason': 'sick'}), '이미 출석')
+        self.assertContains(self.client.post(self.url, {'reason': 'sick', 'makeup': 'no'}), '이미 출석')
         self.assertFalse(ClassAttendance.objects.exists())
 
     def test_teacher_marked_present_is_kept(self):
         ClassAttendance.objects.create(enrollment=self.enrollment, date=self.date, is_present=True)
-        self.client.post(self.url, {'reason': 'sick'})
+        self.client.post(self.url, {'reason': 'sick', 'makeup': 'no'})
         self.assertTrue(ClassAttendance.objects.get(enrollment=self.enrollment, date=self.date).is_present)
 
     def test_bad_or_expired_token(self):
@@ -194,7 +194,7 @@ class AbsenceReportTests(TestCase):
             self.assertEqual(self.client.get(f'/absence/{token}/').status_code, 404)
 
     def test_attendance_sheet_shows_the_reason(self):
-        self.client.post(self.url, {'reason': 'family'})
+        self.client.post(self.url, {'reason': 'family', 'makeup': 'no'})
         staff = User.objects.create_user('boss', password='x', is_staff=True)
         self.client.force_login(staff)
         page = self.client.get(f'/admin-services/classes/{self.klass.pk}/attendance/')

@@ -62,7 +62,7 @@ class NotificationHookTests(TestCase):
         kid.profile.save()
         enrollment = ClassEnrollment.objects.create(school_class=klass, student=kid)
         url = f'/absence/{make_absence_token(enrollment.pk, timezone.localdate())}/'
-        self.client.post(url, {'reason': 'sick'})
+        self.client.post(url, {'reason': 'sick', 'makeup': 'no'})
         n = AdminNotification.objects.get(kind='absence')
         self.assertIn('홍길동', n.title)
         self.assertIn('몸이 아파서', n.body)
