@@ -167,6 +167,7 @@ urlpatterns = [
     path('api/attendance/submit/', views.api_submit_attendance, name='api_submit_attendance'),
     path('api/attendance/daily-checkin/', views.api_daily_checkin, name='api_daily_checkin'),
     path('api/attendance/admin-set/<int:student_id>/', views.api_admin_set_attendance, name='api_admin_set_attendance'),
+    path('api/attendance/makeup-times/<int:student_id>/', views.api_admin_makeup_times, name='api_admin_makeup_times'),
     path('api/session/refresh/', views.api_refresh_session, name='api_refresh_session'),
     path('board/cert/', views.board_cert, name='board_cert'),
     path('board/cert/create/', views.board_cert_create, name='board_cert_create'),

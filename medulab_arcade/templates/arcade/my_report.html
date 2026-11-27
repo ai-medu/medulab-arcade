@@ -813,7 +813,7 @@
                                     {% if day in present_days %}
                                     <span class="attendance-stamp"><span class="stamp-icon">💚</span><span class="stamp-label">출석</span></span>
                                     {% elif day in makeup_days %}
-                                    <span class="attendance-stamp"><span class="stamp-icon">💙</span><span class="stamp-label">보강</span></span>
+                                    <span class="attendance-stamp"><span class="stamp-icon">💙</span><span class="stamp-label">보강{% with at=makeup_times|get_item:day %}{% if at %} {{ at }}{% endif %}{% endwith %}</span></span>
                                     {% elif day in access_days %}
                                     <span class="attendance-stamp"><span class="stamp-icon">📶</span><span class="stamp-label">접속</span></span>
                                     {% elif day in absent_days %}
@@ -829,6 +829,18 @@
                         {% endfor %}
                     {% endfor %}
                 </div>
+                {% if day_history %}
+                <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--border);">
+                    <div style="font-size:13px; font-weight:800; margin-bottom:8px; color:var(--text-primary, #1f2937);">📌 이 달의 결석·보강 내역</div>
+                    {% for item in day_history %}
+                    <div class="day-history-row" style="display:flex; gap:10px; align-items:baseline; padding:6px 0; font-size:13px; line-height:1.5;">
+                        <span style="flex:0 0 44px; font-weight:800; color:var(--text-primary, #1f2937);">{{ item.date|date:"n/j" }}</span>
+                        <span style="flex:0 0 40px; font-weight:800; color:{% if item.kind == 'absent' %}#dc2626{% else %}#2563eb{% endif %};">{% if item.kind == 'absent' %}결석{% else %}보강{% endif %}</span>
+                        <span style="color:var(--text-muted); word-break:keep-all;">{{ item.text }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
             </div>
         </div>
 
@@ -839,7 +851,7 @@
                 <h4 id="adminAttendanceModalTitle" style="margin:0 0 16px; color:#fff; font-size:16px;">출석 기록 수정</h4>
                 <div style="display:flex; flex-direction:column; gap:8px;">
                     <button type="button" onclick="setAdminAttendance('present')" style="padding:12px; border-radius:10px; border:1px solid rgba(16,185,129,0.35); background:rgba(16,185,129,0.12); color:#10b981; font-weight:700; cursor:pointer;">💚 출석으로 변경</button>
-                    <button type="button" onclick="setAdminAttendance('makeup')" style="padding:12px; border-radius:10px; border:1px solid rgba(96,165,250,0.35); background:rgba(96,165,250,0.12); color:#60a5fa; font-weight:700; cursor:pointer;">💙 보강으로 변경</button>
+                    <button type="button" onclick="askMakeupTime(ADMIN_ATTENDANCE_STUDENT_ID, adminAttendanceDate(), function (s, e) { setAdminAttendance('makeup', '', { start_time: s, end_time: e }); })" style="padding:12px; border-radius:10px; border:1px solid rgba(96,165,250,0.35); background:rgba(96,165,250,0.12); color:#60a5fa; font-weight:700; cursor:pointer;">💙 보강으로 변경</button>
                     <button type="button" onclick="setAdminAttendance('access')" style="padding:12px; border-radius:10px; border:1px solid rgba(148,163,184,0.35); background:rgba(148,163,184,0.12); color:#94a3b8; font-weight:700; cursor:pointer;">📶 접속으로 변경</button>
                     <button type="button" onclick="askAbsenceReason(function (r) { setAdminAttendance('absent', r); })" style="padding:12px; border-radius:10px; border:1px solid rgba(239,68,68,0.5); background:rgba(239,68,68,0.18); color:#ef4444; font-weight:700; cursor:pointer;">❌ 결석으로 변경</button>
                     <button type="button" onclick="setAdminAttendance('none')" style="padding:12px; border-radius:10px; border:1px solid rgba(239,68,68,0.35); background:rgba(239,68,68,0.1); color:#f87171; font-weight:700; cursor:pointer;">🗑️ 기록 삭제</button>
@@ -848,6 +860,7 @@
             </div>
         </div>
         {% include 'arcade/admin/_absence_reason_modal.html' %}
+        {% include 'arcade/admin/_makeup_time_modal.html' %}
         <script>
             const ADMIN_ATTENDANCE_STUDENT_ID = {{ profile.user.id }};
             const ADMIN_ATTENDANCE_YEAR = {{ view_year }};
@@ -864,13 +877,16 @@
                 document.getElementById('adminAttendanceModal').style.display = 'none';
                 _adminAttendanceDay = null;
             }
-            function setAdminAttendance(attendanceType, reason) {
+            function adminAttendanceDate() {
+                return ADMIN_ATTENDANCE_YEAR + '-' + String(ADMIN_ATTENDANCE_MONTH).padStart(2, '0') + '-' + String(_adminAttendanceDay).padStart(2, '0');
+            }
+            function setAdminAttendance(attendanceType, reason, extra) {
                 if (!_adminAttendanceDay) return;
-                const dateStr = ADMIN_ATTENDANCE_YEAR + '-' + String(ADMIN_ATTENDANCE_MONTH).padStart(2, '0') + '-' + String(_adminAttendanceDay).padStart(2, '0');
+                const dateStr = adminAttendanceDate();
                 fetch('/api/attendance/admin-set/' + ADMIN_ATTENDANCE_STUDENT_ID + '/', {
                     method: 'POST',
                     headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ date: dateStr, attendance_type: attendanceType, reason: reason || '' })
+                    body: JSON.stringify(Object.assign({ date: dateStr, attendance_type: attendanceType, reason: reason || '' }, extra || {}))
                 })
                 .then(res => res.json())
                 .then(data => {

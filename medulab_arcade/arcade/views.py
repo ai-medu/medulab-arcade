@@ -7058,11 +7058,28 @@ def _build_report_context(user, view_year=None, view_month=None):
 
     # 출석부에 결석으로 기록된 날 (수업일이거나 사유 메모가 있는 날). 등원 기록(출석/보강)이 있는 날은 제외
     checked_in_days = set(present_days) | set(makeup_days)
-    absent_days = sorted({
-        r.date.day for r in ClassAttendance.objects.filter(
+    absent_records = [
+        r for r in ClassAttendance.objects.filter(
             enrollment__in=enrolled_classes, date__year=current_year, date__month=current_month, is_present=False)
         if (r.date.day in class_scheduled_days or r.note) and r.date.day not in checked_in_days
-    })
+    ]
+    absent_days = sorted({r.date.day for r in absent_records})
+
+    # 달력 아래 '결석·보강 내역' (결석 사유, 학부모 보강 희망, 정한 보강 시간)
+    absent_texts = {}
+    for r in absent_records:
+        texts = absent_texts.setdefault(r.date, [])
+        for text in (r.note, r.makeup_request):
+            if text and text not in texts:
+                texts.append(text)
+    day_history = [{'date': d, 'kind': 'absent', 'text': ' · '.join(t) or '사유 없음'} for d, t in absent_texts.items()]
+    makeup_times = {}
+    for att in attendances:
+        if att.attendance_type == Attendance.TYPE_MAKEUP and att.makeup_start:
+            makeup_times[att.date.day] = f'{att.makeup_start:%H:%M}'
+            day_history.append({'date': att.date, 'kind': 'makeup',
+                                'text': f'{att.makeup_start:%H:%M}~{att.makeup_end:%H:%M}'})
+    day_history.sort(key=lambda item: item['date'])
 
     holiday_days_labels = {}
     holiday_events = ScheduleEvent.objects.filter(
@@ -7283,6 +7300,8 @@ def _build_report_context(user, view_year=None, view_month=None):
         'makeup_days': makeup_days,
         'access_days': access_days,
         'absent_days': absent_days,
+        'day_history': day_history,
+        'makeup_times': makeup_times,
         'enrolled_classes': enrolled_classes,
         'class_scheduled_days': class_scheduled_days,
         'holiday_days': holiday_days,
@@ -7783,6 +7802,16 @@ def api_admin_set_attendance(request, student_id):
 
     enrollments = ClassEnrollment.objects.filter(student=student, is_active=True)
 
+    makeup_start = makeup_end = None
+    if attendance_type == 'makeup' and (payload.get('start_time') or payload.get('end_time')):
+        try:
+            makeup_start = datetime.strptime(str(payload.get('start_time')), '%H:%M').time()
+            makeup_end = datetime.strptime(str(payload.get('end_time')), '%H:%M').time()
+        except ValueError:
+            return JsonResponse({'status': 'error', 'message': '보강 시작 시간과 끝 시간을 모두 입력해 주세요.'}, status=400)
+        if makeup_end <= makeup_start:
+            return JsonResponse({'status': 'error', 'message': '보강 끝 시간은 시작 시간보다 늦어야 합니다.'}, status=400)
+
     if attendance_type == 'absent':
         # 결석: 수강 중인 수업의 출석부에 결석으로 기록한다 (다음 달 청구서 결석 차감에 반영됨). 등원 기록은 지운다.
         if not enrollments.exists():
@@ -7814,13 +7843,44 @@ def api_admin_set_attendance(request, student_id):
 
     attendance, _created = Attendance.objects.update_or_create(
         user=student, date=target_date,
-        defaults={'attendance_type': attendance_type},
+        defaults={'attendance_type': attendance_type, 'makeup_start': makeup_start, 'makeup_end': makeup_end},
     )
-    notify_attendance(attendance)
+    # 오늘 나중 시간으로 잡은 보강은 아직 등원 전이므로 출석 알림톡을 보내지 않는다
+    if not (makeup_start and target_date == timezone.localdate() and makeup_start > timezone.localtime().time()):
+        notify_attendance(attendance)
     return JsonResponse({
         'status': 'success',
         'attendance_type': attendance.attendance_type,
         'attendance_type_display': attendance.get_attendance_type_display(),
+    })
+
+
+@login_required
+@user_passes_test(staff_check)
+def api_admin_makeup_times(request, student_id):
+    """보강 시간 설정 창: 그 날짜 요일에 수강생이 있는 수업 시간 목록과, 이미 정해 둔 보강 시간"""
+    from datetime import datetime
+    from .models import Attendance
+
+    student = get_object_or_404(User, pk=student_id)
+    try:
+        day = datetime.strptime(request.GET.get('date', ''), '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'status': 'error', 'message': '날짜 형식이 올바르지 않습니다.'}, status=400)
+    code = str(day.isoweekday() % 7)
+    times = {}
+    for klass in SchoolClass.objects.filter(
+            is_active=True, start_time__isnull=False, enrollments__is_active=True).distinct():
+        if code not in (klass.days_of_week or '').split(','):
+            continue
+        start = datetime.combine(day, klass.start_time)
+        end = datetime.combine(day, klass.end_time) if klass.end_time else start + timedelta(minutes=klass.duration_minutes)
+        times.setdefault((f'{start:%H:%M}', f'{end:%H:%M}'), []).append(klass.name)
+    record = Attendance.objects.filter(user=student, date=day, makeup_start__isnull=False).first()
+    return JsonResponse({
+        'status': 'success',
+        'times': [{'start': s, 'end': e, 'classes': ', '.join(sorted(names))} for (s, e), names in sorted(times.items())],
+        'current': {'start': f'{record.makeup_start:%H:%M}', 'end': f'{record.makeup_end:%H:%M}'} if record else None,
     })
 
 

@@ -1,0 +1,94 @@
+{# 관리자가 '보강'으로 바꿀 때 보강 시간을 정하는 창. askMakeupTime(학생ID, 'YYYY-MM-DD', function (시작, 끝) { ... }) 로 연다 #}
+<style>
+    #mkOverlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:3000; align-items:center; justify-content:center; padding:16px; }
+    #mkOverlay.show { display:flex; }
+    #mkBox { background:#fff; color:#1f2937; border-radius:16px; padding:22px; width:100%; max-width:380px; max-height:92vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,.4); }
+    #mkBox h4 { margin:0 0 4px; font-size:18px; color:#1f2937; }
+    #mkBox p { margin:0 0 14px; font-size:13.5px; color:#6b7280; }
+    .mk-opt { display:block; width:100%; text-align:left; padding:11px 14px; border:1px solid #d1d5db; border-radius:12px; margin-bottom:8px; cursor:pointer; background:#fff; color:#1f2937; font-size:15.5px; font-weight:800; }
+    .mk-opt small { display:block; margin-top:2px; font-size:12px; font-weight:500; color:#6b7280; }
+    .mk-opt.on { border-color:#3b82f6; background:#eff6ff; }
+    .mk-times { display:flex; align-items:center; gap:8px; margin-top:12px; }
+    .mk-times input { flex:1; min-width:0; padding:11px 12px; border:1px solid #d1d5db; border-radius:10px; font-size:15px; color:#1f2937; background:#fff; }
+    #mkError { color:#dc2626; font-size:13.5px; min-height:18px; margin-top:8px; }
+    .mk-btns { display:flex; gap:8px; margin-top:12px; }
+    .mk-btns button { flex:1; padding:13px; border-radius:10px; font-size:15.5px; font-weight:800; cursor:pointer; border:1px solid #d1d5db; background:#fff; color:#4b5563; }
+    .mk-btns button.go { background:#3b82f6; border-color:#3b82f6; color:#fff; }
+</style>
+<div id="mkOverlay" onclick="if(event.target===this) closeMakeupTime();">
+    <div id="mkBox" role="dialog" aria-label="보강 시간 설정">
+        <h4>💙 보강 시간 설정</h4>
+        <p id="mkDate"></p>
+        <div id="mkList"></div>
+        <div class="mk-times">
+            <input type="time" id="mkStart" aria-label="보강 시작 시간">
+            <span>~</span>
+            <input type="time" id="mkEnd" aria-label="보강 끝 시간">
+        </div>
+        <div id="mkError"></div>
+        <div class="mk-btns">
+            <button type="button" onclick="closeMakeupTime()">취소</button>
+            <button type="button" class="go" onclick="confirmMakeupTime()">보강으로 저장</button>
+        </div>
+    </div>
+</div>
+<script>
+    (function () {
+        var URL_BASE = "{% url 'api_admin_makeup_times' 0 %}";
+        var callback = null, request = 0;
+        var overlay = document.getElementById('mkOverlay');
+        var list = document.getElementById('mkList');
+        var start = document.getElementById('mkStart');
+        var end = document.getElementById('mkEnd');
+        var error = document.getElementById('mkError');
+        function mark() {
+            list.querySelectorAll('.mk-opt').forEach(function (b) {
+                b.classList.toggle('on', b.dataset.start === start.value && b.dataset.end === end.value);
+            });
+            error.textContent = '';
+        }
+        start.addEventListener('input', mark);
+        end.addEventListener('input', mark);
+        window.askMakeupTime = function (studentId, date, onPick) {
+            callback = onPick;
+            var mine = ++request;
+            document.getElementById('mkDate').textContent = date + ' · 수업 시간을 고르거나 직접 입력해 주세요.';
+            list.textContent = '수업 시간을 불러오는 중…';
+            start.value = end.value = error.textContent = '';
+            overlay.classList.add('show');
+            fetch(URL_BASE.replace('/0/', '/' + studentId + '/') + '?date=' + date, { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (mine !== request) return;
+                    list.textContent = '';
+                    (data.times || []).forEach(function (t) {
+                        var b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'mk-opt';
+                        b.dataset.start = t.start;
+                        b.dataset.end = t.end;
+                        b.textContent = t.start + ' ~ ' + t.end;
+                        var names = document.createElement('small');
+                        names.textContent = t.classes;
+                        b.appendChild(names);
+                        b.addEventListener('click', function () { start.value = t.start; end.value = t.end; mark(); });
+                        list.appendChild(b);
+                    });
+                    if (!list.children.length) list.textContent = '이 요일에는 수업이 없어요. 시간을 직접 입력해 주세요.';
+                    if (data.current && !start.value) { start.value = data.current.start; end.value = data.current.end; mark(); }
+                })
+                .catch(function () { if (mine === request) list.textContent = '수업 시간을 불러오지 못했어요. 직접 입력해 주세요.'; });
+        };
+        window.closeMakeupTime = function () {
+            overlay.classList.remove('show');
+            callback = null;
+        };
+        window.confirmMakeupTime = function () {
+            if (!start.value || !end.value) { error.textContent = '보강 시작 시간과 끝 시간을 입력해 주세요.'; return; }
+            if (end.value <= start.value) { error.textContent = '끝 시간은 시작 시간보다 늦어야 해요.'; return; }
+            var pick = callback, s = start.value, e = end.value;
+            closeMakeupTime();
+            if (pick) pick(s, e);
+        };
+    })();
+</script>
