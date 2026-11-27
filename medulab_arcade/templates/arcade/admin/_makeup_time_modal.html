@@ -23,6 +23,7 @@
     <div id="mkBox" role="dialog" aria-label="보강 시간 설정">
         <h4>💙 보강 시간 설정</h4>
         <p id="mkDate"></p>
+        <p id="mkMonth" style="padding:9px 12px; border-radius:10px; background:#fff7ed; color:#c2410c; font-weight:800;"></p>
         <div id="mkList"></div>
         <input type="date" id="mkDay" aria-label="보강 날짜">
         <div class="mk-times">
@@ -64,6 +65,11 @@
             list.textContent = '수업 시간을 불러오는 중…';
             start.value = end.value = error.textContent = '';
             day.value = date;
+            // 보강은 해당 월 안에서만
+            var parts = date.split('-'), month = Number(parts[1]);
+            day.min = parts[0] + '-' + parts[1] + '-01';
+            day.max = parts[0] + '-' + parts[1] + '-' + new Date(Number(parts[0]), month, 0).getDate();
+            document.getElementById('mkMonth').textContent = '⚠️ 보강은 해당 월(' + month + '월) 안에서만 가능해요.';
             overlay.classList.add('show');
             fetch(URL_BASE.replace('/0/', '/' + studentId + '/') + '?date=' + date, { credentials: 'same-origin' })
                 .then(function (r) { return r.json(); })
@@ -99,6 +105,7 @@
         };
         window.confirmMakeupTime = function () {
             if (!day.value || !start.value || !end.value) { error.textContent = '보강 날짜와 시작·끝 시간을 입력해 주세요.'; return; }
+            if (day.value < day.min || day.value > day.max) { error.textContent = '보강은 해당 월 안의 날짜만 선택할 수 있어요.'; return; }
             if (end.value <= start.value) { error.textContent = '끝 시간은 시작 시간보다 늦어야 해요.'; return; }
             var pick = callback, d = day.value, s = start.value, e = end.value;
             closeMakeupTime();

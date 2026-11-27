@@ -27,7 +27,8 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required, user_passes_test
 from .badge_service import get_active_badges_with_user_state, get_recent_user_badges, get_user_badge_count
-from .makeup import MAKEUP_NO, cancel_planned, day_label, made_up_dates, set_makeup, sync_request_text
+from .makeup import (MAKEUP_NO, SAME_MONTH_MESSAGE, cancel_planned, day_label, made_up_dates, month_end, same_month,
+                     set_makeup, sync_request_text)
 from .parent_notify import notify_attendance
 from .tuition_alerts import notify_canceled, notify_paid
 from .models import ClassDiscountType, Badge, Project, Category, Like, Bookmark, Tag, UserProfile, EmailChangeRequest, SignupEmailVerification, ScheduleAttachment, ScheduleEvent, Notice, Award, Certification, CertInfo, CompetitionType, Contest, SchoolClass, ClassEnrollment, ParentChildLink, TuitionInvoice, ClassAttendance, TuitionBatchPayment, InstagramConfig, InstagramPost, InstagramUploadDraft, InstagramUploadDraftItem, FutureCareerSave, ContentFinderSubmission, ContentIdeaThumbnailSubmission, MugCupSubmission, AIPromptCardOrder, ContentFinderDraft, ContentIdeaFinderDraft, ContentPlanDraft, ChannelBrandingDraft
@@ -7144,6 +7145,18 @@ def _build_report_context(user, view_year=None, view_month=None):
     sunday_days = {day for day in range(1, num_days_in_month + 1) if _cal.weekday(current_year, current_month, day) == 6}
     holiday_days = sunday_days | set(holiday_days_labels.keys())
 
+    # 수업이 있는 날 칸에 보여 줄 시작 시간 (출석·결석 표시가 있는 날과 휴원일은 제외)
+    stamped = set(present_days) | set(makeup_days) | set(access_days) | set(planned_days) | set(noshow_days) | set(absent_days)
+    class_tags = {}
+    for enrollment in enrolled_classes:
+        start = enrollment.school_class.start_time
+        for d in _class_session_dates(enrollment.school_class, current_year, current_month):
+            if d.day in stamped or d.day in holiday_days_labels:
+                continue
+            label = f'{start:%H:%M}' if start else ''
+            if d.day not in class_tags or (label and (not class_tags[d.day] or label < class_tags[d.day])):
+                class_tags[d.day] = label
+
     # 달력 생성을 위한 이번 달 날짜 정보
     import calendar
     cal = calendar.Calendar(firstweekday=6) # 일요일 시작
@@ -7348,6 +7361,7 @@ def _build_report_context(user, view_year=None, view_month=None):
         'planned_days': planned_days,
         'noshow_days': noshow_days,
         'makeup_to': makeup_to,
+        'class_tags': class_tags,
         'makeup_from': makeup_from,
         'enrolled_classes': enrolled_classes,
         'class_scheduled_days': class_scheduled_days,
@@ -7887,6 +7901,8 @@ def api_admin_set_attendance(request, student_id):
             makeup_date = parse_date('makeup_date')
             if error or not makeup_date:
                 return fail(error or '보강 날짜를 입력해 주세요.')
+            if not same_month(makeup_date, target_date):
+                return fail(SAME_MONTH_MESSAGE)
         reason = str(payload.get('reason') or '').strip()[:60]
         note = f'관리자 결석 처리: {reason}' if reason else '관리자 결석 처리'
         Attendance.objects.filter(user=student, date=target_date).delete()
@@ -7916,6 +7932,8 @@ def api_admin_set_attendance(request, student_id):
 
     # 결석한 날에서 다른 날로 보강을 잡으면 그 결석분으로 연결한다
     absent_date = parse_date('for_date')
+    if times and absent_date and not same_month(absent_date, target_date):
+        return fail(SAME_MONTH_MESSAGE)
     if not (times and absent_date and absent_date != target_date and ClassAttendance.objects.filter(
             enrollment__in=enrollments, date=absent_date, is_present=False).exists()):
         absent_date = None
@@ -7958,7 +7976,7 @@ def api_admin_set_attendance(request, student_id):
 @login_required
 @user_passes_test(staff_check)
 def api_admin_makeup_times(request, student_id):
-    """보강 시간 설정 창: 고른 날짜부터 일주일(모든 요일)의 수강생이 있는 수업 시간 목록과, 이미 정해 둔 보강 시간"""
+    """보강 시간 설정 창: 고른 날짜부터 일주일(그 달 안에서)의 수강생이 있는 수업 시간 목록과, 이미 정해 둔 보강 시간"""
     from datetime import datetime
     from .models import Attendance
 
@@ -7970,7 +7988,7 @@ def api_admin_makeup_times(request, student_id):
     classes = list(SchoolClass.objects.filter(
         is_active=True, start_time__isnull=False, enrollments__is_active=True).distinct())
     holidays, months, result = set(), set(), []
-    for offset in range(7):
+    for offset in range(min(7, (month_end(first) - first).days + 1)):   # 보강은 해당 월 안에서만
         day = first + timedelta(days=offset)
         if (day.year, day.month) not in months:
             months.add((day.year, day.month))

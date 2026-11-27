@@ -233,6 +233,20 @@
         border: 2px dashed rgba(59, 130, 246, 0.6);
         color: #60a5fa;
     }
+    .class-tag {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-left: 5px;
+        padding: 2px 5px;
+        border-radius: 6px;
+        background: #f59e0b;
+        color: #fff;
+        font-size: 10px;
+        font-weight: 800;
+        line-height: 1.2;
+    }
+    .class-tag small { font-size: 9px; font-weight: 700; }
     .makeup-link {
         position: absolute;
         top: 1px;
@@ -244,7 +258,7 @@
     .makeup-link.from { color: #2563eb; }
     .makeup-link.to { color: #dc2626; }
     .calendar-cell.class-day {
-        border-color: rgba(245, 158, 11, 0.4);
+        border: 2px solid rgba(245, 158, 11, 0.7);
     }
     .calendar-cell.class-day::after {
         content: '';
@@ -794,7 +808,7 @@
             <!-- 기본적으로 펼쳐있는 달력 그리드 영역 -->
             <div class="calendar-collapsible show" id="calendarCollapsible">
                 <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:10px; font-size:11px; color:var(--text-muted);">
-                    <span><span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#f59e0b; margin-right:5px;"></span>수업일</span>
+                    <span><span style="display:inline-block; width:10px; height:10px; border-radius:3px; background:#f59e0b; margin-right:5px; vertical-align:middle;"></span>수업이 있는 날 (시작 시간)</span>
                     <span><span style="display:inline-block; width:10px; height:10px; border-radius:3px; background:rgba(255,93,108,0.4); margin-right:5px; vertical-align:middle;"></span>일요일/휴원일/공휴일</span>
                 </div>
                 <div class="calendar-grid">
@@ -838,6 +852,9 @@
                                     <span class="attendance-stamp"><span class="stamp-icon">⚠️</span><span class="stamp-label">보강불참</span></span>
                                     {% elif day in absent_days %}
                                     <span class="attendance-stamp"><span class="stamp-icon">❌</span><span class="stamp-label">결석</span></span>
+                                    {% endif %}
+                                    {% if day in class_tags %}
+                                    <span class="class-tag">수업{% with at=class_tags|get_item:day %}{% if at %}<small>{{ at }}</small>{% endif %}{% endwith %}</span>
                                     {% endif %}
                                     {% with src=makeup_from|get_item:day dst=makeup_to|get_item:day %}
                                     {% if src %}<span class="makeup-link from">←{{ src }}</span>{% elif dst %}<span class="makeup-link to">→{{ dst }}</span>{% endif %}

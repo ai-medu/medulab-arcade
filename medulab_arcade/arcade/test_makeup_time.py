@@ -147,3 +147,23 @@ class MakeupTimeTests(TestCase):
             self.assertEqual(Attendance.objects.get().makeup_for, SAT)
             self._set('present')   # 결석을 취소하면 잡아 둔 예정도 사라진다
             self.assertEqual([a.date for a in Attendance.objects.all()], [SAT])
+
+    def test_makeup_cannot_move_to_next_month(self):
+        self._set('absent', reason='몸이 아파서')
+        res = self._set('absent', reason='x', makeup='yes', makeup_date='2030-02-02', start_time='15:00', end_time='16:30')
+        self.assertEqual((res.status_code, res.json()['message']), (400, '보강은 결석한 달 안에서만 가능해요.'))
+        res = self.client.post(self.set_url, {'date': '2030-02-02', 'attendance_type': 'makeup', 'start_time': '15:00',
+                                              'end_time': '16:30', 'for_date': SAT.isoformat()},
+                               content_type='application/json')
+        self.assertEqual(res.status_code, 400)
+        self.assertFalse(Attendance.objects.exists())
+        url = reverse('api_admin_makeup_times', args=[self.kid.pk])
+        self.assertEqual(self.client.get(url, {'date': '2030-01-30'}).json()['times'], [])   # 1/30~31 에는 토요일이 없다
+
+    def test_calendar_tags_class_days_with_time(self):
+        page = self.client.get(reverse('admin_student_report', args=[self.kid.pk]) + '?year=2030&month=1')
+        self.assertEqual(page.context['class_tags'], {5: '15:00', 12: '15:00', 19: '15:00', 26: '15:00'})
+        self.assertContains(page, 'class="class-tag"', count=4)
+        self._set('absent', reason='몸이 아파서')
+        page = self.client.get(reverse('admin_student_report', args=[self.kid.pk]) + '?year=2030&month=1')
+        self.assertNotIn(5, page.context['class_tags'])

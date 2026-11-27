@@ -1,16 +1,27 @@
 """결석과 보강 연결. 보강은 출석 기록(Attendance)에 시간과 '어느 날 결석분인지(makeup_for)'를 담아 두고,
 출석부의 결석 칸에는 같은 내용을 글(makeup_request)로 남긴다."""
+import calendar
+
 from django.utils import timezone
 
 from .models import Attendance, ClassAttendance
 
 MAKEUP_NO = '보강 어려움'
+SAME_MONTH_MESSAGE = '보강은 결석한 달 안에서만 가능해요.'
 MAKEUP_PREFIX = '보강 예정: '
 WEEKDAYS = '월화수목금토일'
 
 
 def day_label(day):
     return f'{day.month}/{day.day}({WEEKDAYS[day.weekday()]})'
+
+
+def same_month(a, b):
+    return (a.year, a.month) == (b.year, b.month)
+
+
+def month_end(day):
+    return day.replace(day=calendar.monthrange(day.year, day.month)[1])
 
 
 def slot_label(day, start, end):

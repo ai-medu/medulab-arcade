@@ -11,7 +11,7 @@ from django.db.models import Q
 from django.shortcuts import render
 from django.utils import timezone
 
-from .makeup import MAKEUP_NO, MAKEUP_PREFIX, WEEKDAYS, cancel_planned, set_makeup
+from .makeup import MAKEUP_NO, MAKEUP_PREFIX, WEEKDAYS, cancel_planned, month_end, set_makeup
 from .models import Attendance, ClassAttendance, ClassEnrollment, SchoolClass
 
 SALT = 'absence-report'
@@ -28,11 +28,10 @@ REASON_LABELS = dict(REASONS)
 NOTE_PREFIX = '학부모 신청: '
 
 
-MAKEUP_DAYS = 14   # 결석일부터 이 기간 안의 수업 시간을 보강 후보로 보여 준다
 
 
 def makeup_slots(student, absent_date, now=None):
-    """보강으로 고를 수 있는 시간: 수강생이 있는 수업의 앞으로 2주 수업 시간 (같은 시간은 하나로).
+    """보강으로 고를 수 있는 시간: 수강생이 있는 수업의 결석한 달의 남은 수업 시간 (같은 시간은 하나로).
     휴원일과, 학생 본인의 정규 수업과 겹치는 시간은 뺀다. [(날짜, [(값, 표시), ...]), ...]"""
     from .views import _holiday_dates_in_month
 
@@ -58,7 +57,7 @@ def makeup_slots(student, absent_date, now=None):
     ).exclude(date=absent_date).values_list('date', flat=True))
     holidays, months, groups = set(), set(), []
     first = max(absent_date, now.date())
-    for offset in range((absent_date + datetime.timedelta(days=MAKEUP_DAYS) - first).days + 1):
+    for offset in range((month_end(absent_date) - first).days + 1):   # 보강은 결석한 달 안에서만
         day = first + datetime.timedelta(days=offset)
         if (day.year, day.month) not in months:
             months.add((day.year, day.month))
@@ -123,6 +122,8 @@ def absence_report(request, token):
         detail = request.POST.get('detail', '').strip()[:60]
         makeup = request.POST.get('makeup', '')
         slot = request.POST.get('makeup_slot', '')
+        if not slots:
+            makeup = 'no'   # 이번 달에 고를 시간이 없으면 보강 없이 접수한다
         error = ''
         if code not in REASON_LABELS:
             error = '결석 사유를 선택해 주세요.'
@@ -130,16 +131,13 @@ def absence_report(request, token):
             error = '기타 사유를 입력해 주세요.'
         elif makeup not in ('yes', 'no'):
             error = '보강이 가능한지 선택해 주세요.'
-        elif makeup == 'yes' and slots and slot not in slot_labels:
+        elif makeup == 'yes' and slot not in slot_labels:
             error = '보강 가능한 시간을 선택해 주세요.'
         if error:
             context.update(state='form', error=error, selected=code, detail=detail, makeup=makeup, slot=slot)
             return render(request, 'arcade/absence_report.html', context)
         reason = detail if code == 'other' else REASON_LABELS[code]
-        if makeup == 'no':
-            makeup_text = MAKEUP_NO
-        else:
-            makeup_text = MAKEUP_PREFIX + slot_labels.get(slot, '시간 상담 필요')
+        makeup_text = MAKEUP_NO if makeup == 'no' else MAKEUP_PREFIX + slot_labels[slot]
         ClassAttendance.objects.update_or_create(
             enrollment=enrollment, date=date,
             defaults={'is_present': False, 'note': (NOTE_PREFIX + reason)[:100], 'makeup_request': makeup_text[:60]},

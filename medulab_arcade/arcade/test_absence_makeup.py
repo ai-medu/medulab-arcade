@@ -43,7 +43,15 @@ class MakeupTests(TestCase):
         self.assertEqual(values[:3], ['2030-01-05 15:00~16:00', '2030-01-07 16:00~17:00', '2030-01-12 15:00~16:00'])
         self.assertFalse([v for v in values if '09:00' in v])        # 본인 정규 수업 시간
         self.assertFalse([v for v in values if v.startswith('2030-01-08')])   # 수강생 없는 화요반
-        self.assertEqual(values[-1], '2030-01-19 15:00~16:00')       # 2주 안
+        self.assertEqual(values[-1], '2030-01-28 16:00~17:00')       # 결석한 달 마지막 수업까지
+        self.assertFalse([v for v in values if not v.startswith('2030-01')])
+
+    def test_no_time_left_in_month_still_accepts_absence(self):
+        last = datetime.date(2030, 1, 31)   # 그 달에 남은 수업이 없는 날
+        url = f'/absence/{make_absence_token(self.enrollment.pk, last)}/'
+        self.assertContains(self.client.get(url), '남은 보강 시간이 없어요')
+        self.assertContains(self.client.post(url, {'reason': 'sick'}), '보강 어려움')
+        self.assertFalse(Attendance.objects.exists())
 
     def test_holiday_is_excluded(self):
         ScheduleEvent.objects.create(title='휴원', event_type='holiday', start_date=at(datetime.date(2030, 1, 7), 0))
