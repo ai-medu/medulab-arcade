@@ -261,6 +261,203 @@
         }
     };
 
+    // ───── 2단계 ─────
+    // 화살표 버튼 줄 (키보드 방향키도 함께 쓴다)
+    function pad(move) { choices([['⬅', function () { move(-1, 0); }], ['⬆', function () { move(0, -1); }], ['⬇', function () { move(0, 1); }], ['➡', function () { move(1, 0); }]]); }
+    function yesNo(list, yes, no) {
+        rounds(shuffle(list).slice(0, 6), function (q, done) {
+            stage.appendChild(el('div', 'rg-move', q[0])); stage.appendChild(el('div', 'rg-big', q[1]));
+            choices([[yes, function () { done(q[2], q[3]); }], [no, function () { done(!q[2], q[3]); }]]);
+        });
+    }
+
+    Object.assign(GAMES, {
+        motor: function () {
+            yesNo([['🌀', '선풍기', true, '날개를 모터가 돌려요.'], ['🚁', '드론', true, '프로펠러마다 모터가 있어요.'], ['🏎️', 'RC카', true, '바퀴를 모터가 돌려요.'], ['🧺', '세탁기', true, '통을 모터가 돌려요.'],
+                   ['✏️', '연필', false, '손으로 쓰는 물건이라 모터가 없어요.'], ['📕', '종이책', false, '손으로 넘겨요.'], ['🥄', '숟가락', false, '전기를 쓰지 않아요.'], ['⚽', '축구공', false, '발로 차서 움직여요.']], '⚙️ 모터 있어요', '🙅 모터 없어요');
+        },
+        grip: function () {
+            var pos = 0, holding = null, toys, got = 0;
+            var board = el('div', 'rg-claw');
+            function draw() {
+                board.innerHTML = '';
+                for (var i = 0; i < 6; i++) {
+                    var cell = el('div', i === pos ? 'here' : '');
+                    cell.appendChild(el('b', '', i === pos ? (holding ? '🦀<br>' + holding : '🦀') : ''));
+                    cell.appendChild(el('span', '', i === 5 ? '🧺' : toys[i] || ''));
+                    board.appendChild(cell);
+                }
+                score('바구니에 담은 인형 ' + got + ' / 3');
+            }
+            function reset() { toys = shuffle(['🧸', '🐰', '🤖', '', '']); got = 0; holding = null; pos = 0; draw(); }
+            function grab() {
+                if (!holding) {
+                    if (pos < 5 && toys[pos]) { holding = toys[pos]; toys[pos] = ''; say('꽉 잡았어요! 바구니(오른쪽 끝)로 가서 [놓기]'); } else say('여기에는 잡을 것이 없어요.', false);
+                } else if (pos === 5) {
+                    holding = null; got++; say(got === 3 ? '🏆 인형 3개를 모두 담았어요!' : '쏙! 담았어요.', true);
+                } else if (!toys[pos]) { toys[pos] = holding; holding = null; say('내려놓았어요.'); } else say('여기에는 이미 인형이 있어요.', false);
+                draw();
+            }
+            stage.appendChild(board); reset();
+            choices([['◀', function () { pos = Math.max(0, pos - 1); draw(); }], ['▶', function () { pos = Math.min(5, pos + 1); draw(); }], ['✊ 집기 / 놓기', grab]]);
+        },
+        sound: function () {
+            var audio = null;
+            function beep(delay) {
+                try {
+                    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+                    var o = audio.createOscillator(), gain = audio.createGain(), t = audio.currentTime + delay;
+                    o.frequency.value = 520; gain.gain.setValueAtTime(0.25, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+                    o.connect(gain); gain.connect(audio.destination); o.start(t); o.stop(t + 0.2);
+                } catch (e) { /* 소리를 낼 수 없는 기기에서는 그림만 본다 */ }
+            }
+            rounds(shuffle([1, 2, 3, 4, 5, 6]).slice(0, 5), function (n, done) {
+                var seal = el('div', 'rg-move', '🦭'); stage.appendChild(seal);
+                var wave = el('div', 'rg-big', '[박수 듣기]를 눌러요'); stage.appendChild(wave);
+                var playing = false;
+                stage.appendChild(btn('👏 박수 듣기', function () {
+                    if (playing) return;
+                    playing = true;
+                    for (var i = 0; i < n; i++) {
+                        beep(i * 0.55);
+                        later(function () { wave.textContent = '👏 짝!'; }, i * 550);
+                        later(function () { wave.textContent = '…'; }, i * 550 + 300);
+                    }
+                    later(function () { playing = false; wave.textContent = '몇 번이었을까요?'; }, n * 550);
+                }, 'go'));
+                choices([1, 2, 3, 4, 5, 6].map(function (k) { return [k + '번', function () { done(k === n, '박수는 ' + n + '번이었어요.'); }]; }));
+            });
+        },
+        remote: function () {
+            var keys = { U: '앞으로', D: '뒤로', L: '왼쪽', R: '오른쪽' };
+            rounds(shuffle([['앞으로 가!', 'U'], ['뒤로 물러나!', 'D'], ['왼쪽으로 돌아!', 'L'], ['오른쪽으로 돌아!', 'R'], ['골대가 앞에 있어. 다가가!', 'U'], ['벽에 부딪히겠어. 뒤로!', 'D'], ['보물이 왼쪽에 있어!', 'L'], ['친구가 오른쪽에서 불러!', 'R']]).slice(0, 6), function (q, done) {
+                stage.appendChild(el('div', 'rg-big', '📢 ' + q[0]));
+                choices(['U', 'D', 'L', 'R'].map(function (k) { return [k, function () { done(k === q[1], q[1] + ' 버튼은 ' + keys[q[1]] + '!'); }]; }));
+            });
+        },
+        dxl: function () {
+            rounds(shuffle([90, -90, 45, -45, 135, 180]).slice(0, 5), function (target, done) {
+                var now = 0;
+                stage.appendChild(el('div', 'rg-big', '🎯 ' + target + '도로 만들어요! (위쪽이 0도, 오른쪽이 +)'));
+                var dial = el('div', 'rg-dial', '<span class="z">0</span><span class="r">90</span><span class="l">-90</span><span class="b">180</span><i></i>'); stage.appendChild(dial);
+                function turn(d) { now = Math.max(-180, Math.min(180, now + d)); dial.querySelector('i').style.transform = 'rotate(' + now + 'deg)'; }
+                choices([['↺ -90', function () { turn(-90); }], ['↺ -45', function () { turn(-45); }], ['↻ +45', function () { turn(45); }], ['↻ +90', function () { turn(90); }]]);
+                stage.appendChild(btn('다 됐어요!', function () { done(Math.abs(now) === 180 && target === 180 || now === target, '내 모터는 ' + now + '도, 목표는 ' + target + '도예요.'); }, 'go'));
+            });
+        },
+        ride: function () {
+            var order = ['🐴 말', '🚲 자전거', '🚗 자동차', '✈️ 비행기'], next = 0;
+            var line = el('div', 'rg-queue', '여기에 오래된 순서대로 줄을 서요');
+            stage.appendChild(line); score('0 / 4');
+            choices(shuffle(order).map(function (name) {
+                return [name, function () {
+                    if (order[next] !== name) return say('그보다 먼저 생긴 것이 있어요!', false);
+                    next++; line.textContent = order.slice(0, next).join('  →  '); score(next + ' / 4');
+                    say(next === 4 ? '🏆 말 → 자전거 → 자동차 → 비행기! 점점 빠르고 편리해졌어요.' : '⭕ 맞아요! 그 다음은?', true);
+                }];
+            }));
+        },
+        stretch: function () {
+            rounds(shuffle([2, 3, 4, 5, 6]), function (target, done) {
+                var len = 1;
+                var field = el('div', 'rg-reach'); stage.appendChild(field);
+                function draw() { var h = '<b>🤖</b>'; for (var i = 1; i <= 6; i++) h += '<span>' + (i <= len ? '❌' : '') + (i === target ? '💣' : '') + '</span>'; field.innerHTML = h; }
+                draw();
+                choices([['➖ 줄이기', function () { len = Math.max(1, len - 1); draw(); }], ['➕ 늘리기', function () { len = Math.min(6, len + 1); draw(); }]]);
+                stage.appendChild(btn('🧯 제거!', function () { done(len === target, len === target ? '팔 끝이 딱 닿았어요!' : (len < target ? '팔이 짧았어요. ' : '팔이 너무 길었어요. ') + '폭탄은 ' + target + '번째 칸이에요.'); }, 'go'));
+            });
+        },
+        infra: function () {
+            yesNo([['⬜', '흰 종이', true, '흰색은 빛을 잘 돌려보내요.'], ['✋', '손바닥', true, '가까운 손에 빛이 부딪혀 돌아와요.'], ['🪞', '흰 벽', true, '밝은 벽은 잘 반사해요.'],
+                   ['⬛', '검은 천', false, '검은색은 빛을 많이 삼켜요.'], ['🕳️', '텅 빈 허공', false, '부딪힐 것이 없어 돌아오지 않아요.'], ['🎩', '새까만 모자', false, '검은 물체는 잘 안 보여요.'], ['🥛', '하얀 컵', true, '하얀색은 잘 보여요.']], '👀 잘 보여요', '🙈 잘 안 보여요');
+        },
+        dice: function () {
+            var faces = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'], turn = 0, right = 0, busy = false;
+            var die = el('div', 'rg-die', '🎲'); stage.appendChild(die);
+            var log = el('div', 'rg-queue', '지금까지 나온 수가 여기에 적혀요'); var seen = [];
+            function guess(big) {
+                if (busy || turn >= 8) return;
+                busy = true; say('데굴데굴…');
+                var spins = 0;
+                (function spin() {
+                    var n = Math.floor(Math.random() * 6); die.textContent = faces[n];
+                    if (++spins < 9) return later(spin, 80);
+                    busy = false; turn++; seen.push(n + 1); log.textContent = seen.join('  ');
+                    var ok = (n >= 3) === big; if (ok) right++;
+                    say((ok ? '⭕ ' : '❌ ') + (n + 1) + '이(가) 나왔어요.', ok); score(turn + ' / 8 · 맞힘 ' + right);
+                    if (turn === 8) say('8번 중 ' + right + '번 맞혔어요. 규칙이 없어서 미리 알기 어렵죠? 이것이 난수예요!', true);
+                })();
+            }
+            choices([['⬆ 큰 수 (4~6)', function () { guess(true); }], ['⬇ 작은 수 (1~3)', function () { guess(false); }]]); stage.appendChild(log); score('0 / 8 · 맞힘 0');
+        },
+        clean: function () {
+            var W = 6, H = 5, pos = [0, 0], trash = {}, left = 5, battery = 24;
+            var grid = el('div', 'rg-grid rg-grid6');
+            shuffle(Array.apply(null, Array(W * H - 1)).map(function (_, i) { return i + 1; })).slice(0, 5).forEach(function (i) { trash[i] = true; });
+            function draw() {
+                grid.innerHTML = '';
+                for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) { var me = x === pos[0] && y === pos[1]; grid.appendChild(el('span', me ? 'me' : '', me ? '🤖' : trash[y * W + x] ? '🗑️' : '')); }
+                score('🔋 ' + battery + ' · 남은 쓰레기 ' + left);
+            }
+            stage.appendChild(grid); draw();
+            pad(function (dx, dy) {
+                var x = pos[0] + dx, y = pos[1] + dy;
+                if (!left || !battery || x < 0 || y < 0 || x >= W || y >= H) return;
+                pos = [x, y]; battery--;
+                if (trash[y * W + x]) { delete trash[y * W + x]; left--; say('쓱싹! 깨끗해졌어요.', true); }
+                draw();
+                if (!left) say('🏆 청소 끝! 전지가 ' + battery + '칸 남았어요.', true); else if (!battery) say('전지가 다 됐어요. 더 짧은 길을 생각해 보세요!', false);
+            });
+        },
+        gravity: function () {
+            var g = canvas(420, 300), lane = 1, apple = { lane: 0, y: 20, v: 0 }, count = 0, got = 0, last = null;
+            function drop() { apple = { lane: Math.floor(Math.random() * 3), y: 20, v: 20 }; }
+            choices([['⬅ 왼쪽', function () { lane = Math.max(0, lane - 1); }], ['➡ 오른쪽', function () { lane = Math.min(2, lane + 1); }]]);
+            drop(); score('떨어진 사과 0 / 8 · 받은 사과 0');
+            loop(function (t) {
+                var dt = last === null ? 0 : Math.min(0.05, t - last); last = t;
+                apple.v += 110 * dt; apple.y += apple.v * dt;     // 떨어질수록 점점 빨라진다
+                g.fillStyle = '#e0f2fe'; g.fillRect(0, 0, 420, 300); g.fillStyle = '#86efac'; g.fillRect(0, 275, 420, 25);
+                g.font = '40px sans-serif'; g.textAlign = 'center'; g.fillText('🍎', 70 + apple.lane * 140, apple.y + 14); g.fillText('🧺', 70 + lane * 140, 270);
+                if (apple.y >= 250) {
+                    count++; if (apple.lane === lane) { got++; say('받았어요! 👏', true); } else say('놓쳤어요!', false);
+                    score('떨어진 사과 ' + count + ' / 8 · 받은 사과 ' + got);
+                    if (count >= 8) { say('끝! 8개 중 ' + got + '개! 지구가 당기는 힘(중력) 때문에 사과는 점점 빠르게 떨어져요.', true); return false; }
+                    drop();
+                }
+                return true;
+            });
+        },
+        domino: function () {
+            var g = canvas(640, 220), H = 70, tries = 0;
+            var range = el('input', 'rg-range'); range.type = 'range'; range.min = 20; range.max = 110; range.value = 95;
+            function paint(angles, gap) {
+                g.fillStyle = '#f8fafc'; g.fillRect(0, 0, 640, 220); g.fillStyle = '#78716c'; g.fillRect(0, 180, 640, 8);
+                for (var i = 0; i < 6; i++) { g.save(); g.translate(50 + i * gap + 12, 180); g.rotate(angles[i] || 0); g.fillStyle = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'][i]; g.fillRect(-12, -H, 12, H); g.restore(); }
+                g.fillStyle = '#111827'; g.font = 'bold 18px sans-serif'; g.fillText('간격 ' + gap, 14, 28);
+            }
+            range.addEventListener('input', function () { cancelAnimationFrame(frame); paint([], Number(range.value)); say(''); });
+            stage.appendChild(range);
+            stage.appendChild(btn('👉 밀기', function () {
+                cancelAnimationFrame(frame); tries++; var gap = Number(range.value), reach = gap - 12, angles = [];
+                var fall = reach < H ? 6 : 1;                       // 키보다 멀면 다음 블록에 닿지 않는다
+                score('밀어 본 횟수 ' + tries); say('톡!');
+                loop(function (t) {
+                    for (var i = 0; i < fall; i++) {
+                        var stop = i < fall - 1 ? Math.asin(Math.min(1, reach / H)) + 0.12 : Math.PI / 2;
+                        angles[i] = Math.max(0, Math.min(stop, (t - i * 0.18) * 5));
+                    }
+                    paint(angles, gap);
+                    if (t < fall * 0.18 + 0.5) return true;
+                    if (fall === 6) say(gap <= 45 ? '모두 넘어졌어요! 촘촘해서 성공. 간격을 더 넓혀도 될까요?' : '🏆 모두 넘어졌어요! 알맞은 간격이에요.', true);
+                    else say('너무 멀어서 다음 블록에 닿지 않았어요. 간격을 좁혀요!', false);
+                    return false;
+                });
+            }, 'go'));
+            paint([], 95); score('밀어 본 횟수 0');
+        }
+    });
+
     var game = GAMES[box.dataset.game];
     if (!game) { box.hidden = true; return; }
     function begin() { cancelAnimationFrame(frame); timers.forEach(clearTimeout); timers = []; stage.innerHTML = ''; say(''); score(''); game(); }
@@ -305,4 +502,16 @@
     .rg-kid { position: absolute; left: 50%; margin-left: -34px; bottom: 6px; font-size: 68px; transform-origin: bottom center; transition: transform .5s; display: inline-block; }
     .rg-bus em { position: absolute; left: 12px; top: 8px; font-style: normal; font-weight: 800; color: #111827; } .rg-bus em.f { left: auto; right: 16px; }
     .rg-bus.lean-front .rg-kid { transform: rotate(32deg); } .rg-bus.lean-back .rg-kid { transform: rotate(-32deg); }
+    .rg-claw { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; width: min(480px, 100%); }
+    .rg-claw div { height: 132px; border-radius: 12px; background: #e0f2fe; display: flex; flex-direction: column; justify-content: space-between; align-items: center; font-size: 30px; line-height: 1.2; padding: 6px 0; }
+    .rg-claw div.here { background: #fde68a; } .rg-claw b { font-weight: 400; text-align: center; }
+    .rg-dial { position: relative; width: 210px; height: 210px; border-radius: 50%; background: #f1f5f9; border: 4px solid #94a3b8; }
+    .rg-dial i { position: absolute; left: 50%; top: 28px; width: 16px; margin-left: -8px; height: 77px; border-radius: 8px; background: #2563eb; transform-origin: 50% 100%; transition: transform .3s; }
+    .rg-dial span { position: absolute; font-weight: 800; color: #111827; font-size: 15px; }
+    .rg-dial .z { left: 50%; top: 4px; transform: translateX(-50%); } .rg-dial .b { left: 50%; bottom: 4px; transform: translateX(-50%); }
+    .rg-dial .r { right: 6px; top: 91px; } .rg-dial .l { left: 6px; top: 91px; }
+    .rg-reach { display: flex; align-items: center; gap: 2px; max-width: 100%; }
+    .rg-reach b { font-size: 46px; } .rg-reach span { width: 46px; height: 52px; border-bottom: 4px solid #94a3b8; display: flex; align-items: center; justify-content: center; font-size: 25px; white-space: nowrap; }
+    .rg-die { font-size: 110px; line-height: 1.1; }
+    .rg-grid6 { grid-template-columns: repeat(6, 48px); } .rg-grid6 span { height: 48px; font-size: 25px; }
 </style>

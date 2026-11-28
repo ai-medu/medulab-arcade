@@ -15,7 +15,7 @@ from django.views.decorators.http import require_POST
 
 from .models import Item, UserProgress
 
-ASSET_NAME = re.compile(r'^(thumb\.jpg|guide\.jpg|code\.svg|build-\d{2}\.jpg|ext-\d{2}\.jpg|word-\d{2}\.(jpg|svg))$')
+ASSET_NAME = re.compile(r'^(thumb\.jpg|guide\.jpg|code\.svg|code-drive\.svg|build-\d{2}\.jpg|ext-\d{2}\.jpg|word-\d{2}\.(jpg|svg))$')
 PASS_PERCENT = 80
 
 
@@ -94,6 +94,7 @@ def render_lesson(request, item, prev_item, next_item, progress):
         'thumb_url': asset_url(item, 'thumb.jpg'),
         'guide_url': asset_url(item, 'guide.jpg'),
         'code_url': asset_url(item, 'code.svg'),
+        'drive_url': asset_url(item, 'code-drive.svg') if code.get('drive') else '',
         'build_pages': build_pages,
         'ext_pages': ext_pages,
         'pass_percent': PASS_PERCENT,

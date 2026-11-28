@@ -12,6 +12,7 @@ from django.urls import reverse
 from .models import Chapter, Item, LearningProgram, UserProgress
 from .robot_lessons.ollo_lv1 import LESSONS
 from .robot_lessons.ollo_lv1_kids import ART
+from .robot_lessons.ollo_lv2 import ART as LV2_ART, LESSONS as LV2
 
 
 class RobotLessonTests(TestCase):
@@ -108,6 +109,42 @@ class RobotLessonTests(TestCase):
         self.assertEqual(res.context['ext_pages'], [])
         self.assertNotContains(res, LESSONS[0]['quiz'][0]['explain'])
         self.assertNotIn('answer', res.context['quiz'][0])
+
+    def test_level2_lessons_are_well_formed_and_seeded(self):
+        with open(os.path.join(os.path.dirname(__file__), 'templates', 'learning_program', '_robot_games.html'), encoding='utf-8') as f:
+            games = f.read()
+        code_dir = os.path.join(os.path.dirname(__file__), 'robot_lessons', 'ollo_lv2_code')
+        self.assertEqual([x['key'] for x in LV2], [f'lv2_{n:02d}' for n in range(1, 13)])
+        for number, lesson in enumerate(LV2, 1):
+            self.assertEqual(len(lesson['quiz']), 5, lesson['key'])
+            for q in lesson['quiz']:
+                self.assertEqual(len(set(q['choices'])), 4, q['q'])
+                self.assertIn(q['answer'], range(4), q['q'])
+            self.assertEqual([m['id'] for m in lesson['missions']], ['m1', 'm2', 'm3'])
+            self.assertEqual(lesson['code']['start'], number)
+            self.assertTrue(os.path.isfile(os.path.join(code_dir, f'code{number:02d}.svg')))
+            self.assertTrue(lesson['easy'] and lesson['school'] and lesson['game']['rules'], lesson['key'])
+            self.assertTrue(f"{lesson['play']['id']}: function" in games, lesson['play']['id'])
+            for term, desc, pic in lesson['words']:
+                self.assertIn(pic.split(':')[0], ('crop', 'svg', 'thumb'), term)
+                if pic.startswith('svg:'):
+                    self.assertIn(pic[4:], LV2_ART, term)
+        self.assertTrue(os.path.isfile(os.path.join(code_dir, 'code-drive.svg')))
+
+        second = self.program.chapters.get(number=2)
+        second.content = ''
+        second.save()
+        for n, lesson in enumerate(LV2, 1):
+            Item.objects.create(chapter=second, number=n, key=lesson['key'], title=lesson['topic'], item_type='project')
+        call_command('seed_ollo_lv2', stdout=StringIO())
+        second.refresh_from_db()
+        self.assertIn('도미노 로봇', second.content)
+        item = Item.objects.get(key='lv2_01')
+        self.client.force_login(self.member)
+        res = self.client.get(reverse('item_page', args=[item.id]))
+        for text in ('data-game="motor"', '예제 → 올로AI 2단계 코딩', '로봇이동 함수 보기', '숫자 버튼 1번'):
+            self.assertContains(res, text)
+        self.assertNotContains(res, '시작 버튼 1번</b>')
 
     def test_changed_picture_gets_a_new_address(self):
         self.client.force_login(self.member)

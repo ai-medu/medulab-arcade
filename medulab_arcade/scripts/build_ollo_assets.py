@@ -1,6 +1,6 @@
-"""올로AI 1단계 교재·추가 조립서 PDF 에서 수업 화면용 그림을 만든다 (PyMuPDF·Pillow 필요).
+"""올로AI 교재·추가 조립서 PDF 에서 수업 화면용 그림을 만든다 (PyMuPDF·Pillow 필요).
 
-  venv/Scripts/python.exe scripts/build_ollo_lv1_assets.py "D:/.../올로AI/교재-조립서"
+  venv/Scripts/python.exe scripts/build_ollo_assets.py "D:/.../올로AI/교재-조립서" 2     # 끝 숫자는 단계
 
 결과는 robot_lessons_media/<수업키>/ 에 생긴다. 교재는 저작물이므로 저장소에 올리지 않고
 서버의 같은 폴더로 따로 복사한다 (로그인한 회원에게만 보여 준다).
@@ -15,14 +15,19 @@ import fitz
 from PIL import Image, ImageChops, ImageFilter
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from courses.robot_lessons.ollo_lv1 import LESSONS   # noqa: E402  (낱말 그림 위치)
-from courses.robot_lessons.ollo_lv1_kids import ART   # noqa: E402
+from courses.robot_lessons import ollo_lv1, ollo_lv1_kids, ollo_lv2   # noqa: E402  (낱말 그림 위치)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'robot_lessons_media')
-CODE = os.path.join(ROOT, 'courses', 'robot_lessons', 'ollo_lv1_code')
-BOOK = 'OLLO_AI_Level_1_ver2405_compressed.pdf'
 EXT_DIR = 'OLLO_AI_1단계 조립서 예제별'
+LEVELS = {
+    # pages: 로봇마다 (교재 이론 쪽, 조립서 첫 쪽, 조립서 끝 쪽)
+    1: {'book': 'OLLO_AI_Level_1_ver2405_compressed.pdf', 'lessons': ollo_lv1.LESSONS, 'art': ollo_lv1_kids.ART, 'ext': EXT_DIR,
+        'pages': [(8 * n, 8 * n + 1, 8 * n + 7) for n in range(1, 13)]},
+    2: {'book': 'OLLO_AI_Level_2_ver2410-압축됨.pdf', 'lessons': ollo_lv2.LESSONS, 'art': ollo_lv2.ART, 'ext': None,
+        'pages': [(8, 9, 17), (18, 19, 29), (30, 31, 39), (40, 41, 52), (54, 55, 63), (64, 65, 75),
+                  (76, 77, 87), (88, 89, 97), (98, 99, 109), (110, 111, 118), (120, 121, 131), (132, 133, 143)]},
+}
 
 
 def render(doc, number, width):
@@ -72,10 +77,23 @@ def big_shapes(area):
     return mask.point(lambda v: 255 if v > 20 else 0)
 
 
+def parts_box_top(cover):
+    """부품 목록의 하늘색 테두리가 시작하는 높이 (없으면 쪽의 60%)."""
+    w, h = cover.size
+    small = cover.convert('RGB').resize((w // 2, h // 2), Image.BOX)
+    pixels = small.load()
+    for y in range(int(small.height * 0.2), int(small.height * 0.6)):
+        blue = sum(1 for x in range(small.width)
+                   if pixels[x, y][2] > 200 and pixels[x, y][2] - pixels[x, y][0] > 25)
+        if blue > small.width * 0.5:
+            return y * 2 - 8
+    return int(h * 0.60)
+
+
 def thumbnail(cover):
     """조립서 첫 쪽에서 완성 로봇 그림만 잘라 낸다 (아래 부품 목록·로봇 이름은 빼고)."""
     w, h = cover.size
-    area = cover.crop((int(w * 0.04), int(h * 0.03), int(w * 0.96), int(h * 0.60)))
+    area = cover.crop((int(w * 0.04), int(h * 0.03), int(w * 0.96), parts_box_top(cover)))
     keep = big_shapes(area)
     area = Image.composite(area, Image.new('RGB', area.size, 'white'), keep)
     robot = area.crop(keep.getbbox())
@@ -85,14 +103,14 @@ def thumbnail(cover):
     return canvas.resize((480, 480), Image.LANCZOS)
 
 
-def word_pictures(book, lesson, folder):
+def word_pictures(book, art, lesson, folder):
     """낱말 그림: 교재에서 잘라 내거나(crop), 직접 그린 그림(svg), 완성 로봇(thumb)."""
     for n, (_term, _desc, pic) in enumerate(lesson['words'], 1):
         path = os.path.join(folder, f'word-{n:02d}')
         kind, _, rest = pic.partition(':')
         if kind == 'svg':
             with open(path + '.svg', 'w', encoding='utf-8') as f:
-                f.write(ART[rest])
+                f.write(art[rest])
         elif kind == 'thumb':
             shutil.copy(os.path.join(folder, 'thumb.jpg'), path + '.jpg')
         else:
@@ -101,29 +119,36 @@ def word_pictures(book, lesson, folder):
             save(page.crop([int(v) * 2 for v in box.split(',')]), path + '.jpg')
 
 
-def main(pdf_dir):
-    book = fitz.open(os.path.join(pdf_dir, BOOK))
-    ext_files = sorted(glob.glob(os.path.join(pdf_dir, EXT_DIR, '*.pdf')),
-                       key=lambda f: int(re.match(r'1-(\d+)', os.path.basename(f)).group(1)))
-    assert len(ext_files) == 12, ext_files
+def main(pdf_dir, level):
+    conf = LEVELS[level]
+    book = fitz.open(os.path.join(pdf_dir, conf['book']))
+    code_dir = os.path.join(ROOT, 'courses', 'robot_lessons', f'ollo_lv{level}_code')
+    ext_files = []
+    if conf['ext']:
+        ext_files = sorted(glob.glob(os.path.join(pdf_dir, conf['ext'], '*.pdf')),
+                           key=lambda f: int(re.match(r'\d+-(\d+)', os.path.basename(f)).group(1)))
+        assert len(ext_files) == 12, ext_files
     guide = render(book, 5, 1100)   # 리벳툴·전지·실행 방법
-    for n in range(1, 13):
-        folder = os.path.join(OUT, f'lv1_{n:02d}')
+    for n, lesson in enumerate(conf['lessons'], 1):
+        folder = os.path.join(OUT, lesson['key'])
         shutil.rmtree(folder, ignore_errors=True)
-        theory = 8 * n              # 이론 1쪽, 이어서 조립서 7쪽
-        for i in range(1, 8):
-            page = render(book, theory + i, 1100)
+        _theory, first, last = conf['pages'][n - 1]
+        for i, number in enumerate(range(first, last + 1), 1):
+            page = render(book, number, 1100)
             save(page, os.path.join(folder, f'build-{i:02d}.jpg'))
             if i == 1:
                 save(thumbnail(page), os.path.join(folder, 'thumb.jpg'))
-        ext = fitz.open(ext_files[n - 1])
-        for i in range(1, ext.page_count + 1):
-            save(render(ext, i, 1100), os.path.join(folder, f'ext-{i:02d}.jpg'))
+        if ext_files:
+            ext = fitz.open(ext_files[n - 1])
+            for i in range(1, ext.page_count + 1):
+                save(render(ext, i, 1100), os.path.join(folder, f'ext-{i:02d}.jpg'))
         save(guide, os.path.join(folder, 'guide.jpg'))
-        shutil.copy(os.path.join(CODE, f'code{n:02d}.svg'), os.path.join(folder, 'code.svg'))
-        word_pictures(book, LESSONS[n - 1], folder)
-        print(folder, 'ext pages', ext.page_count)
+        shutil.copy(os.path.join(code_dir, f'code{n:02d}.svg'), os.path.join(folder, 'code.svg'))
+        if lesson['code'].get('drive'):
+            shutil.copy(os.path.join(code_dir, 'code-drive.svg'), os.path.join(folder, 'code-drive.svg'))
+        word_pictures(book, conf['art'], lesson, folder)
+        print(folder, 'build pages', last - first + 1)
 
 
 if __name__ == '__main__':
-    main(sys.argv[1])
+    main(sys.argv[1], int(sys.argv[2]))

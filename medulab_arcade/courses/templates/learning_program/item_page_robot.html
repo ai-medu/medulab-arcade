@@ -100,6 +100,7 @@
     .rb-ide iframe { width: 100%; height: calc(100vh - 200px); min-height: 560px; border: 0; display: block; }
     .rb-ref { max-height: calc(100vh - 160px); overflow: auto; }
     .rb-ref-img { width: 100%; background: #fff; border-radius: 10px; cursor: zoom-in; padding: 4px; }
+    .rb-drive { margin-top: 12px; } .rb-drive summary { cursor: pointer; font-weight: 800; font-size: 14px; margin-bottom: 8px; }
     .rb-note { background: rgba(251,191,36,.12); border: 1px solid rgba(251,191,36,.35); border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.7; color: var(--text-primary); margin-top: 10px; }
     .rb-zoom { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 3000; overflow: auto; padding: 30px; text-align: center; cursor: zoom-out; }
     .rb-zoom.on { display: block; }
@@ -278,9 +279,17 @@
                 <p style="font-size:12px; color:var(--text-muted); text-align:center;">그림을 누르면 크게 보여요.</p>
                 <ol>{% for s in code.steps %}<li>{{ s }}</li>{% endfor %}</ol>
                 {% if code.note %}<div class="rb-note">⚠️ {{ code.note }}</div>{% endif %}
+                {% if drive_url %}
+                <details class="rb-drive">
+                    <summary>🕹️ 로봇이동 함수 보기 (조종하며 달리기)</summary>
+                    <p style="font-size:13px;">참고 코드의 <b>로봇이동</b> 블록 속 내용이에요. 함수를 먼저 만들어 두고 불러 써요. 첫 칸은 전후 속도, 둘째 칸은 좌우 속도예요.</p>
+                    <img class="rb-ref-img" src="{{ drive_url }}" alt="로봇이동 함수 블록" loading="lazy">
+                </details>
+                {% endif %}
                 {% if code.start %}
                 <div class="rb-note" style="border-color:rgba(59,130,246,.35); background:rgba(59,130,246,.1);">
-                    완성된 전체 예제는 메듀코드의 <b>예제 → 올로AI 1단계 코딩</b>에 있어요. 로봇에 내려받은 뒤 <b>시작 버튼 {{ code.start }}번</b> 동작이 이 로봇의 코드예요.<br>
+                    {% if code.how %}완성된 전체 예제는 메듀코드의 <b>예제 → {{ code.example }}</b>에 있어요. {{ code.how }}
+                    {% else %}완성된 전체 예제는 메듀코드의 <b>예제 → 올로AI 1단계 코딩</b>에 있어요. 로봇에 내려받은 뒤 <b>시작 버튼 {{ code.start }}번</b> 동작이 이 로봇의 코드예요.{% endif %}<br>
                     예제를 열기 전에 내가 만든 작품은 먼저 저장하세요.
                 </div>
                 {% endif %}
@@ -509,7 +518,7 @@
         codeBox.classList.remove('full');
         if (document.fullscreenElement) document.exitFullscreen();
     });
-    $('#rbRefImg').addEventListener('click', function () { $('#rbZoom').classList.add('on'); });
+    $$('.rb-ref-img').forEach(function (img) { img.addEventListener('click', function () { $('#rbZoom img').src = img.src; $('#rbZoom').classList.add('on'); }); });
     $('#rbZoom').addEventListener('click', function () { this.classList.remove('on'); });
 
     show(location.hash.slice(1) || 'theory');
