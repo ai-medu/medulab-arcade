@@ -16,6 +16,12 @@ from .robot_lessons.ollo_lv2 import ART as LV2_ART, LESSONS as LV2
 
 
 class RobotLessonTests(TestCase):
+    @staticmethod
+    def _games(level):
+        folder = os.path.join(os.path.dirname(__file__), 'templates', 'learning_program')
+        with open(os.path.join(folder, f'_robot_games_lv{level}.html'), encoding='utf-8') as f:
+            return f.read()
+
     def setUp(self):
         self.dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.dir, True)
@@ -50,8 +56,7 @@ class RobotLessonTests(TestCase):
 
     def test_lesson_data_is_well_formed(self):
         self.assertEqual(len(LESSONS), 12)
-        with open(os.path.join(os.path.dirname(__file__), 'templates', 'learning_program', '_robot_games.html'), encoding='utf-8') as f:
-            games = f.read()
+        games = self._games(1)
         for lesson in LESSONS:
             self.assertEqual(len(lesson['quiz']), 5, lesson['key'])
             for q in lesson['quiz']:
@@ -63,7 +68,7 @@ class RobotLessonTests(TestCase):
             code = os.path.join(os.path.dirname(__file__), 'robot_lessons', 'ollo_lv1_code', f'code{number:02d}.svg')
             self.assertTrue(os.path.isfile(code), code)
             self.assertTrue(lesson['easy'] and lesson['school'], lesson['key'])
-            self.assertIn(f"{lesson['play']['id']}: function", games)
+            self.assertTrue(f"RG('{lesson['play']['id']}', {{" in games, lesson['play']['id'])
             for term, desc, pic in lesson['words']:
                 kind = pic.split(':')[0]
                 self.assertIn(kind, ('crop', 'svg', 'thumb'), term)
@@ -111,8 +116,7 @@ class RobotLessonTests(TestCase):
         self.assertNotIn('answer', res.context['quiz'][0])
 
     def test_level2_lessons_are_well_formed_and_seeded(self):
-        with open(os.path.join(os.path.dirname(__file__), 'templates', 'learning_program', '_robot_games.html'), encoding='utf-8') as f:
-            games = f.read()
+        games = self._games(2)
         code_dir = os.path.join(os.path.dirname(__file__), 'robot_lessons', 'ollo_lv2_code')
         self.assertEqual([x['key'] for x in LV2], [f'lv2_{n:02d}' for n in range(1, 13)])
         for number, lesson in enumerate(LV2, 1):
@@ -124,7 +128,7 @@ class RobotLessonTests(TestCase):
             self.assertEqual(lesson['code']['start'], number)
             self.assertTrue(os.path.isfile(os.path.join(code_dir, f'code{number:02d}.svg')))
             self.assertTrue(lesson['easy'] and lesson['school'] and lesson['game']['rules'], lesson['key'])
-            self.assertTrue(f"{lesson['play']['id']}: function" in games, lesson['play']['id'])
+            self.assertTrue(f"RG('{lesson['play']['id']}', {{" in games, lesson['play']['id'])
             for term, desc, pic in lesson['words']:
                 self.assertIn(pic.split(':')[0], ('crop', 'svg', 'thumb'), term)
                 if pic.startswith('svg:'):
@@ -142,8 +146,9 @@ class RobotLessonTests(TestCase):
         item = Item.objects.get(key='lv2_01')
         self.client.force_login(self.member)
         res = self.client.get(reverse('item_page', args=[item.id]))
-        for text in ('data-game="motor"', '예제 → 올로AI 2단계 코딩', '로봇이동 함수 보기', '숫자 버튼 1번'):
+        for text in ('data-game="motor"', '예제 → 올로AI 2단계 코딩', '로봇이동 함수 보기', '숫자 버튼 1번', "RG('motor', {", 'rg-mute'):
             self.assertContains(res, text)
+        self.assertNotContains(res, "RG('bow', {")      # 단계에 맞는 게임 파일만 싣는다
         self.assertNotContains(res, '시작 버튼 1번</b>')
 
     def test_changed_picture_gets_a_new_address(self):

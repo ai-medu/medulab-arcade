@@ -1,0 +1,544 @@
+{% verbatim %}
+<script>
+/* 올로AI 1단계 과학 게임 12종 (공통 틀: _robot_games.html) */
+(function () {
+    // ① 탄성력: 당긴 만큼 세게 날아가는 활
+    RG('bow', {
+        stages: ['화면을 누른 채 뒤로 당겼다가 놓아요. 과녁을 3번 맞히세요! (빗나가면 ❤️가 줄어요)', '이번 과녁은 위아래로 움직여요. 당기는 세기와 방향을 잘 맞춰요!', '바람이 불고 풍선이 길을 막아요. 바람까지 생각해서 쏘세요!'],
+        tips: ['고무줄을 많이 당길수록 원래 모양으로 돌아가려는 힘(탄성력)이 커져서 화살이 빠르게 날아가요.', '비스듬히 위로 쏘면 멀리 날아가요. 날아가는 화살은 지구가 당겨서 점점 아래로 휘어요.', '바람은 날아가는 화살을 밀어요. 힘이 여러 개면 움직임이 함께 바뀌어요.'],
+        make: function (api, lv) {
+            var bx = 110, by = 300, start = null, cur = null, arrow = null, hits = 0, target, wind = 0, balloon = null, t = 0;
+            function place() { target = { x: api.rnd(430, 650), y: api.rnd(150, 330), base: 0, r: 34 }; target.base = target.y; if (lv === 2) { wind = api.pick([-1, 1]) * api.rnd(60, 140); balloon = { x: api.rnd(270, 370), y: 220, r: 26 }; } }
+            place();
+            function pull() { if (!start || !cur) return { x: 0, y: 0, len: 0 }; var dx = start[0] - cur[0], dy = start[1] - cur[1], len = Math.min(150, Math.hypot(dx, dy)), a = Math.atan2(dy, dx); return { x: Math.cos(a) * len, y: Math.sin(a) * len, len: len }; }
+            return {
+                down: function (x, y) { if (!arrow) { start = [x, y]; cur = [x, y]; } },
+                move: function (x, y, pressed) { if (pressed && start) cur = [x, y]; },
+                up: function () {
+                    var p = pull(); start = cur = null;
+                    if (p.len < 20) { api.say('조금 더 길게 당겨 보세요!'); return; }
+                    arrow = { x: bx, y: by, vx: p.x * 6, vy: p.y * 6 }; api.sfx('shoot'); api.say('');
+                },
+                step: function (dt) {
+                    t += dt;
+                    if (lv > 0) target.y = target.base + Math.sin(t * (lv === 1 ? 1.6 : 2.1)) * 60;
+                    if (balloon) balloon.y = 220 + Math.sin(t * 1.3) * 90;
+                    if (!arrow) return;
+                    arrow.vy += 560 * dt; arrow.vx += wind * dt; arrow.x += arrow.vx * dt; arrow.y += arrow.vy * dt;
+                    var tipX = arrow.x, tipY = arrow.y;
+                    if (balloon && Math.hypot(tipX - balloon.x, tipY - balloon.y) < balloon.r) { api.burst(balloon.x, balloon.y, '#a855f7'); arrow = null; api.hurt('풍선에 맞았어요!'); return; }
+                    var d = Math.hypot(tipX - target.x, tipY - target.y);
+                    if (d < target.r) {
+                        var gain = d < 10 ? 100 : d < 22 ? 60 : 30; hits++; api.add(gain); api.burst(target.x, target.y); api.float(target.x, target.y - 40, (d < 10 ? '정중앙! +' : '명중! +') + gain, '#dc2626'); api.sfx('good'); arrow = null;
+                        if (hits >= 3) api.win('과녁을 3번 맞혔어요!'); else place();
+                    } else if (tipY > 392 || tipX > api.W + 30 || tipX < -30) { var near = tipX < target.x ? '가까워요. 더 세게!' : '멀리 갔어요. 살살!'; arrow = null; api.hurt(near); }
+                },
+                draw: function () {
+                    var g = api.g, p = pull(); api.clear();
+                    api.rect(0, 392, api.W, 48, '#86efac'); api.emoji('🌳', 360, 372, 44); api.emoji('☁️', 220 + (t * 12 % 400), 80, 46);
+                    api.line([[target.x, target.y], [target.x, 392]], '#92400e', 6);
+                    [[34, '#fff'], [24, '#ef4444'], [14, '#fff'], [6, '#ef4444']].forEach(function (r) { api.circle(target.x, target.y, r[0], r[1], '#ef4444', 2); });
+                    if (balloon) { api.line([[balloon.x, balloon.y + 26], [balloon.x, balloon.y + 60]], '#64748b', 2); api.circle(balloon.x, balloon.y, balloon.r, '#c084fc', '#7e22ce'); }
+                    if (lv === 2) api.text('🌬️ 바람 ' + (wind > 0 ? '→ ' : '← ') + Math.round(Math.abs(wind) / 10), 360, 60, 18, '#0369a1');
+                    var ang = p.len ? Math.atan2(p.y, p.x) : -0.35;
+                    g.save(); g.translate(bx, by); g.rotate(ang);
+                    g.strokeStyle = '#92400e'; g.lineWidth = 9; g.beginPath(); g.arc(-6, 0, 48, -1.35, 1.35); g.stroke();
+                    api.line([[4, -47], [-p.len * 0.55, 0], [4, 47]], p.len > 110 ? '#dc2626' : '#f59e0b', 4);
+                    if (!arrow) { api.line([[-p.len * 0.55, 0], [-p.len * 0.55 + 70, 0]], '#334155', 5); api.emoji('▶', -p.len * 0.55 + 76, 0, 18); }
+                    g.restore();
+                    api.emoji('🧒', bx - 42, by + 62, 54);
+                    if (start) {
+                        var vx = p.x * 6, vy = p.y * 6, x = bx, y = by, n = lv === 0 ? 14 : lv === 1 ? 8 : 5;
+                        for (var i = 0; i < n; i++) { for (var k = 0; k < 4; k++) { vy += 560 * 0.02; vx += wind * 0.02; x += vx * 0.02; y += vy * 0.02; } api.circle(x, y, 3, 'rgba(15,23,42,.45)'); }
+                    }
+                    if (arrow) { var a = Math.atan2(arrow.vy, arrow.vx); g.save(); g.translate(arrow.x, arrow.y); g.rotate(a); api.line([[-55, 0], [0, 0]], '#334155', 5); g.fillStyle = '#111'; g.beginPath(); g.moveTo(12, 0); g.lineTo(-3, -8); g.lineTo(-3, 8); g.fill(); g.restore(); }
+                    api.bar(20, 50, 200, 22, p.len / 150, '#f97316', '탄성력 ' + Math.round(p.len / 1.5));
+                    api.hud('🎯 명중 ' + hits + ' / 3');
+                }
+            };
+        }
+    });
+
+    // ② 팔 길이와 힘
+    RG('arm', {
+        stages: ['팔 길이를 정하고 [작동!]. 멀리 있으면 긴 팔, 무거우면 짧은 팔! 임무 3개를 성공하세요.', '이번에는 “멀리 있으면서 무거운” 물건이에요. 거리와 힘을 함께 맞춰요.', '딱 하나의 길이만 성공해요! 계산해서 골라 보세요.'],
+        tips: ['팔이 길면 멀리 닿지만 돌리는 힘은 약해지고, 짧으면 힘은 세지만 멀리 닿지 않아요.', '로봇 팔은 “닿는 거리”와 “낼 수 있는 힘”을 모두 생각해서 만들어요.', '지렛대에서 받침점부터 멀수록 같은 모터로 들 수 있는 무게가 작아져요.'],
+        make: function (api, lv) {
+            var done = 0, task, ext = 0, acting = false, result = null, wait = 0, len;
+            var things = ['🍎', '📦', '🪨', '🧸', '🎁'];
+            function next() {
+                var dist, weight;
+                if (lv === 0) { if (done % 2 === 0) { dist = api.pick([3, 4, 5]); weight = 1; } else { weight = api.pick([3, 4, 5]); dist = 1; } }
+                else if (lv === 1) { dist = api.pick([2, 3, 4]); weight = 5 - dist + api.pick([0, 0, -1]); weight = Math.max(2, weight); }
+                else { dist = api.pick([1, 2, 3, 4, 5]); weight = 6 - dist; }
+                task = { dist: dist, weight: weight, icon: api.pick(things) }; ext = 0; acting = false; result = null;
+            }
+            len = api.slider('🦾 팔 길이', 1, 5, 3, function () { if (!acting) ext = 0; });
+            api.button({ t: '⚙️ 작동!', key: 'Space', cls: 'go', down: function () { if (acting) return; acting = true; len.lock(true); api.sfx('pop'); } });
+            next();
+            return {
+                step: function (dt) {
+                    if (!acting) return;
+                    if (!result) {
+                        ext = Math.min(1, ext + dt * 1.4);
+                        if (ext >= 1) {
+                            var L = len.get(), reach = L >= task.dist, strong = 6 - L >= task.weight;
+                            result = reach && strong ? 'ok' : !reach ? 'short' : 'weak'; wait = 1.6;
+                            if (result === 'ok') { done++; api.add(50); api.sfx('good'); api.burst(130 + task.dist * 100, 250); api.say('성공! 거리 ' + task.dist + '칸, 힘 ' + task.weight + ' 모두 충분해요.', true); }
+                            else api.hurt(result === 'short' ? '팔이 짧아서 닿지 않아요.' : '팔이 너무 길어 힘이 모자라요.');
+                        }
+                    } else {
+                        wait -= dt;
+                        if (wait <= 0) { len.lock(false); if (result === 'ok') { if (done >= 3) api.win('임무 3개를 해냈어요!'); else next(); } else { ext = 0; acting = false; result = null; } }
+                    }
+                },
+                draw: function () {
+                    var L = len.get(), y = 300, bx = 130; api.clear('#ede9fe', '#faf5ff'); api.rect(0, 350, api.W, 90, '#a8a29e');
+                    for (var i = 1; i <= 5; i++) { api.line([[bx + i * 100, 340], [bx + i * 100, 360]], '#44403c', 3); api.text(i + '칸', bx + i * 100, 374, 15, '#1c1917'); }
+                    var ox = bx + task.dist * 100, oy = result === 'ok' ? y - 60 * Math.min(1, (1.6 - wait) * 2) : y;
+                    var wob = result === 'weak' ? Math.sin(wait * 40) * 4 : 0;
+                    api.emoji(task.icon, ox + wob, oy + 12, 38 + task.weight * 7); api.rect(ox - 38, oy - 62, 76, 24, '#1e293b', 12); api.text('무게 ' + task.weight, ox, oy - 50, 15, '#fff');
+                    var tip = bx + L * 100 * (acting ? ext : 0.18), sag = result === 'weak' ? 34 : 0;
+                    api.rect(bx - 64, y - 10, 74, 62, '#475569', 12); api.emoji('🤖', bx - 28, y - 34, 50);
+                    api.line([[bx, y + 6], [(bx + tip) / 2, y + 6 + sag * 0.6], [tip, y + 6 + sag - (result === 'ok' ? 60 * Math.min(1, (1.6 - wait) * 2) : 0)]], '#22c55e', 18);
+                    api.circle(bx, y + 6, 13, '#fde047', '#a16207'); api.emoji('🤏', tip + 14, y + sag + 6 - (result === 'ok' ? 60 * Math.min(1, (1.6 - wait) * 2) : 0), 34);
+                    api.text('닿는 거리', 80, 70, 17); api.bar(150, 58, 220, 24, L / 5, '#3b82f6', L + '칸');
+                    api.text('돌리는 힘', 80, 104, 17); api.bar(150, 92, 220, 24, (6 - L) / 5, '#ef4444', '힘 ' + (6 - L));
+                    api.rect(430, 52, 260, 72, 'rgba(255,255,255,.9)', 14); api.text('임무: ' + task.dist + '칸 떨어진', 560, 74, 18); api.text('무게 ' + task.weight + ' 짜리를 옮겨라!', 560, 102, 18, '#b91c1c');
+                    api.hud('임무 ' + done + ' / 3');
+                }
+            };
+        }
+    });
+
+    // ③ 원과 바퀴: 달걀 배달
+    RG('wheel', {
+        stages: ['바퀴 모양을 고르고 [달리기]를 누른 채 달걀을 깨뜨리지 말고 시간 안에 배달해요!', '길에 돌멩이가 있어요. 돌 앞에서는 속도를 줄여요.', '돌이 많고 시간이 빠듯해요. 가장 좋은 바퀴로 조심조심!'],
+        tips: ['동그란 바퀴는 가운데에서 땅까지 거리가 늘 같아 흔들리지 않아요.', '빠를수록 돌에 부딪힐 때 충격이 커요. 속도를 줄이면 충격도 작아져요.', '모서리가 많아질수록 원에 가까워지고 덜 덜컹거려요. 원은 모서리가 없어요.'],
+        make: function (api, lv) {
+            var shapes = [{ n: 3, name: '🔺 세모', k: 1.7 }, { n: 4, name: '🟦 네모', k: 1.1 }, { n: 8, name: '🛑 팔각', k: 0.5 }, { n: 0, name: '⚪ 동그라미', k: 0.12 }];
+            var wheel = shapes[1], x = 0, v = 0, turn = 0, stress = 0, goal = [1700, 2000, 2300][lv], time = [20, 22, 24][lv], t = 0;
+            var rocks = [[], [600, 1150, 1600], [450, 800, 1150, 1450, 1800, 2080]][lv].map(function (p) { return { x: p, hit: false }; });
+            var btns = shapes.map(function (s) { return api.button({ t: s.name, down: function (b) { if (v > 25) { api.say('멈춘 다음에 바퀴를 바꿔요!'); return; } wheel = s; mark(b); api.sfx('pop'); } }); });
+            function mark(b) { btns.forEach(function (q) { q.classList.toggle('on', q === b); }); }
+            mark(btns[1]);
+            api.button({ t: '⏩ 달리기 (누르고 있기)', key: 'ArrowRight', cls: 'go' });
+            return {
+                step: function (dt) {
+                    t += dt; var go = api.held('ArrowRight');
+                    v = api.clamp(v + (go ? 130 : -190) * dt, 0, 200); x += v * dt; turn += v * dt / 34;
+                    stress = Math.max(0, stress + (wheel.k * v * 0.0052 - 0.34) * dt);
+                    rocks.forEach(function (r) { if (!r.hit && x >= r.x) { r.hit = true; var j = v / 270 * (wheel.n ? 1.35 : 1); stress += j; if (j > 0.25) { api.sfx('pop'); api.float(200, 250, '덜컹!', '#b45309'); } } });
+                    if (stress >= 1) { stress = 0; v = 0; api.burst(190, 240, '#facc15', 26); api.hurt('와장창! 달걀이 깨졌어요. 바퀴 모양이나 속도를 바꿔요.'); }
+                    if (x >= goal) { api.add(Math.round((time - t) * 10)); api.win(Math.round(t) + '초 만에 배달 성공!'); }
+                    else if (t >= time) api.fail('시간이 다 됐어요. 흔들림이 적은 바퀴면 빨리 달릴 수 있어요.');
+                },
+                draw: function () {
+                    var g = api.g, R = 34, h = R; api.clear();
+                    for (var i = 0; i < 6; i++) api.emoji(i % 2 ? '🌳' : '🌲', ((i * 160 - x * 0.35) % 960 + 960) % 960 - 80, 300, 54);
+                    api.rect(0, 350, api.W, 90, '#a8a29e');
+                    for (i = 0; i < 14; i++) api.rect(((i * 70 - x) % 980 + 980) % 980 - 60, 392, 34, 7, '#f5f5f4', 3);
+                    rocks.forEach(function (r) { var sx = 215 + r.x - x; if (sx > -40 && sx < 760) api.emoji('🪨', sx, 342, 28); });
+                    api.emoji('🏠', 260 + goal - x, 312, 80);
+                    if (wheel.n) { var seg = 6.2832 / wheel.n; h = R * Math.cos((turn % seg) - Math.PI / wheel.n); }
+                    var cy = 350 - h;
+                    api.rect(105, cy - 52, 180, 34, '#2563eb', 10); api.emoji('🧑‍✈️', 128, cy - 70, 34);
+                    var jig = Math.sin(t * 38) * stress * 8; api.emoji('🥚', 215 + jig, cy - 76 - Math.abs(jig), 44, jig * 0.03);
+                    [140, 250].forEach(function (wx) {
+                        g.save(); g.translate(wx, cy); g.rotate(turn + (wheel.n ? Math.PI / 2 - Math.PI / wheel.n : 0)); g.beginPath();
+                        if (wheel.n) { for (var k = 0; k < wheel.n; k++) { var a = k * 6.2832 / wheel.n; g[k ? 'lineTo' : 'moveTo'](R * Math.cos(a), R * Math.sin(a)); } g.closePath(); } else g.arc(0, 0, R, 0, 7);
+                        g.fillStyle = '#1f2937'; g.fill(); api.line([[0, 0], [R * 0.7, 0]], '#facc15', 5); api.circle(0, 0, 7, '#e5e7eb'); g.restore();
+                    });
+                    api.text('달걀 충격', 70, 62, 16); api.bar(125, 52, 180, 20, stress, stress > 0.65 ? '#dc2626' : '#22c55e');
+                    api.text('🏁 배달', 400, 62, 16); api.bar(450, 52, 240, 20, x / goal, '#3b82f6');
+                    api.hud('⏱ ' + Math.max(0, Math.ceil(time - t)) + '초 · 속도 ' + Math.round(v));
+                }
+            };
+        }
+    });
+
+    // ④ 도구: 눈 치우기 불도저
+    RG('snow', {
+        stages: ['화살표(또는 화면 끌기)로 불도저를 움직여 눈덩이를 오른쪽 파란 구역으로 밀어요. 판 넓이를 골라 보세요!', '눈이 더 많아졌어요. 넓은 판은 한 번에 많이 밀지만 느려요.', '바위가 있어요. 상황에 맞게 판을 바꿔 가며 치우세요.'],
+        tips: ['앞판이 넓으면 한 번에 더 많은 눈을 옮길 수 있어요. 그래서 제설차의 판은 넓어요.', '도구가 커지면 일은 한 번에 많이 하지만 움직이기 둔해질 수 있어요.', '일에 알맞은 도구를 고르면 시간과 힘을 아낄 수 있어요.'],
+        make: function (api, lv) {
+            var d = { x: 60, y: 240, dx: 1, dy: 0 }, wide = false, time = [40, 45, 50][lv], t = 0, aim = null, balls = [], total = [8, 12, 16][lv], cleared = 0;
+            var rocks = lv === 2 ? [{ x: 330, y: 160 }, { x: 420, y: 330 }] : [];
+            while (balls.length < total) { var b = { x: api.rnd(150, 540), y: api.rnd(100, 380), r: 15 }; if (!rocks.some(function (r) { return Math.hypot(r.x - b.x, r.y - b.y) < 60; })) balls.push(b); }
+            var narrow = api.button({ t: '🥄 좁은 판 (빠름)', down: function () { set(false); } }), broad = api.button({ t: '🚜 넓은 판 (많이)', down: function () { set(true); } });
+            function set(w) { wide = w; narrow.classList.toggle('on', !w); broad.classList.toggle('on', w); }
+            set(false);
+            [['⬅', 'ArrowLeft'], ['⬆', 'ArrowUp'], ['⬇', 'ArrowDown'], ['➡', 'ArrowRight']].forEach(function (k) { api.button({ t: k[0], key: k[1] }); });
+            return {
+                down: function (x, y) { aim = [x, y]; }, move: function (x, y, p) { if (p) aim = [x, y]; }, up: function () { aim = null; },
+                step: function (dt) {
+                    t += dt;
+                    var mx = (api.held('ArrowRight') ? 1 : 0) - (api.held('ArrowLeft') ? 1 : 0), my = (api.held('ArrowDown') ? 1 : 0) - (api.held('ArrowUp') ? 1 : 0);
+                    if (!mx && !my && aim) { var ax = aim[0] - d.x, ay = aim[1] - d.y; if (Math.hypot(ax, ay) > 18) { if (Math.abs(ax) > Math.abs(ay)) mx = Math.sign(ax); else my = Math.sign(ay); } }
+                    if (mx && my) my = 0;
+                    if (mx || my) {
+                        d.dx = mx; d.dy = my; var sp = wide ? 135 : 215, nx = api.clamp(d.x + mx * sp * dt, 28, 640), ny = api.clamp(d.y + my * sp * dt, 66, 414);
+                        if (!rocks.some(function (r) { return Math.hypot(r.x - nx, r.y - ny) < 52; })) { d.x = nx; d.y = ny; }
+                    }
+                    var half = wide ? 62 : 24, px = -d.dy, py = d.dx;
+                    balls.forEach(function (b) {
+                        var rx = b.x - d.x, ry = b.y - d.y, u = rx * d.dx + ry * d.dy, w = rx * px + ry * py;
+                        if (Math.abs(w) < half + b.r * 0.5 && u > 4 && u < 34 + b.r + 6) { u = 34 + b.r + 6; b.x = api.clamp(d.x + d.dx * u + px * w, 84, 700); b.y = api.clamp(d.y + d.dy * u + py * w, 92, 390); }
+                    });
+                    balls = balls.filter(function (b) { if (b.x > 612) { cleared++; api.add(10); api.sfx('pop'); api.burst(b.x, b.y, '#fff', 10); return false; } return true; });
+                    if (!balls.length) { api.add(Math.round((time - t) * 8)); api.win(Math.round(t) + '초 만에 모두 치웠어요!'); }
+                    else if (t >= time) api.fail('시간 끝! 넓은 판으로 한 줄씩 모아 밀어 보세요.');
+                },
+                draw: function () {
+                    var g = api.g; api.clear('#f1f5f9', '#e2e8f0'); api.rect(612, 44, 108, 396, '#7dd3fc'); api.text('눈 버리는 곳', 666, 70, 14);
+                    rocks.forEach(function (r) { api.emoji('🪨', r.x, r.y, 52); });
+                    balls.forEach(function (b) { api.circle(b.x, b.y, b.r, '#fff', '#60a5fa', 3); api.emoji('❄️', b.x, b.y, 15); });
+                    g.save(); g.translate(d.x, d.y); g.rotate(Math.atan2(d.dy, d.dx));
+                    var half = wide ? 62 : 24;
+                    api.rect(-28, -24, 50, 48, '#f59e0b', 9); api.rect(-20, -13, 22, 26, '#bae6fd', 5); api.rect(-30, -31, 54, 9, '#1f2937', 4); api.rect(-30, 22, 54, 9, '#1f2937', 4);
+                    api.rect(30, -half, 10, half * 2, '#334155', 4); api.line([[22, -12], [30, -12]], '#334155', 5); api.line([[22, 12], [30, 12]], '#334155', 5); g.restore();
+                    api.hud('⏱ ' + Math.max(0, Math.ceil(time - t)) + '초 · 치운 눈 ' + cleared + ' / ' + total);
+                }
+            };
+        }
+    });
+
+    // ⑤ 회전 운동과 왕복 운동: 움직임 자국 보고 분류
+    RG('spin', {
+        stages: ['기계가 움직이는 모습과 빨간 점의 자국을 보고 [회전] 또는 [왕복]을 고르세요. 6개!', '시간이 짧아져요. 8개를 분류하세요.', '자국이 금방 사라져요. 눈을 크게 뜨고 10개!'],
+        tips: ['회전 운동은 한 점을 중심으로 계속 돌아 자국이 동그라미가 돼요.', '왕복 운동은 같은 길을 갔다가 되돌아와요. 자국이 선이나 활 모양이에요.', '모터의 회전 운동에 막대를 연결하면 와이퍼나 피스톤 같은 왕복 운동을 만들 수 있어요.'],
+        make: function (api, lv) {
+            var all = [['선풍기', 'fan', true], ['자동차 바퀴', 'wheel', true], ['톱니바퀴', 'gear', true], ['시곗바늘', 'clock', true], ['시계추', 'pendulum', false], ['자동차 와이퍼', 'wiper', false], ['엔진 피스톤', 'piston', false], ['톱질', 'saw', false], ['그네', 'swing', false], ['대관람차', 'ferris', true]];
+            var total = [6, 8, 10][lv], limit = [7, 5, 4][lv], queue = api.shuffle(all).slice(0, total), i = 0, t = 0, left = limit, trail = [], combo = 0, right = 0;
+            function answer(isTurn) {
+                var q = queue[i];
+                if (isTurn === q[2]) { combo++; right++; api.add(20 + combo * 5); api.sfx('good'); api.float(360, 120, (combo > 1 ? combo + '연속! ' : '') + '정답!', '#059669'); api.burst(360, 230, null, 14); next(); }
+                else { combo = 0; api.hurt(q[0] + '은(는) ' + (q[2] ? '계속 도는 회전 운동이에요.' : '갔다가 돌아오는 왕복 운동이에요.')); if (api.playing()) next(); }
+            }
+            function next() { i++; t = 0; left = limit; trail = []; if (i >= total && api.playing()) api.win(total + '개 중 ' + right + '개를 맞혔어요.'); }
+            api.button({ t: '🔄 회전 운동', key: 'ArrowLeft', down: function () { answer(true); } });
+            api.button({ t: '↔️ 왕복 운동', key: 'ArrowRight', down: function () { answer(false); } });
+            return {
+                step: function (dt) { t += dt; left -= dt; if (left <= 0) { combo = 0; api.hurt('시간이 지났어요!'); if (api.playing()) next(); } },
+                draw: function () {
+                    var g = api.g, q = queue[Math.min(i, total - 1)], cx = 360, cy = 240, a = t * 2.6, s = Math.sin(t * 2.6), dot;
+                    api.clear('#fef3c7', '#fffbeb');
+                    if (q[1] === 'fan' || q[1] === 'wheel' || q[1] === 'gear' || q[1] === 'clock' || q[1] === 'ferris') {
+                        var R = 105; g.save(); g.translate(cx, cy); g.rotate(a);
+                        if (q[1] === 'fan') for (var k = 0; k < 3; k++) { g.rotate(2.094); api.rect(10, -26, 100, 52, '#38bdf8', 26); }
+                        if (q[1] === 'wheel') { api.circle(0, 0, 105, '#1f2937'); api.circle(0, 0, 70, '#cbd5e1'); for (k = 0; k < 6; k++) { g.rotate(1.047); api.line([[0, 0], [68, 0]], '#475569', 10); } }
+                        if (q[1] === 'gear') { for (k = 0; k < 12; k++) { g.rotate(0.5236); api.rect(78, -14, 34, 28, '#f59e0b', 5); } api.circle(0, 0, 88, '#f59e0b'); api.circle(0, 0, 24, '#fffbeb'); }
+                        if (q[1] === 'clock') { g.restore(); api.circle(cx, cy, 120, '#fff', '#334155', 8); g.save(); g.translate(cx, cy); g.rotate(a); api.line([[0, 0], [100, 0]], '#ef4444', 9); g.rotate(-a * 0.7); api.line([[0, 0], [60, 0]], '#334155', 11); }
+                        if (q[1] === 'ferris') { api.circle(0, 0, 105, null, '#8b5cf6', 7); for (k = 0; k < 8; k++) { g.rotate(0.7854); api.line([[0, 0], [105, 0]], '#8b5cf6', 4); api.circle(105, 0, 15, '#f472b6'); } }
+                        g.restore(); api.circle(cx, cy, 12, '#334155'); dot = [cx + R * Math.cos(a), cy + R * Math.sin(a)];
+                    } else if (q[1] === 'pendulum' || q[1] === 'swing') {
+                        var th = s * 0.75, px = cx + Math.sin(th) * 180, py = 100 + Math.cos(th) * 180; api.rect(270, 84, 180, 18, '#78716c', 6);
+                        api.line([[cx, 100], [px, py]], '#475569', 6); if (q[1] === 'swing') api.emoji('🧒', px, py - 20, 54, -th); api.rect(px - 34, py - 4, 68, q[1] === 'swing' ? 12 : 44, '#f59e0b', q[1] === 'swing' ? 5 : 22); dot = [px, py + 10];
+                    } else if (q[1] === 'wiper') {
+                        var w = -1.5708 + s * 1.05; api.rect(160, 110, 400, 230, '#bae6fd', 50); var ex = cx + Math.cos(w) * 190, ey = 330 + Math.sin(w) * 190; api.line([[cx, 330], [ex, ey]], '#111827', 11); api.circle(cx, 330, 14, '#334155'); dot = [ex, ey];
+                    } else if (q[1] === 'piston') {
+                        var y = 190 + s * 75; api.rect(285, 90, 150, 270, '#cbd5e1', 14); api.rect(298, y - 30, 124, 60, '#64748b', 10); api.line([[360, y + 30], [360, 390]], '#334155', 16); dot = [360, y];
+                    } else {
+                        var sx = s * 120; api.rect(230, 290, 260, 56, '#a16207', 10); api.rect(220 + sx, 230, 220, 46, '#cbd5e1', 6); for (k = 0; k < 11; k++) api.line([[220 + sx + k * 20, 276], [230 + sx + k * 20, 292], [240 + sx + k * 20, 276]], '#64748b', 3); api.rect(440 + sx, 218, 66, 70, '#92400e', 16); dot = [330 + sx, 252];
+                    }
+                    trail.push(dot); if (trail.length > [160, 90, 28][lv]) trail.shift();
+                    if (trail.length > 1) api.line(trail, 'rgba(239,68,68,.65)', 5); api.circle(dot[0], dot[1], 9, '#ef4444', '#fff', 3);
+                    api.rect(255, 392, 210, 36, '#1e293b', 18); api.text(q[0], 360, 410, 20, '#fff');
+                    api.bar(160, 48, 400, 14, left / limit, left < 1.5 ? '#dc2626' : '#22c55e');
+                    api.hud((Math.min(i + 1, total)) + ' / ' + total + ' 번째');
+                }
+            };
+        }
+    });
+
+    // ⑥ 회전을 직선으로: 크랭크 펀치
+    RG('punch', {
+        stages: ['연결 구멍(1~3)을 골라 주먹이 닿는 거리를 맞추고, 샌드백에 닿는 순간 [펀치!] 4번 성공!', '바퀴가 더 빨라져요. 5번 성공!', '샌드백이 흔들려요. 타이밍을 노려 6번!'],
+        tips: ['바퀴의 중심에서 먼 구멍에 막대를 연결할수록 주먹이 더 크게 움직여요.', '모터는 계속 돌기만 하지만, 연결 막대가 앞뒤 왕복 운동으로 바꿔 줘요.', '주먹은 끝에 닿을 때 잠깐 느려졌다가 되돌아와요. 크랭크의 특징이에요.'],
+        make: function (api, lv) {
+            var cx = 130, cy = 250, L = 210, radii = [0, 36, 58, 80], a = 0, speed = [2.2, 3, 3.4][lv], need = [4, 5, 6][lv], got = 0, bag, cool = 0, fx = 0, t = 0;
+            function place() { bag = { reach: api.pick([1, 2, 3]), sway: 0 }; }
+            var hole = api.slider('🕳️ 연결 구멍', 1, 3, 2, function () { api.sfx('pop'); });
+            api.button({ t: '🥊 펀치!', key: 'Space', cls: 'go', down: function () {
+                if (cool > 0) return; cool = 0.45; fx = 0.25;
+                var tip = fist(), target = bagX();
+                if (Math.abs(tip - target) <= 20) { got++; api.add(40); api.sfx('good'); api.burst(target + 40, cy, '#f97316', 26); api.float(target, cy - 60, '퍽!', '#c2410c'); if (got >= need) api.win('펀치 ' + need + '번 성공!'); else place(); }
+                else { var max = cx + radii[hole.get()] + L; api.hurt(max < target - 20 ? '이 구멍으로는 닿지 않아요. 더 바깥 구멍!' : tip < target ? '주먹이 아직 덜 나갔어요.' : '주먹이 지나쳤어요.'); }
+            } });
+            place();
+            function fist() { var r = radii[hole.get()]; return cx + r * Math.cos(a) + Math.sqrt(L * L - Math.pow(r * Math.sin(a), 2)); }
+            function bagX() { return cx + L + radii[bag.reach] + bag.sway; }
+            return {
+                step: function (dt) { t += dt; a += speed * dt; cool -= dt; fx -= dt; bag.sway = lv === 2 ? Math.sin(t * 2.2) * 14 : 0; },
+                draw: function () {
+                    var r = radii[hole.get()], px = cx + r * Math.cos(a), py = cy + r * Math.sin(a), tip = fist(), bx = bagX();
+                    api.clear('#fee2e2', '#fff7ed'); api.rect(0, 356, api.W, 84, '#d6d3d1');
+                    api.circle(cx, cy, 98, '#334155', '#0f172a', 5);
+                    [1, 2, 3].forEach(function (k) { var hx = cx + radii[k] * Math.cos(a), hy = cy + radii[k] * Math.sin(a); api.circle(hx, hy, 9, k === hole.get() ? '#facc15' : '#94a3b8'); api.text(String(k), hx, hy, 12); });
+                    api.circle(cx, cy, 11, '#e5e7eb'); api.circle(cx, cy, r, null, 'rgba(250,204,21,.6)', 2);
+                    api.rect(250, cy + 18, 190, 14, '#78716c', 6);
+                    api.line([[px, py], [tip, cy]], '#22c55e', 15); api.circle(px, py, 8, '#facc15');
+                    api.emoji('🥊', tip + 24, cy, fx > 0 ? 72 : 60, 0);
+                    api.line([[bx + 78, 52], [bx + 78, cy - 60]], '#57534e', 5); api.rect(bx + 48, cy - 62, 60, 128, '#b91c1c', 24); api.text('💥', bx + 78, cy, 26);
+                    api.line([[cx + L + r, cy - 90], [cx + L + r, cy - 62]], '#2563eb', 4); api.text('주먹 끝', cx + L + r, cy - 102, 14, '#1d4ed8');
+                    api.text('샌드백까지 ' + bag.reach + '번 거리', 170, 66, 18);
+                    api.hud('🥊 ' + got + ' / ' + need);
+                }
+            };
+        }
+    });
+
+    // ⑦ 각도: 풍선 터뜨리기 각도 대포
+    RG('angle', {
+        stages: ['각도기를 보며 레이저를 돌려(막대 또는 화면 끌기) 말하는 각도의 풍선을 터뜨려요. 5개!', '예각·직각·둔각 풍선을 골라 터뜨려요. 숫자는 쏜 뒤에 알려 줘요.', '각도기 없이 감각으로! 말하는 각도를 맞히세요.'],
+        tips: ['오른쪽 바닥이 0도, 똑바로 위가 90도(직각), 왼쪽 바닥이 180도(평각)예요.', '90도보다 작으면 예각, 90도면 직각, 90도보다 크고 180도보다 작으면 둔각이에요.', '직각(90도)과 그 절반(45도)을 기준으로 삼으면 각도를 눈대중할 수 있어요.'],
+        make: function (api, lv) {
+            var ox = 360, oy = 390, R = 270, aim, round = 0, balloons = [], want, beam = 0, hitAngle = null, lock = false;
+            function setup() {
+                var pool = [25, 45, 65, 90, 115, 135, 155], picks = api.shuffle(pool).slice(0, 4);
+                if (lv === 1) { var kind = api.pick(['예각', '직각', '둔각']); picks = [api.pick([25, 45, 65]), 90, api.pick([115, 135, 155])]; want = { label: kind + ' 풍선', ok: function (v) { return kind === '예각' ? v < 90 : kind === '직각' ? v === 90 : v > 90; } }; }
+                else { var v = api.pick(picks); want = { label: v + '도' + (v === 90 ? ' (직각)' : '') + ' 풍선', ok: function (q) { return q === v; } }; }
+                balloons = picks.map(function (p) { return { a: p, c: api.pick(['#ef4444', '#3b82f6', '#22c55e', '#a855f7', '#f59e0b']) }; }); hitAngle = null; lock = false;
+            }
+            aim = api.slider('📐 레이저 방향', 0, 180, 20);
+            function show() { return lv === 0; }
+            api.button({ t: '⚡ 발사!', key: 'Space', cls: 'go', down: function () {
+                if (lock) return; lock = true; beam = 0.5; var v = aim.get(); api.sfx('shoot'); hitAngle = v;
+                var near = balloons.filter(function (b) { return Math.abs(b.a - v) <= 7; })[0];
+                if (near && want.ok(near.a)) { balloons.splice(balloons.indexOf(near), 1); round++; api.add(30 + Math.max(0, 7 - Math.abs(near.a - v)) * 5); api.sfx('good'); var r = near.a * Math.PI / 180; api.burst(ox + R * Math.cos(r), oy - R * Math.sin(r), near.c, 28); api.say('명중! ' + near.a + '도 풍선이었어요. (내가 쏜 각 ' + v + '도)', true); api.later(function () { if (round >= 5) api.win('풍선 5개를 정확히 터뜨렸어요!'); else setup(); }, 1.1); }
+                else { api.hurt(near ? '그 풍선은 ' + near.a + '도예요. 찾는 것은 ' + want.label + '!' : '빗나갔어요. 쏜 각도는 ' + v + '도예요.'); api.later(function () { lock = false; }, 0.8); }
+            } });
+            setup();
+            return {
+                down: function (x, y) { this.move(x, y, true); },
+                move: function (x, y, p) { if (p && y < 400) aim.set(Math.round(api.clamp(Math.atan2(oy - y, x - ox) * 180 / Math.PI, 0, 180))); },
+                step: function (dt) { beam -= dt; },
+                draw: function () {
+                    var g = api.g, v = aim.get(), r = v * Math.PI / 180; api.clear('#1e1b4b', '#4338ca'); api.rect(0, oy, api.W, 50, '#312e81');
+                    for (var i = 0; i < 25; i++) api.circle((i * 97) % 720, 50 + (i * 53) % 300, 1.5, '#e0e7ff');
+                    if (lv < 2) {
+                        g.beginPath(); g.arc(ox, oy, 170, Math.PI, 0); g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 3; g.stroke();
+                        for (var d = 0; d <= 180; d += 15) { var q = d * Math.PI / 180, big = d % 45 === 0; api.line([[ox + 170 * Math.cos(q), oy - 170 * Math.sin(q)], [ox + (big ? 150 : 160) * Math.cos(q), oy - (big ? 150 : 160) * Math.sin(q)]], '#fff', big ? 3 : 1.5); if (show() && big) api.text(String(d), ox + 192 * Math.cos(q), oy - 192 * Math.sin(q) - 4, 14, '#fde68a'); }
+                    }
+                    g.beginPath(); g.moveTo(ox, oy); g.arc(ox, oy, 62, 0, -r, true); g.fillStyle = 'rgba(250,204,21,.35)'; g.fill();
+                    api.line([[ox, oy], [ox + 80, oy]], '#fff', 4);
+                    balloons.forEach(function (b) { var q = b.a * Math.PI / 180, x = ox + R * Math.cos(q), y = oy - R * Math.sin(q); api.circle(x, y, 24, b.c, '#fff', 3); api.circle(x - 8, y - 8, 6, 'rgba(255,255,255,.6)'); });
+                    if (beam > 0) api.line([[ox, oy], [ox + 380 * Math.cos(r), oy - 380 * Math.sin(r)]], '#f0abfc', 9);
+                    api.line([[ox, oy], [ox + 70 * Math.cos(r), oy - 70 * Math.sin(r)]], '#e5e7eb', 18); api.circle(ox, oy, 24, '#64748b', '#fff', 3);
+                    api.rect(200, 400, 320, 34, '#fff', 17); api.text('🎯 ' + want.label + '을 쏘세요!', 360, 418, 19);
+                    if (show() || hitAngle !== null && lock) api.text('내 각도 ' + v + '°', 620, 66, 20, '#fde68a');
+                    api.hud('명중 ' + round + ' / 5');
+                }
+            };
+        }
+    });
+
+    // ⑧ 순서와 반복: 황소 길 찾기
+    RG('blocks', {
+        stages: ['명령 블록을 순서대로 담고 [실행]! 별을 먹고 깃발에 도착하세요. (블록 8개까지)', '바위를 피해 가세요. (블록 10개까지)', '블록은 9개뿐! [🔁 두 번 더]로 바로 앞 명령을 반복해야 해요.'],
+        tips: ['로봇은 명령을 담은 순서대로 하나씩 실행해요.', '막혔다면 어디에서 틀렸는지 한 칸씩 따라가 보세요. 이것을 디버깅이라고 해요.', '반복을 쓰면 같은 일을 짧은 코드로 시킬 수 있어요.'],
+        make: function (api, lv) {
+            var map = [['.......', '.......', 'S..*..F', '.......', '.......'], ['.......', '...*.F.', '...#...', 'S..#...', '.......'], ['*.....F', '.#####.', '.#####.', '.#####.', 'S.....#']][lv];
+            var limit = [8, 10, 9][lv], cmds = [], steps = [], pos, dir, stars, running = false, idx = 0, wait = 0, vis, active = -1, COLS = 7;
+            function reset() { stars = {}; map.forEach(function (row, r) { row.split('').forEach(function (c, k) { if (c === 'S') pos = [r, k]; if (c === '*') stars[r + ',' + k] = true; }); }); vis = [pos[0], pos[1]]; dir = 1; active = -1; }
+            function add(c) { if (running) return; if (cmds.length >= limit) return api.say('블록은 ' + limit + '개까지예요.'); if (c === 'x' && (!cmds.length || cmds[cmds.length - 1] === 'x' && cmds.length < 2)) return api.say('반복할 명령을 먼저 넣어요.'); cmds.push(c); api.sfx('pop'); }
+            api.button({ t: '⬆ 앞으로', key: 'ArrowUp', down: function () { add('f'); } });
+            api.button({ t: '↰ 왼쪽', key: 'ArrowLeft', down: function () { add('l'); } });
+            api.button({ t: '↱ 오른쪽', key: 'ArrowRight', down: function () { add('r'); } });
+            if (lv === 2) api.button({ t: '🔁 두 번 더', down: function () { add('x'); } });
+            api.button({ t: '⌫ 지우기', key: 'Backspace', down: function () { if (!running) { cmds.pop(); reset(); } } });
+            api.button({ t: '▶ 실행', key: 'Space', cls: 'go', down: function () {
+                if (running || !cmds.length) return; reset(); steps = [];
+                var prev = null; cmds.forEach(function (c, i) { if (c === 'x') { if (prev) steps.push([prev, i], [prev, i]); } else { steps.push([c, i]); prev = c; } });
+                running = true; idx = 0; wait = 0.3;
+            } });
+            reset();
+            function stop(why) { running = false; api.hurt(why); api.later(reset, 0.8); }
+            return {
+                step: function (dt) {
+                    vis[0] += (pos[0] - vis[0]) * Math.min(1, dt * 12); vis[1] += (pos[1] - vis[1]) * Math.min(1, dt * 12);
+                    if (!running) return; wait -= dt; if (wait > 0) return; wait = 0.38;
+                    if (idx >= steps.length) return stop('깃발까지 못 갔어요. 명령을 고쳐 보세요.');
+                    var s = steps[idx++]; active = s[1];
+                    if (s[0] === 'l') dir = (dir + 3) % 4; else if (s[0] === 'r') dir = (dir + 1) % 4; else {
+                        var r = pos[0] + [-1, 0, 1, 0][dir], c = pos[1] + [0, 1, 0, -1][dir], ch = (map[r] || '').charAt(c);
+                        if (!ch || ch === '#') return stop('쿵! 막힌 곳이에요. ' + (active + 1) + '번째 블록을 살펴봐요.');
+                        pos = [r, c];
+                        if (stars[r + ',' + c]) { delete stars[r + ',' + c]; api.add(50); api.sfx('good'); api.burst(115 + c * 70 + 35, 52 + r * 60 + 30, '#facc15'); }
+                        if (ch === 'F') { running = false; if (Object.keys(stars).length) return stop('별을 아직 못 먹었어요!'); api.add((limit - cmds.length) * 20); return api.win('블록 ' + cmds.length + '개로 도착!'); }
+                    }
+                    api.sfx('pop');
+                },
+                draw: function () {
+                    var g = api.g; api.clear('#dcfce7', '#f0fdf4');
+                    for (var r = 0; r < 5; r++) for (var c = 0; c < COLS; c++) {
+                        var x = 115 + c * 70, y = 46 + r * 60, ch = map[r].charAt(c);
+                        api.rect(x + 2, y + 2, 66, 56, (r + c) % 2 ? '#bbf7d0' : '#a7f3d0', 10);
+                        if (ch === '#') api.emoji('🪨', x + 35, y + 31, 38);
+                        if (ch === 'F') api.emoji('🚩', x + 35, y + 31, 38);
+                        if (stars[r + ',' + c]) api.emoji('⭐', x + 35, y + 31, 34);
+                    }
+                    var bx = 115 + vis[1] * 70 + 35, by = 46 + vis[0] * 60 + 30; api.emoji('🐂', bx, by, 44, 0, dir === 1);
+                    g.save(); g.translate(bx, by); g.rotate([-1.5708, 0, 1.5708, 3.1416][dir]); g.fillStyle = '#1d4ed8'; g.beginPath(); g.moveTo(38, 0); g.lineTo(24, -10); g.lineTo(24, 10); g.fill(); g.restore();
+                    var names = { f: '⬆', l: '↰', r: '↱', x: '🔁' };
+                    for (var i = 0; i < limit; i++) { var qx = 360 - limit * 31 + i * 62; api.rect(qx + 3, 362, 56, 56, i === active && running ? '#facc15' : cmds[i] ? '#2563eb' : '#e2e8f0', 12); if (cmds[i]) api.text(names[cmds[i]], qx + 31, 391, 26, '#fff'); else api.text(String(i + 1), qx + 31, 391, 16, '#94a3b8'); }
+                    api.hud('블록 ' + cmds.length + ' / ' + limit);
+                }
+            };
+        }
+    });
+
+    // ⑨ 동력과 에너지: 충전소 사장님
+    RG('power', {
+        stages: ['손님이 오면 알맞은 힘(에너지)을 골라 주세요. 기다림 막대가 다 닳기 전에! 6명', '손님이 급해졌어요. 8명', '태엽 장난감 손님도 와요! 10명'],
+        tips: ['자동차는 연료, 로봇과 휴대폰은 전기, 돛단배와 연은 바람, 자전거는 사람의 힘으로 움직여요.', '같은 탈것이라도 쓰는 에너지가 다를 수 있어요. 전기차는 연료 대신 전기를 써요.', '태엽은 감았다가 풀리는 탄성력으로 움직여요. 에너지는 여러 모습으로 바뀌어요.'],
+        make: function (api, lv) {
+            var items = [['🚗', '휘발유 자동차', 0], ['🚚', '트럭', 0], ['✈️', '비행기', 0], ['🤖', '올로AI 로봇', 1], ['🚙', '전기 자동차', 1], ['📱', '휴대폰', 1], ['⛵', '돛단배', 2], ['🪁', '연', 2], ['🚲', '자전거', 3], ['🛴', '발로 미는 킥보드', 3], ['🚣', '노 젓는 배', 3]];
+            if (lv === 2) items.push(['🐭', '태엽 감는 쥐', 4], ['⏰', '태엽 시계', 4]);
+            var total = [6, 8, 10][lv], wait = [8, 6, 5][lv], queue = api.shuffle(items).slice(0, total), i = 0, x = -80, left = wait, state = 'come', served = 0;
+            var opts = ['⛽ 연료', '🔋 전기', '🌬️ 바람', '🦵 사람의 힘'].concat(lv === 2 ? ['🌀 태엽(탄성)'] : []);
+            opts.forEach(function (o, k) { api.button({ t: o, key: String(k + 1), down: function () {
+                if (state !== 'wait') return; var q = queue[i];
+                if (k === q[2]) { state = 'go'; served++; api.add(20 + Math.round(left * 5)); api.sfx('good'); api.burst(360, 260, null, 20); api.say(q[1] + ' 출발!', true); }
+                else api.hurt(q[1] + '에는 맞지 않아요. 다시!');
+            } }); });
+            return {
+                step: function (dt) {
+                    if (state === 'come') { x += 420 * dt; if (x >= 360) { x = 360; state = 'wait'; api.say(''); } }
+                    else if (state === 'wait') { left -= dt; if (left <= 0) { api.hurt('손님이 그냥 갔어요. 정답은 ' + opts[queue[i][2]]); if (api.playing()) state = 'leave'; } }
+                    else { x += (state === 'go' ? 640 : 300) * dt; if (x > 820) { i++; if (i >= total) { api.win(total + '명 중 ' + served + '명을 도왔어요!'); i = total - 1; state = 'end'; return; } x = -80; left = wait; state = 'come'; } }
+                },
+                draw: function () {
+                    var q = queue[i]; api.clear(); api.rect(0, 320, api.W, 120, '#78716c'); for (var k = 0; k < 10; k++) api.rect(k * 80 + 10, 370, 42, 8, '#fef9c3', 4);
+                    api.rect(250, 90, 220, 46, '#f97316', 14); api.text('⚡ 에너지 충전소', 360, 114, 22, '#fff'); api.rect(262, 136, 14, 190, '#c2410c'); api.rect(444, 136, 14, 190, '#c2410c');
+                    var bounce = state === 'go' ? Math.sin(x / 20) * 6 : 0;
+                    api.emoji(q[0], x, 270 + bounce, 84, 0, true);
+                    if (state === 'go') for (k = 1; k < 4; k++) api.emoji('💨', x - 50 - k * 32, 280, 30 - k * 5);
+                    api.rect(x - 90, 168, 180, 38, '#fff', 19); api.text(q[1], x, 188, 17);
+                    if (state === 'wait') api.bar(260, 56, 200, 18, left / wait, left < wait * 0.3 ? '#dc2626' : '#22c55e');
+                    api.text('🧍 남은 손님 ' + (total - i - 1), 90, 70, 16);
+                    api.hud('도운 손님 ' + served + ' / ' + total);
+                }
+            };
+        }
+    });
+
+    // ⑩ 무게 중심과 곤충의 걸음
+    RG('bug', {
+        stages: ['다리를 눌러 들어 올리고(흰색) [한 걸음]! ⭐이 땅을 짚은 다리들 안에 있어야 안 넘어져요. 파란 영역이 안전 구역이에요. 결승선까지 가세요.', '이번에는 안전 구역이 숨어 있어요. 걸음을 옮길 때만 보여요.', '등에 먹이를 실어 무게 중심(⭐)이 앞으로 옮겨졌어요!'],
+        tips: ['곤충은 세 다리로 삼각형을 만들어 몸을 받치고, 나머지 세 다리를 옮겨요.', '같은 다리만 계속 옮기면 나아가지 못해요. 두 묶음을 번갈아 옮겨야 해요.', '무게 중심이 받치는 점들 바깥으로 나가면 넘어져요. 짐을 실으면 중심이 달라져요.'],
+        make: function (api, lv) {
+            var legs = [[-1, -1], [-1, 0], [-1, 1], [1, -1], [1, 0], [1, 1]], up = [false, false, false, false, false, false], center = [[0, 0], [0, 0], [0, -0.45]][lv];
+            var moved = 0, goal = 18, left = [12, 10, 8][lv], lastSet = '', anim = 0, flash = 0, fall = 0;
+            function pt(i, cx, cy) { return [cx + legs[i][0] * 120, cy + legs[i][1] * 82]; }
+            function hull(ps) { ps = ps.slice().sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; }); function cr(o, a, b) { return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]); } var lo = [], hi = []; ps.forEach(function (p) { while (lo.length > 1 && cr(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }); ps.slice().reverse().forEach(function (p) { while (hi.length > 1 && cr(hi[hi.length - 2], hi[hi.length - 1], p) <= 0) hi.pop(); hi.push(p); }); return lo.slice(0, -1).concat(hi.slice(0, -1)); }
+            function stable() { var s = legs.filter(function (_, i) { return !up[i]; }); if (s.length < 3) return false; var h = hull(s); if (h.length < 3) return false; return h.every(function (a, i) { var b = h[(i + 1) % h.length]; return (b[0] - a[0]) * (center[1] - a[1]) - (b[1] - a[1]) * (center[0] - a[0]) > 0.02; }); }
+            api.button({ t: '👣 한 걸음 ▶', key: 'Space', cls: 'go', down: function () {
+                if (anim > 0 || fall > 0) return; var set = up.map(Number).join(''), n = up.filter(Boolean).length;
+                if (!n) return api.say('옮길 다리를 먼저 들어요. (다리를 누르기)');
+                flash = 1; left--;
+                if (!stable()) { fall = 1; api.hurt('기우뚱! ⭐이 받치는 다리들 바깥이에요.'); }
+                else if (set === lastSet) api.say('같은 다리만 옮기면 앞으로 못 가요. 다른 다리를 옮겨요!', false);
+                else { lastSet = set; anim = 0.6; moved += n; api.add(n * 10); api.sfx('good'); api.say('성큼! 다리 ' + n + '개를 옮겼어요.', true); }
+                if (moved >= goal) api.later(function () { api.win('결승선 도착!'); }, 0.6); else if (left <= 0 && api.playing()) api.later(function () { api.fail('걸음 수를 다 썼어요. 한 번에 3개씩 번갈아 옮겨 보세요.'); }, 0.6);
+            } });
+            api.button({ t: '↺ 다리 모두 내리기', down: function () { up = up.map(function () { return false; }); } });
+            return {
+                down: function (x, y) { if (anim > 0) return; for (var i = 0; i < 6; i++) { var p = pt(i, 360, 240); if (Math.hypot(x - p[0], y - p[1]) < 36) { up[i] = !up[i]; api.sfx('pop'); } } },
+                step: function (dt) { anim -= dt; flash -= dt; if (fall > 0) { fall -= dt; if (fall <= 0) up = up.map(function () { return false; }); } },
+                draw: function () {
+                    var g = api.g, off = (moved * 26) % 80 - (anim > 0 ? anim * 60 : 0); api.clear('#ecfccb', '#d9f99d');
+                    for (var i = -1; i < 7; i++) api.emoji('🌿', (i * 140) % 840 + 30, 70 + ((i * 80 + off) % 360 + 360) % 360, 30);
+                    var sup = legs.map(function (_, i) { return i; }).filter(function (i) { return !up[i]; }).map(function (i) { return pt(i, 360, 240); });
+                    if ((lv === 0 || flash > 0) && sup.length > 2) { var h = hull(sup); g.beginPath(); h.forEach(function (p, i) { g[i ? 'lineTo' : 'moveTo'](p[0], p[1]); }); g.closePath(); g.fillStyle = stable() ? 'rgba(59,130,246,.28)' : 'rgba(239,68,68,.28)'; g.fill(); }
+                    g.save(); g.translate(360, 240); if (fall > 0) g.rotate(Math.sin(fall * 20) * 0.2); g.translate(-360, -240);
+                    for (i = 0; i < 6; i++) { var p = pt(i, 360, 240), step = anim > 0 && up[i] ? -Math.sin(anim / 0.6 * Math.PI) * 30 : 0; api.line([[360, 240 + legs[i][1] * 40], [360 + legs[i][0] * 70, p[1] - 18], [p[0], p[1] + step]], up[i] ? '#a8a29e' : '#292524', 9, up[i] ? [8, 8] : []); api.circle(p[0], p[1] + step, up[i] ? 20 : 17, up[i] ? '#fff' : '#292524', '#57534e', 4); api.text(up[i] ? '↑' : '', p[0], p[1] + step, 18); }
+                    g.beginPath(); g.ellipse(360, 252, 52, 88, 0, 0, 7); g.fillStyle = '#7c2d12'; g.fill(); api.circle(360, 148, 30, '#431407'); api.line([[345, 125], [320, 92], [338, 74]], '#431407', 9); api.line([[375, 125], [400, 92], [382, 74]], '#431407', 9); api.line([[360, 180], [360, 335]], '#431407', 3);
+                    if (lv === 2) api.emoji('🍰', 360, 188, 42);
+                    api.emoji('⭐', 360 + center[0] * 120, 240 + center[1] * 82, 34); g.restore();
+                    api.text('🏁', 52, 70, 22); api.bar(76, 60, 150, 18, moved / goal, '#16a34a');
+                    api.hud('남은 걸음 ' + left);
+                }
+            };
+        }
+    });
+
+    // ⑪ 관성: 버스 운전사
+    RG('inertia', {
+        stages: ['[가속]과 [브레이크]를 눌러 승객이 넘어지지 않게 정류장(파란 칸)에 멈추세요.', '중간에 빨간불이 있어요. 정지선 앞에 한 번 섰다가 정류장까지!', '갑자기 고양이가 나타나요! 부드럽게 멈출 수 있게 속도를 조절해요.'],
+        tips: ['버스가 갑자기 출발하면 몸은 그대로 있으려 해서 뒤로, 갑자기 멈추면 계속 가려 해서 앞으로 쏠려요.', '천천히 속도를 바꾸면 몸이 따라갈 시간이 있어 덜 쏠려요. 이것이 관성을 다루는 방법이에요.', '빠르게 달릴수록 멈추는 데 긴 거리가 필요해요. 안전거리와 안전띠가 중요한 까닭이에요.'],
+        make: function (api, lv) {
+            var x = 0, v = 0, a = 0, lean = 0, w = 0, goal = [1500, 1900, 2100][lv], time = [40, 50, 55][lv], t = 0, down = 0;
+            var light = lv === 1 ? { x: 850, done: false, wait: 0 } : null, cat = lv === 2 ? { x: 1100, state: 'hide', wait: 0 } : null;
+            api.button({ t: '🟥 급브레이크', key: 'ArrowDown' }); api.button({ t: '🟧 살살 브레이크', key: 'ArrowLeft' }); api.button({ t: '🟩 가속 (누르고 있기)', key: 'ArrowRight', cls: 'go' });
+            return {
+                step: function (dt) {
+                    t += dt;
+                    var want = api.held('ArrowDown') ? -230 : api.held('ArrowLeft') ? -100 : api.held('ArrowRight') ? 140 : 0;
+                    if (v <= 0 && want < 0) want = 0; a = want; var nv = api.clamp(v + a * dt, 0, 210); a = (nv - v) / Math.max(dt, 0.001); if (!api.held('ArrowRight') && nv === 0 && v > 0) a = Math.max(a, -230); v = nv; x += v * dt;
+                    w += (-40 * lean - 3.6 * w - a * 0.12) * dt; lean += w * dt; down -= dt;
+                    if (Math.abs(lean) > 0.8 && down <= 0) { down = 1.6; api.hurt(lean > 0 ? '꽈당! 갑자기 멈춰서 승객이 앞으로 넘어졌어요.' : '꽈당! 갑자기 빨라져서 뒤로 넘어졌어요.'); lean = 0; w = 0; }
+                    if (light && !light.done) { if (v < 3 && x > light.x - 140 && x <= light.x) { light.wait += dt; if (light.wait > 1.2) { light.done = true; api.add(60); api.sfx('good'); api.say('초록불! 출발하세요.', true); } } if (x > light.x + 5) { api.fail('빨간불을 지나쳤어요!'); } }
+                    if (cat) { if (cat.state === 'hide' && x > cat.x - 380) { cat.state = 'there'; api.sfx('bad'); api.say('🐈 고양이! 멈춰요!'); } if (cat.state === 'there') { if (x > cat.x - 40) api.fail('고양이 앞에서 멈추지 못했어요. 속도를 줄여야 해요.'); else if (v < 3) { cat.wait += dt; if (cat.wait > 1) { cat.state = 'gone'; api.add(80); api.sfx('good'); api.say('휴! 고양이가 지나갔어요.', true); } } } }
+                    if (v < 3 && Math.abs(x - goal) <= 60 && (!light || light.done)) { api.add(Math.round((time - t) * 5)); api.win('정류장에 딱 멈췄어요!'); }
+                    else if (x > goal + 75) api.fail('정류장을 지나쳤어요. 미리 속도를 줄여요.');
+                    else if (t > time) api.fail('시간이 너무 오래 걸렸어요.');
+                },
+                draw: function () {
+                    var g = api.g, ox = 230; api.clear(); for (var i = 0; i < 6; i++) api.emoji(i % 2 ? '🏢' : '🌳', ((i * 170 - x * 0.4) % 1020 + 1020) % 1020 - 100, 282, 64);
+                    api.rect(0, 350, api.W, 90, '#57534e'); for (i = 0; i < 12; i++) api.rect(((i * 90 - x) % 1080 + 1080) % 1080 - 60, 394, 40, 7, '#fde68a', 3);
+                    var sx = ox + goal - x; api.rect(sx - 60, 344, 120, 14, '#2563eb'); api.emoji('🚏', sx + 40, 300, 56);
+                    if (light) { var lx = ox + light.x - x; api.rect(lx - 3, 344, 8, 14, '#fff'); api.line([[lx + 34, 350], [lx + 34, 260]], '#292524', 6); api.circle(lx + 34, 246, 20, light.done ? '#22c55e' : '#ef4444', '#292524', 4); }
+                    if (cat && cat.state === 'there') api.emoji('🐈', ox + cat.x - x, 322, 48);
+                    api.rect(ox - 190, 150, 300, 170, '#f59e0b', 26); api.rect(ox - 175, 166, 270, 100, '#e0f2fe', 12);
+                    [-125, -50, 25].forEach(function (dx, k) { g.save(); g.translate(ox + dx, 264); g.rotate(down > 0.4 ? 1.35 : lean * 0.75); api.emoji(['🧒', '👧', '👵'][k], 0, -36, 52); g.restore(); });
+                    api.circle(ox - 125, 330, 30, '#1f2937', '#a8a29e', 6); api.circle(ox + 55, 330, 30, '#1f2937', '#a8a29e', 6); api.emoji('➡️', ox + 124, 220, 22);
+                    api.text('쏠림', 60, 66, 16); api.bar(90, 56, 160, 20, Math.abs(lean) / 0.8, Math.abs(lean) > 0.55 ? '#dc2626' : '#22c55e');
+                    api.text('정류장', 440, 66, 16); api.bar(480, 56, 210, 20, x / goal, '#3b82f6');
+                    api.hud('속도 ' + Math.round(v) + ' · ⏱ ' + Math.max(0, Math.ceil(time - t)));
+                }
+            };
+        }
+    });
+
+    // ⑫ 화석 발굴과 공룡
+    RG('dino', {
+        stages: ['땅을 눌러 화석 3조각을 찾아요. 숫자는 가장 가까운 화석까지의 칸 수! 그다음 어떤 공룡인지와 먹이를 맞혀요.', '화석 4조각! 파는 횟수가 적어졌어요.', '화석 5조각! 단서를 잘 보고 신중하게 파요.'],
+        tips: ['공룡의 모습은 땅속에 남은 화석으로 알 수 있어요.', '날카로운 이빨은 고기를, 넓적한 이빨은 풀을 먹었다는 증거예요.', '과학자는 단서를 모아 추리해요. 화석이 많을수록 정확하게 알 수 있어요.'],
+        make: function (api, lv) {
+            var dinos = [{ n: '티라노사우루스', e: '🦖', food: 0, clue: ['🦷 톱니처럼 날카로운 이빨', '🦶 크고 튼튼한 뒷다리', '🤏 아주 짧은 앞다리'] }, { n: '브라키오사우루스', e: '🦕', food: 1, clue: ['🦒 아주 긴 목뼈', '🌿 넓적한 이빨', '🦵 기둥 같은 네 다리'] }, { n: '트리케라톱스', e: '🦏', food: 1, clue: ['📐 뿔 세 개', '🛡️ 목을 덮는 방패뼈', '🌿 부리 같은 입'] }];
+            var dino = api.pick(dinos), pieces = 3 + lv, digs = [20, 19, 18][lv], COLS = 8, ROWS = 4, spots = {}, dug = {}, found = 0, mode = 'dig';
+            api.shuffle(Array.apply(null, Array(COLS * ROWS)).map(function (_, i) { return i; })).slice(0, pieces).forEach(function (i) { spots[i] = true; });
+            function near(i) { var c = i % COLS, r = Math.floor(i / COLS), best = 99; Object.keys(spots).forEach(function (k) { if (!dug[k]) best = Math.min(best, Math.abs(k % COLS - c) + Math.abs(Math.floor(k / COLS) - r)); }); return best; }
+            function identify() {
+                mode = 'name'; api.clearPad(); api.say('화석을 모두 찾았어요! 어떤 공룡일까요?', true);
+                api.shuffle(dinos).forEach(function (d) { api.button({ t: d.e + ' ' + d.n, down: function () { if (d !== dino) return api.hurt('단서를 다시 읽어 보세요.'); api.add(100); api.sfx('good'); feed(); } }); });
+            }
+            function feed() {
+                mode = 'food'; api.clearPad(); api.say(dino.n + ' 맞아요! 무엇을 먹었을까요?', true);
+                ['🍖 고기', '🌿 풀'].forEach(function (f, k) { api.button({ t: f, down: function () { if (k !== dino.food) return api.hurt('이빨 모양 단서를 떠올려 보세요.'); api.add(100); mode = 'done'; api.burst(560, 240, null, 40); api.win(dino.n + '의 비밀을 모두 풀었어요!'); } }); });
+            }
+            return {
+                down: function (x, y) {
+                    if (mode !== 'dig') return; var c = Math.floor((x - 24) / 62), r = Math.floor((y - 110) / 70); if (c < 0 || r < 0 || c >= COLS || r >= ROWS) return; var i = r * COLS + c; if (dug[i] !== undefined) return;
+                    digs--;
+                    if (spots[i]) { dug[i] = 'bone'; found++; api.add(40); api.sfx('good'); api.burst(x, y, '#fde68a', 22); if (found >= pieces) return identify(); }
+                    else { dug[i] = near(i); api.sfx('pop'); api.burst(x, y, '#a16207', 8); }
+                    if (digs <= 0) api.hurt('삽이 부러졌어요! 조금 더 팔 수 있게 해 줄게요.'), digs = api.lives() > 0 ? 5 : 0;
+                },
+                draw: function () {
+                    api.clear('#fed7aa', '#fef3c7');
+                    for (var r = 0; r < ROWS; r++) for (var c = 0; c < COLS; c++) { var i = r * COLS + c, x = 24 + c * 62, y = 110 + r * 70, d = dug[i]; api.rect(x + 2, y + 2, 58, 66, d === undefined ? '#a16207' : d === 'bone' ? '#fef9c3' : '#d6b88a', 9); if (d === undefined) api.circle(x + 18 + (i * 13) % 26, y + 20 + (i * 7) % 30, 4, '#854d0e'); else if (d === 'bone') api.emoji('🦴', x + 31, y + 35, 36); else api.text(String(d), x + 31, y + 35, 22, '#713f12'); }
+                    api.rect(535, 110, 170, 276, '#fff', 16); api.text('🔍 단서', 620, 132, 18);
+                    var open = Math.min(dino.clue.length, found >= pieces ? 3 : found);
+                    dino.clue.forEach(function (cl, k) { var yy = 160 + k * 46; if (k < open) { var parts = cl.split(' '); api.text(parts[0], 620, yy, 20); api.text(cl.slice(parts[0].length + 1), 620, yy + 22, 13); } else api.text('❓', 620, yy + 10, 22); });
+                    if (mode === 'done') api.emoji(dino.e, 620, 335, 76); else api.text('화석 ' + found + ' / ' + pieces, 620, 350, 19, '#92400e');
+                    api.text('⛏️ 남은 삽질 ' + digs, 270, 72, 20, '#7c2d12');
+                    api.hud(mode === 'dig' ? '화석을 찾아라' : mode === 'name' ? '어떤 공룡?' : '무엇을 먹을까?');
+                }
+            };
+        }
+    });
+})();
+</script>
+{% endverbatim %}

@@ -183,7 +183,7 @@
         {% endif %}
         {% if lesson.play %}
         <div class="rb-card rg" id="rbGame" data-game="{{ lesson.play.id }}">
-            <div class="rg-head"><h2>🎮 놀면서 배우기: {{ lesson.play.title }}</h2><span class="rg-score"></span></div>
+            <div class="rg-head"><h2>🎮 놀면서 배우기: {{ lesson.play.title }}</h2><div class="rg-tools"><span class="rg-score"></span><button type="button" class="rg-tool rg-mute">🔊 소리 켜짐</button></div></div>
             <p>{{ lesson.play.how }}</p>
             <button type="button" class="rg-btn go rg-start">▶ 게임 시작</button>
             <div class="rg-stage"></div>

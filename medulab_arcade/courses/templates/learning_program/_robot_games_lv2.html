@@ -1,0 +1,448 @@
+{% verbatim %}
+<script>
+/* 올로AI 2단계 과학 게임 12종 (공통 틀: _robot_games.html) */
+(function () {
+    // ① 모터: 전기로 움직이는 짐 승강기
+    RG('motor', {
+        stages: ['▲▼ 로 모터를 돌려 짐을 노란 층에 맞추고 [내려놓기]. 모터 힘(전압)도 조절해요. 3번 배달!', '전지가 적어요. 낭비하지 말고 3번 배달!', '무거운 짐은 올라갈 때 전기를 더 쓰고, 내려갈 때 더 빨라져요. 3번 배달!'],
+        tips: ['모터는 전기 에너지를 회전하는 힘으로 바꿔요. 도르래에 줄이 감기며 짐이 올라가요.', '전압을 높이면 빨리 돌지만 전지가 빨리 닳아요. 끝에서는 천천히 맞추는 것이 좋아요.', '무거운 것을 들어 올릴수록 에너지가 더 필요해요.'],
+        make: function (api, lv) {
+            var floors = [372, 296, 220, 144], y = 372, v = 0, spin = 0, bat = 100, got = 0, target = 2, weight = 1;
+            var volt = api.slider('⚡ 모터 힘', 1, 5, 3);
+            api.button({ t: '▲ 올리기', key: 'ArrowUp' }); api.button({ t: '▼ 내리기', key: 'ArrowDown' });
+            function next() { var t; do { t = api.pick([0, 1, 2, 3]); } while (Math.abs(floors[t] - y) < 60); target = t; weight = lv === 2 ? api.pick([1, 2, 3]) : 1; }
+            api.button({ t: '📦 내려놓기', key: 'Space', cls: 'go', down: function () {
+                var gap = Math.abs(y - floors[target]);
+                if (gap <= 9 && Math.abs(v) < 25) { got++; api.add(60 + Math.round((9 - gap) * 5)); api.sfx('good'); api.burst(470, y - 20); api.say('배달 성공!', true); if (got >= 3) api.win('짐 3개를 배달했어요! 남은 전지 ' + Math.round(bat) + '%'); else next(); }
+                else api.hurt(gap > 9 ? '층 높이가 맞지 않아요.' : '아직 움직이고 있어요. 멈춘 뒤에!');
+            } });
+            next();
+            return {
+                step: function (dt) {
+                    var dir = api.held('ArrowUp') ? -1 : api.held('ArrowDown') ? 1 : 0, p = volt.get();
+                    var want = bat > 0 ? dir * p * 38 * (lv === 2 ? (dir < 0 ? 1.2 - weight * 0.2 : 0.8 + weight * 0.25) : 1) : 0;
+                    v += (want - v) * Math.min(1, dt * 7); y = api.clamp(y + v * dt, 130, 372); spin += -v * dt * 0.12;
+                    if (dir) { bat -= dt * p * [1.1, 2.1, 1.3][lv] * (lv === 2 && dir < 0 ? weight : 1); if (Math.random() < dt * 14) api.tone(90 + p * 25, 0.05, 0, 'square', 0.03); }
+                    if (bat <= 0) api.fail('전지가 다 닳았어요. 꼭 필요한 만큼만 모터를 돌려요.');
+                },
+                draw: function () {
+                    var g = api.g; api.clear('#e0e7ff', '#f8fafc'); api.rect(0, 400, api.W, 40, '#78716c');
+                    floors.forEach(function (f, i) { api.rect(520, f + 14, 180, 10, i === target ? '#facc15' : '#94a3b8', 4); api.text((i + 1) + '층', 660, f, 18); if (i === target) api.emoji('🏠', 570, f - 8, 40); });
+                    api.rect(340, 70, 16, 330, '#475569'); api.rect(340, 70, 160, 14, '#475569');
+                    g.save(); g.translate(470, 78); g.rotate(spin); api.circle(0, 0, 26, '#1f2937', '#e5e7eb', 4); api.line([[-22, 0], [22, 0]], '#facc15', 5); api.line([[0, -22], [0, 22]], '#facc15', 5); g.restore();
+                    api.line([[470, 104], [470, y - 34]], '#292524', 3); api.rect(428, y + 4, 90, 12, '#334155', 4); api.emoji(weight === 3 ? '🧱' : weight === 2 ? '🗄️' : '📦', 470, y - 16, 34 + weight * 6);
+                    if (lv === 2) api.text('무게 ' + weight, 470, y + 30, 14);
+                    api.emoji('🔋', 70, 130, 54); api.bar(110, 118, 180, 24, bat / 100, bat < 25 ? '#dc2626' : '#22c55e', Math.round(bat) + '%');
+                    api.rect(40, 180, 260, 120, '#fff', 16); api.text('전기 ⚡ → 모터 🔄 → 움직임 ⬆', 170, 210, 16); api.text('모터 속도 ' + Math.round(Math.abs(v)), 170, 244, 18, '#1d4ed8'); api.text(v < -3 ? '감는 중 (올라감)' : v > 3 ? '푸는 중 (내려감)' : '정지', 170, 276, 17, '#b45309');
+                    api.hud('배달 ' + got + ' / 3');
+                }
+            };
+        }
+    });
+
+    // ② 집게: 힘 조절 집게 크레인
+    RG('grip', {
+        stages: ['◀▶ 로 집게를 옮기고, 잡는 힘을 골라 [집기]! 바구니까지 3개를 옮기세요.', '4개! 약한 물건은 살살, 무거운 물건은 꽉!', '5개! 컨베이어가 움직여요.'],
+        tips: ['집게의 힘이 너무 약하면 미끄러지고, 너무 세면 약한 물건이 부서져요.', '로봇 손은 물건에 따라 힘을 조절해야 해요. 그래서 센서를 달기도 해요.', '집게는 지레의 원리로 모터의 힘을 손끝까지 전달해요.'],
+        make: function (api, lv) {
+            var kinds = [['🥚', '달걀', 1], ['🎈', '풍선', 1], ['🧸', '곰 인형', 2], ['🍎', '사과', 2], ['🧱', '벽돌', 3], ['🔩', '쇳덩이', 3]];
+            var need = 3 + lv, got = 0, cx = 120, cy = 100, state = 'free', held = null, item, drop = 0;
+            var power = api.slider('✊ 잡는 힘', 1, 3, 2);
+            api.button({ t: '◀', key: 'ArrowLeft' }); api.button({ t: '▶', key: 'ArrowRight' });
+            api.button({ t: '🤏 집기 / 놓기', key: 'Space', cls: 'go', down: function () {
+                if (state === 'free') { state = 'down'; api.sfx('pop'); }
+                else if (state === 'carry') {
+                    if (cx > 575) { got++; api.add(50); api.sfx('good'); api.burst(640, 340); api.say('바구니에 쏙!', true); held = null; state = 'free'; if (got >= need) api.win(need + '개를 안전하게 옮겼어요!'); else spawn(); }
+                    else api.say('바구니(오른쪽)까지 가서 놓아요.');
+                }
+            } });
+            function spawn() { var k = api.pick(kinds); item = { e: k[0], n: k[1], p: k[2], x: api.rnd(110, 460), dir: api.pick([-1, 1]) }; }
+            spawn();
+            return {
+                step: function (dt) {
+                    var mx = (api.held('ArrowRight') ? 1 : 0) - (api.held('ArrowLeft') ? 1 : 0); if (state === 'free' || state === 'carry') cx = api.clamp(cx + mx * 210 * dt, 60, 660);
+                    if (lv === 2 && !held && drop <= 0) { item.x += item.dir * 70 * dt; if (item.x < 90 || item.x > 490) item.dir *= -1; }
+                    if (state === 'down') { cy += 330 * dt; if (cy >= 318) { cy = 318; if (Math.abs(cx - item.x) < 34) {
+                        if (power.get() < item.p) { api.hurt(item.n + '이(가) 미끄러졌어요. 힘이 약해요.'); }
+                        else if (power.get() > item.p && item.p === 1) { api.burst(item.x, 340, '#facc15', 30); api.hurt('빠직! ' + item.n + '은(는) 살살 잡아야 해요.'); if (api.playing()) spawn(); }
+                        else { held = item; api.sfx('good'); }
+                    } else api.say('빈 곳이에요. 물건 바로 위에서 집어요.'); state = 'up'; } }
+                    else if (state === 'up') { cy -= 270 * dt; if (cy <= 100) { cy = 100; state = held ? 'carry' : 'free'; } }
+                },
+                draw: function () {
+                    api.clear('#fce7f3', '#fdf2f8'); api.rect(0, 362, api.W, 78, '#64748b'); if (lv === 2) for (var i = 0; i < 14; i++) api.circle(40 + i * 40, 372, 8, '#1f2937');
+                    api.rect(30, 58, 660, 14, '#475569', 6); api.rect(592, 326, 108, 52, '#b45309', 10); api.text('바구니', 646, 354, 17, '#fff'); api.emoji('🧺', 646, 308, 46);
+                    api.line([[cx, 72], [cx, cy - 26]], '#334155', 5); api.rect(cx - 24, cy - 34, 48, 22, '#2563eb', 8);
+                    var open = held ? 20 : 34; api.line([[cx - 14, cy - 14], [cx - open - 6, cy + 10], [cx - open + 8, cy + 36]], '#1e293b', 8); api.line([[cx + 14, cy - 14], [cx + open + 6, cy + 10], [cx + open - 8, cy + 36]], '#1e293b', 8);
+                    if (held) api.emoji(held.e, cx, cy + 26, 44); else { api.emoji(item.e, item.x, 338, 46); api.rect(item.x - 46, 382, 92, 26, '#fff', 13); api.text(item.n, item.x, 396, 15); }
+                    api.rect(40, 96, 190, 74, 'rgba(255,255,255,.85)', 14); api.text('1 살살 · 2 보통 · 3 꽉', 135, 120, 15); api.bar(60, 138, 150, 20, power.get() / 3, ['#22c55e', '#f59e0b', '#ef4444'][power.get() - 1]);
+                    api.hud('옮긴 물건 ' + got + ' / ' + need);
+                }
+            };
+        }
+    });
+
+    // ③ 소리: 물개 박수 리듬
+    RG('sound', {
+        stages: ['물개의 박수를 듣고 똑같이 [👏 짝!] 하세요. 3번 성공!', '긴 쉼과 짧은 쉼이 섞여요. 빠르기까지 따라 해요.', '더 긴 리듬! 3번 성공하면 박수 대장!'],
+        tips: ['손뼉을 치면 공기가 떨려 소리가 퍼져요. 로봇은 마이크로 이 떨림을 듣고 횟수를 세요.', '소리 사이의 시간 간격이 리듬이에요. 컴퓨터도 시간을 재서 구별해요.', '소리가 들어오는 순간을 하나씩 기억하면 긴 신호도 따라 할 수 있어요.'],
+        make: function (api, lv) {
+            var rounds = 0, pattern, state = 'idle', t = 0, idx = 0, taps = [], rings = [], clapAt = 0;
+            function makePattern() { var n = [3, 4, 5][lv] + (rounds === 2 ? 1 : 0), p = [0]; for (var i = 1; i < n; i++) p.push(p[i - 1] + (lv === 0 ? 0.55 : api.pick([0.35, 0.7]))); pattern = p; }
+            function ring(x, color) { rings.push({ x: x, r: 20, c: color }); api.sfx('clap'); }
+            api.button({ t: '👂 물개 박수 듣기', down: function () { if (state === 'listen') return; state = 'listen'; t = -0.4; idx = 0; taps = []; api.say('잘 들어요…'); } });
+            api.button({ t: '👏 짝!', key: 'Space', cls: 'go', down: function () {
+                if (state !== 'turn') return api.say(state === 'listen' ? '물개가 다 칠 때까지 기다려요.' : '먼저 [물개 박수 듣기]를 눌러요.');
+                taps.push(t); ring(520, '#f59e0b'); clapAt = t;
+                if (taps.length === pattern.length) check();
+            } });
+            function check() {
+                var ok = pattern.every(function (p, i) { return Math.abs((taps[i] - taps[0]) - p) <= [0.45, 0.28, 0.26][lv]; });
+                state = 'idle';
+                if (ok) { rounds++; api.add(60); api.sfx('good'); api.burst(360, 220); api.say('똑같아요! 👏', true); if (rounds >= 3) api.win('리듬 3개를 따라 했어요!'); else makePattern(); }
+                else api.hurt('박자가 달랐어요. 다시 듣고 따라 해 보세요.');
+            }
+            makePattern();
+            return {
+                step: function (dt) {
+                    t += dt;
+                    if (state === 'listen') { if (idx < pattern.length && t >= pattern[idx]) { ring(200, '#3b82f6'); idx++; clapAt = t; } if (idx >= pattern.length && t > pattern[idx - 1] + 0.6) { state = 'turn'; t = 0; taps = []; clapAt = -9; api.say('이제 내 차례! 같은 박자로 ' + pattern.length + '번', true); } }
+                    if (state === 'turn' && taps.length && t - taps[taps.length - 1] > 2) { state = 'idle'; api.hurt(pattern.length + '번 쳐야 해요. ' + taps.length + '번만 쳤어요.'); }
+                    rings = rings.filter(function (r) { r.r += 260 * dt; return r.r < 300; });
+                },
+                draw: function () {
+                    api.clear('#0c4a6e', '#0ea5e9'); api.rect(0, 340, api.W, 100, '#e0f2fe');
+                    rings.forEach(function (r) { api.g.globalAlpha = Math.max(0, 1 - r.r / 300); api.circle(r.x, 240, r.r, null, r.c === '#3b82f6' ? '#fde68a' : '#fff', 6); api.g.globalAlpha = 1; });
+                    var hop = state === 'listen' && t - clapAt < 0.15 ? -16 : 0; api.emoji('🦭', 200, 260 + hop, 110); api.emoji(state === 'turn' && t - clapAt < 0.15 ? '👏' : '🧒', 520, 260, 90);
+                    api.text('물개', 200, 366, 18); api.text('나', 520, 366, 18);
+                    var scale = 560 / (pattern[pattern.length - 1] + 0.8);
+                    if (lv === 0 || state !== 'turn') { api.text('물개 리듬', 70, 396, 14, '#1e3a8a'); if (state === 'listen') for (var i = 0; i < idx; i++) api.circle(130 + pattern[i] * scale, 396, 9, '#2563eb'); }
+                    api.text('내 리듬', 70, 420, 14, '#92400e'); taps.forEach(function (v) { api.circle(130 + (v - taps[0]) * scale, 420, 9, '#f59e0b'); });
+                    api.text(state === 'listen' ? '👂 듣는 시간' : state === 'turn' ? '👏 따라 치는 시간' : '[물개 박수 듣기]를 눌러요', 360, 80, 24, '#fff');
+                    api.hud('성공 ' + rounds + ' / 3');
+                }
+            };
+        }
+    });
+
+    // ④ 조종기: 보석 탐험 원격 조종
+    RG('remote', {
+        stages: ['조종기처럼! U 앞으로, D 뒤로, L·R 회전. 보석을 모두 모으세요. (키보드 화살표도 돼요)', '가시를 조심해요! 보석을 모두 모으세요.', '좁은 길과 가시! 시간 안에 모두 모으세요.'],
+        tips: ['L·R은 로봇의 방향을 돌리고, U·D는 로봇이 보는 방향의 앞뒤로 움직여요.', '로봇의 입장에서 왼쪽과 오른쪽을 생각해야 해요. 마주 보면 반대로 보여요.', '조종기는 버튼마다 다른 신호를 무선으로 보내고, 로봇은 그 신호대로 움직여요.'],
+        make: function (api, lv) {
+            var walls = [[[250, 150, 30, 180]], [[200, 44, 26, 220], [460, 200, 26, 240]], [[160, 130, 26, 310], [330, 44, 26, 280], [500, 160, 26, 280]]][lv];
+            var spikes = [[], [[330, 120], [340, 360], [600, 150]], [[250, 90], [430, 390], [560, 120], [250, 300]]][lv];
+            var gems = [[[120, 100], [400, 100], [620, 330], [400, 380]], [[110, 120], [330, 250], [600, 90], [600, 380], [330, 400]], [[90, 90], [250, 400], [430, 90], [430, 300], [640, 380], [640, 80]]][lv].map(function (p) { return { x: p[0], y: p[1] }; });
+            var r = { x: 70, y: 390, a: -Math.PI / 2 }, time = [45, 50, 55][lv], t = 0, total = gems.length, safe = 0;
+            api.button({ t: 'L ↺', key: 'ArrowLeft' }); api.button({ t: 'U ▲', key: 'ArrowUp', cls: 'go' }); api.button({ t: 'D ▼', key: 'ArrowDown' }); api.button({ t: 'R ↻', key: 'ArrowRight' });
+            function blocked(x, y) { if (x < 22 || x > 698 || y < 62 || y > 418) return true; return walls.some(function (w) { return x > w[0] - 20 && x < w[0] + w[2] + 20 && y > w[1] - 20 && y < w[1] + w[3] + 20; }); }
+            return {
+                step: function (dt) {
+                    t += dt; safe -= dt;
+                    r.a += ((api.held('ArrowRight') ? 1 : 0) - (api.held('ArrowLeft') ? 1 : 0)) * 3.1 * dt;
+                    var s = ((api.held('ArrowUp') ? 1 : 0) - (api.held('ArrowDown') ? 0.7 : 0)) * 170 * dt, nx = r.x + Math.cos(r.a) * s, ny = r.y + Math.sin(r.a) * s;
+                    if (!blocked(nx, r.y)) r.x = nx; if (!blocked(r.x, ny)) r.y = ny;
+                    gems = gems.filter(function (m) { if (Math.hypot(m.x - r.x, m.y - r.y) < 32) { api.add(40); api.sfx('good'); api.burst(m.x, m.y, '#22d3ee'); return false; } return true; });
+                    if (safe <= 0 && spikes.some(function (p) { return Math.hypot(p[0] - r.x, p[1] - r.y) < 32; })) { safe = 1.5; api.hurt('앗, 가시! 조심해요.'); if (api.playing()) { r.x = 70; r.y = 390; r.a = -Math.PI / 2; } }
+                    if (!gems.length) { api.add(Math.round((time - t) * 6)); api.win('보석 ' + total + '개를 모두 모았어요!'); } else if (t >= time) api.fail('시간이 다 됐어요.');
+                },
+                draw: function () {
+                    var g = api.g; api.clear('#1e293b', '#334155');
+                    for (var i = 0; i < 18; i++) api.line([[i * 40, 44], [i * 40, 440]], 'rgba(255,255,255,.05)', 1);
+                    walls.forEach(function (w) { api.rect(w[0], w[1], w[2], w[3], '#a16207', 8); });
+                    spikes.forEach(function (p) { api.emoji('🌵', p[0], p[1], 36); }); gems.forEach(function (m) { api.emoji('💎', m.x, m.y + Math.sin(t * 4 + m.x) * 3, 32); });
+                    g.save(); g.translate(r.x, r.y); g.rotate(r.a); if (safe > 0 && Math.floor(safe * 10) % 2) g.globalAlpha = 0.4;
+                    api.rect(-20, -20, 38, 40, '#2563eb', 9); api.rect(-18, -26, 30, 8, '#0f172a', 3); api.rect(-18, 18, 30, 8, '#0f172a', 3); api.circle(10, -8, 5, '#fff'); api.circle(10, 8, 5, '#fff'); g.fillStyle = '#facc15'; g.beginPath(); g.moveTo(32, 0); g.lineTo(18, -9); g.lineTo(18, 9); g.fill(); g.restore();
+                    api.hud('💎 ' + (total - gems.length) + ' / ' + total + ' · ⏱ ' + Math.max(0, Math.ceil(time - t)));
+                }
+            };
+        }
+    });
+
+    // ⑤ 다이나믹셀 각도: 하키 슛
+    RG('dxl', {
+        stages: ['각도와 속도를 정하고 [슛!] 퍽을 골대에 넣으세요. 3골!', '골키퍼가 움직여요. 3골!', '가운데 벽이 있어요. 위아래 벽에 튕겨 넣어 보세요! 3골'],
+        tips: ['0도는 정면, +는 아래쪽(오른쪽 돌기), −는 위쪽이에요. 모터는 정한 각도까지 정확히 움직여요.', '속도가 클수록 퍽이 빠르고 멀리 가요. 골키퍼가 비키는 순간을 노려요.', '벽에 부딪히면 들어온 각도와 같은 각도로 튕겨 나가요.'],
+        make: function (api, lv) {
+            var angle = api.slider('📐 각도', -60, 60, 0), power = api.slider('💨 속도', 1, 10, 7), puck = null, swing = 0, goals = 0, goalY, t = 0, shown = true, keeper = 240;
+            function place() { goalY = api.rnd(110, 370); if (lv === 2) goalY = api.pick([api.rnd(100, 150), api.rnd(330, 380), 240]); }
+            api.button({ t: '🏑 슛!', key: 'Space', cls: 'go', down: function () { if (puck) return; var a = angle.get() * Math.PI / 180, s = power.get() * 90; puck = { x: 150, y: 240, vx: Math.cos(a) * s, vy: Math.sin(a) * s }; swing = 0.35; api.sfx('shoot'); } });
+            place();
+            function miss(why) { puck = null; api.hurt(why); }
+            return {
+                step: function (dt) {
+                    t += dt; swing -= dt; keeper = goalY + Math.sin(t * (lv === 2 ? 0 : 2.4)) * 52;
+                    if (!puck) return;
+                    var k = Math.pow(0.62, dt); puck.vx *= k; puck.vy *= k; puck.x += puck.vx * dt; puck.y += puck.vy * dt;
+                    if (puck.y < 66 || puck.y > 414) { puck.vy *= -1; puck.y = api.clamp(puck.y, 66, 414); api.sfx('pop'); }
+                    if (lv === 1 && puck.x > 612 && puck.x < 640 && Math.abs(puck.y - keeper) < 28) return miss('골키퍼에게 막혔어요!');
+                    if (lv === 2 && puck.x > 384 && puck.x < 408 && Math.abs(puck.y - 240) < 66) return miss('가운데 벽에 막혔어요. 위아래 벽에 튕겨 보세요.');
+                    if (puck.x >= 662) { if (Math.abs(puck.y - goalY) < 48) { goals++; api.add(70); api.sfx('good'); api.burst(680, puck.y, null, 34); api.float(560, puck.y, '골인!', '#dc2626'); puck = null; if (goals >= 3) api.win('3골 성공!'); else place(); } else miss(puck.y < goalY ? '골대보다 위로 갔어요. 각도를 더해요.' : '골대보다 아래로 갔어요. 각도를 줄여요.'); return; }
+                    if (Math.hypot(puck.vx, puck.vy) < 45 || puck.x < 20) miss('퍽이 멈췄어요. 속도를 높여요.');
+                },
+                draw: function () {
+                    var g = api.g, a = angle.get() * Math.PI / 180; api.clear('#e0f2fe', '#f0f9ff'); api.rect(10, 56, 700, 368, '#f8fafc', 40); api.line([[360, 62], [360, 418]], '#fca5a5', 4); api.circle(360, 240, 60, null, '#93c5fd', 4);
+                    api.rect(664, goalY - 48, 40, 96, '#fecaca', 6); api.line([[664, goalY - 48], [704, goalY - 48], [704, goalY + 48], [664, goalY + 48]], '#dc2626', 6);
+                    if (lv === 1) { api.rect(614, keeper - 26, 22, 52, '#7c3aed', 8); api.emoji('🧤', 625, keeper, 24); }
+                    if (lv === 2) api.rect(386, 176, 20, 128, '#92400e', 6);
+                    api.rect(62, 214, 56, 52, '#334155', 10); api.circle(104, 240, 20, '#1f2937', '#cbd5e1', 4);
+                    var s = swing > 0 ? a + (swing - 0.17) * 6 : a - 1.2; g.save(); g.translate(104, 240); g.rotate(swing > 0 ? s : a - 0.9); api.line([[0, 0], [56, 0], [62, 20]], '#2563eb', 12); g.restore();
+                    var n = lv === 0 ? 9 : 4; if (!puck) for (var i = 1; i <= n; i++) api.circle(150 + Math.cos(a) * i * 30, 240 + Math.sin(a) * i * 30, 4, 'rgba(37,99,235,.5)');
+                    api.circle(puck ? puck.x : 150, puck ? puck.y : 240, 14, '#111827', '#475569', 3);
+                    api.text('모터 각도 ' + angle.get() + '°', 120, 90, 19, '#1d4ed8');
+                    api.hud('⚽ ' + goals + ' / 3 골');
+                }
+            };
+        }
+    });
+
+    // ⑥ 이동 수단의 발전
+    RG('ride', {
+        stages: ['오래전부터 있던 순서대로 눌러 시간의 길을 완성하세요!', '세계 여행! 길이 바뀌면 알맞은 탈것으로 바꿔 타요.', '더 빠른 여행! 우주까지 나가요.'],
+        tips: ['걷기 → 말 → 자전거 → 자동차 → 비행기 → 우주 로켓. 점점 빠르고 멀리 가게 됐어요.', '탈것은 다니는 곳이 달라요. 바다는 배, 하늘은 비행기, 산길은 말처럼요.', '새로운 이동 수단이 생기면 사람이 갈 수 있는 곳이 넓어져요.'],
+        make: function (api, lv) {
+            if (lv === 0) {
+                var order = [['🚶', '걷기'], ['🐴', '말'], ['🚲', '자전거'], ['🚗', '자동차'], ['✈️', '비행기'], ['🚀', '우주 로켓']], next = 0, walk = 0;
+                api.shuffle(order).forEach(function (v) { api.button({ t: v[0] + ' ' + v[1], down: function (b) { if (order[next][1] !== v[1]) return api.hurt('그보다 먼저 생긴 것이 있어요!'); next++; b.classList.add('on'); api.add(30); api.sfx('good'); api.burst(60 + (next - 1) * 120, 230); if (next >= order.length) api.later(function () { api.win('시간의 길을 완성했어요!'); }, 0.5); } }); });
+                return {
+                    step: function (dt) { walk += dt; },
+                    draw: function () { api.clear('#fef3c7', '#fffbeb'); api.rect(20, 270, 680, 18, '#a8a29e', 9); api.text('아주 옛날', 70, 330, 18, '#78350f'); api.text('오늘날', 660, 330, 18, '#1d4ed8'); api.emoji('➡️', 360, 330, 30); for (var i = 0; i < 6; i++) { var x = 60 + i * 120; api.circle(x, 279, 15, i < next ? '#22c55e' : '#fff', '#57534e', 3); if (i < next) { api.emoji(order[i][0], x, 220 + Math.sin(walk * 4 + i) * 5, 54, 0, true); api.text(order[i][1], x, 170, 16); } else api.text('?', x, 220, 34, '#a8a29e'); } api.hud('완성 ' + next + ' / 6'); }
+                };
+            }
+            var lands = [['🛣️ 도로', '#78716c', 2, '🌳'], ['🌊 바다', '#0284c7', 3, '🐟'], ['☁️ 하늘', '#bae6fd', 4, '☁️'], ['⛰️ 험한 산길', '#a16207', 0, '🪨']];
+            if (lv === 2) lands.push(['🌌 우주', '#1e1b4b', 5, '⭐']);
+            var vehicles = [['🐴', '말'], ['🚲', '자전거'], ['🚗', '자동차'], ['⛵', '배'], ['✈️', '비행기'], ['🚀', '로켓']];
+            var cur = 2, dist = 0, goal = lv === 1 ? 2600 : 3200, speed = lv === 1 ? 190 : 240, segs = [], at = 0, bad = 0, x = 0;
+            var last = null; while (at < goal + 800) { var l; do { l = api.pick(lands); } while (l === last); last = l; segs.push({ from: at, land: segs.length ? l : lands[0] }); at += 430; }
+            var btns = vehicles.slice(0, lv === 2 ? 6 : 5).map(function (v, i) { return api.button({ t: v[0] + ' ' + v[1], key: String(i + 1), down: function () { cur = i; mark(); api.sfx('pop'); } }); });
+            function mark() { btns.forEach(function (b, i) { b.classList.toggle('on', i === cur); }); }
+            mark();
+            function landAt(d) { var s = segs[0]; segs.forEach(function (q) { if (q.from <= d) s = q; }); return s.land; }
+            return {
+                step: function (dt) {
+                    var ok = landAt(dist).slice(2)[0] === cur; dist += speed * (ok ? 1 : 0.25) * dt; x += dt;
+                    bad = ok ? 0 : bad + dt; if (bad > 1.15) { bad = 0; api.hurt(landAt(dist)[0] + '에는 ' + vehicles[landAt(dist)[2]][1] + '이(가) 알맞아요!'); }
+                    if (dist >= goal) api.win('여행 성공!');
+                },
+                draw: function () {
+                    var now = landAt(dist); api.clear('#e0f2fe', '#f0f9ff');
+                    segs.forEach(function (s, i) { var sx = 200 + s.from - dist; if (sx > 730 || sx + 430 < -10) return; api.rect(sx, s.land[2] === 4 || s.land[2] === 5 ? 44 : 300, 431, s.land[2] === 4 || s.land[2] === 5 ? 396 : 140, s.land[1]); for (var k = 0; k < 3; k++) api.emoji(s.land[3], sx + 70 + k * 150, 380 - (k % 2) * (s.land[2] >= 4 ? 220 : 0), 32); api.rect(sx + 8, 56, 150, 30, '#fff', 15); api.text(s.land[0], sx + 83, 72, 15); });
+                    var fly = now[2] >= 4 && cur >= 4; api.emoji(vehicles[cur][0], 200, (fly ? 200 : 276) + Math.sin(x * 8) * (bad > 0 ? 8 : 3), 72, 0, cur !== 4 && cur !== 5);
+                    if (bad > 0) { api.emoji('❗', 200, 190, 44); api.bar(150, 140, 100, 14, 1 - bad / 1.15, '#dc2626'); }
+                    api.bar(470, 58, 220, 18, dist / goal, '#16a34a'); api.hud(now[0]);
+                }
+            };
+        }
+    });
+
+    // ⑦ 늘어나는 X자 팔
+    RG('stretch', {
+        stages: ['X 칸 수와 손잡이를 조절해 팔 끝을 폭탄에 딱 맞춘 뒤 [제거!] 3개', '낮은 통로 안에 있어요! 팔이 천장에 닿지 않게 3개', '폭탄이 천천히 움직여요. 3개!'],
+        tips: ['X자를 이어 만든 팔은 손잡이를 누르면 모든 칸이 한꺼번에 길어져요.', '길게 펼칠수록 팔은 납작해지고, 접을수록 두꺼워져요.', '칸이 많으면 멀리 가지만 흔들리기 쉬워요. 알맞은 칸 수를 고르는 것이 설계예요.'],
+        make: function (api, lv) {
+            var n = api.slider('❌ X 칸 수', 3, 6, 4), press = api.slider('✊ 손잡이', 0, 100, 20), done = 0, dist, base = 90, t = 0, boom = 0;
+            function geo() { var th = (70 - press.get() * 0.55) * Math.PI / 180; return { w: 90 * Math.cos(th), h: 90 * Math.sin(th) }; }
+            function place() { var k = api.pick([3, 4, 5, 6]), lo = lv === 1 ? 42 : 66, th = api.rnd(18, lo) * Math.PI / 180; dist = k * 90 * Math.cos(th); }
+            api.button({ t: '🧯 제거!', key: 'Space', cls: 'go', down: function () {
+                if (boom > 0) return; var q = geo(), end = n.get() * q.w, gap = end - target();
+                if (lv === 1 && q.h > 61) return api.hurt('팔이 천장에 걸려요! 손잡이를 더 눌러 납작하게.');
+                if (Math.abs(gap) <= 13) { done++; boom = 0.7; api.add(60 + Math.round((13 - Math.abs(gap)) * 4)); api.sfx('good'); api.burst(base + target(), 260, null, 34); api.later(function () { if (done >= 3) api.win('폭탄 3개를 모두 제거했어요!'); else place(); }, 0.7); }
+                else api.hurt(gap < 0 ? '조금 짧아요.' : '너무 길어요.');
+            } });
+            place();
+            function target() { return dist + (lv === 2 ? Math.sin(t * 0.9) * 22 : 0); }
+            return {
+                step: function (dt) { t += dt; boom -= dt; },
+                draw: function () {
+                    var q = geo(), cy = 260, k = n.get(); api.clear('#fef9c3', '#fefce8'); api.rect(0, 350, api.W, 90, '#a8a29e');
+                    if (lv === 1) { api.rect(base, cy - 46 - 16, 630, 16, '#57534e'); api.rect(base, cy + 46, 630, 16, '#57534e'); api.text('낮은 통로', base + 60, cy - 78, 15); }
+                    api.rect(base - 64, cy - 44, 64, 88, '#1d4ed8', 12); api.emoji('🤖', base - 32, cy - 66, 40);
+                    var over = lv === 1 && q.h > 61;
+                    for (var i = 0; i < k; i++) { var x = base + i * q.w; api.line([[x, cy - q.h / 2], [x + q.w, cy + q.h / 2]], over ? '#dc2626' : '#2563eb', 10); api.line([[x, cy + q.h / 2], [x + q.w, cy - q.h / 2]], over ? '#f87171' : '#60a5fa', 10); api.circle(x + q.w / 2, cy, 5, '#fff'); api.circle(x + q.w, cy - q.h / 2, 5, '#1e293b'); api.circle(x + q.w, cy + q.h / 2, 5, '#1e293b'); }
+                    var end = base + k * q.w; api.emoji('🤏', end + 12, cy, 28);
+                    if (boom > 0) api.emoji('💨', base + target(), cy, 62); else { api.emoji('💣', base + target() + 20, cy, 40); api.line([[base + target(), cy + 54], [base + target(), cy + 84]], '#dc2626', 3, [5, 5]); }
+                    api.text('팔 길이 ' + Math.round(k * q.w), 160, 76, 20, '#1d4ed8'); api.text('폭탄까지 ' + Math.round(target()), 360, 76, 20, '#b91c1c'); api.text('팔 두께 ' + Math.round(q.h), 560, 76, 20, '#475569');
+                    api.hud('제거 ' + done + ' / 3');
+                }
+            };
+        }
+    });
+
+    // ⑧ 적외선 센서: 기준값 정하기
+    RG('infra', {
+        stages: ['센서 기준값을 정하고 [출발]! 센서 값이 기준을 넘으면 멈춰요. 물건 바로 앞(초록 구역)에 서게 하세요. 3번', '색이 다른 물건! 색마다 기준값을 바꿔야 해요. 3번', '검은 물건은 빛을 조금만 돌려보내요. 바닥의 잡음보다는 크게! 3번'],
+        tips: ['적외선 센서는 빛을 보내고 돌아온 양을 재요. 가까울수록 값이 커져요.', '밝은색은 빛을 많이, 어두운색은 조금 돌려보내요. 그래서 같은 거리라도 값이 달라요.', '센서에는 작은 잡음이 있어요. 기준값은 잡음보다 크고 물건 값보다 작게 정해요.'],
+        make: function (api, lv) {
+            var limit = api.slider('🎚️ 기준값', 20, 250, 90, null, 2), done = 0, x = 110, state = 'ready', thing, noise = 20, t = 0, read = 0;
+            var colors = [['흰 상자', '#ffffff', 1], ['빨간 컵', '#ef4444', 0.7], ['회색 공', '#9ca3af', 0.45], ['검은 모자', '#111827', 0.26]];
+            function place() { thing = lv === 0 ? colors[0] : lv === 1 ? api.pick(colors.slice(0, 3)) : api.pick(colors.slice(2)); thing = { n: thing[0], c: thing[1], r: thing[2], x: api.rnd(450, 620) }; x = 110; state = 'ready'; limit.lock(false); }
+            api.button({ t: '▶ 출발', key: 'Space', cls: 'go', down: function () { if (state !== 'ready') return; state = 'go'; limit.lock(true); api.sfx('pop'); api.say(''); } });
+            function reading() { var d = Math.max(0, thing.x - (x + 40)); return thing.r * 400 * 40 / (d + 40); }
+            place();
+            return {
+                step: function (dt) {
+                    t += dt; noise = 18 + Math.sin(t * 17) * 7 + Math.sin(t * 5.3) * 5; read = Math.max(noise, reading());
+                    if (state !== 'go') return;
+                    var d = thing.x - (x + 40);
+                    if (read > limit.get()) {
+                        state = 'stop';
+                        if (d >= 8 && d <= 105) { done++; api.add(60 + Math.round(105 - d)); api.sfx('good'); api.burst(x + 40, 250); api.say('딱 좋아요! ' + Math.round(d) + '만큼 앞에서 멈췄어요.', true); api.later(function () { if (done >= 3) api.win('센서 기준값 박사!'); else place(); }, 1.1); }
+                        else { api.hurt(d > 105 ? (reading() < limit.get() ? '바닥 잡음에 속아 너무 일찍 멈췄어요. 기준값을 올려요.' : '너무 멀리서 멈췄어요. 기준값을 올려요.') : '너무 가까워요. 기준값을 낮춰요.'); api.later(function () { x = 110; state = 'ready'; limit.lock(false); }, 1.1); }
+                        return;
+                    }
+                    x += 95 * dt;
+                    if (d <= 2) { state = 'stop'; api.burst(thing.x, 260, '#f97316'); api.hurt('쿵! 센서 값이 기준보다 작아 못 멈췄어요. 기준값을 낮춰요.'); api.later(function () { x = 110; state = 'ready'; limit.lock(false); }, 1.1); }
+                },
+                draw: function () {
+                    var g = api.g; api.clear('#e2e8f0', '#f8fafc'); api.rect(0, 300, api.W, 140, '#d6d3d1'); api.rect(thing.x - 105, 300, 97, 14, '#4ade80');
+                    api.rect(thing.x, 214, 62, 86, thing.c, 12); g.strokeStyle = '#334155'; g.lineWidth = 3; g.strokeRect(thing.x, 214, 62, 86); api.text(thing.n, thing.x + 31, 196, 16);
+                    for (var i = 0; i < 4; i++) { var p = ((t * 160 + i * 60) % 240); if (x + 44 + p < thing.x) api.circle(x + 44 + p, 242, 5, 'rgba(239,68,68,.75)'); var back = thing.x - p; if (back > x + 44) api.circle(back, 266, 5, 'rgba(239,68,68,' + (0.15 + thing.r * 0.65) + ')'); }
+                    api.rect(x - 52, 226, 90, 60, '#2563eb', 14); api.circle(x - 34, 292, 16, '#111827'); api.circle(x + 18, 292, 16, '#111827'); api.circle(x + 38, 244, 7, '#fca5a5'); api.circle(x + 38, 266, 7, '#111827'); api.emoji('👀', x - 8, 246, 28);
+                    api.rect(40, 54, 640, 96, '#fff', 16); api.text('센서 값 ' + Math.round(read), 130, 84, 22, read > limit.get() ? '#dc2626' : '#0f172a');
+                    api.bar(230, 72, 420, 24, read / 260, '#f97316'); var lx = 230 + 420 * limit.get() / 260; api.line([[lx, 62], [lx, 108]], '#1d4ed8', 5); api.text('기준 ' + limit.get(), lx, 128, 15, '#1d4ed8');
+                    api.hud('성공 ' + done + ' / 3');
+                }
+            };
+        }
+    });
+
+    // ⑨ 난수: 용의 보물 주사위
+    RG('dice', {
+        stages: ['주사위를 굴려 금화를 모아요. 1이 나오면 용이 깨어 이번에 모은 것을 잃어요! [저금]하면 안전. 10번 안에 금화 30개', '10번 안에 금화 40개', '10번 안에 금화 50개! 욕심낼까, 멈출까?'],
+        tips: ['주사위의 다음 수는 아무도 몰라요. 이것이 난수예요.', '앞에서 1이 안 나왔다고 다음에 꼭 나오는 것은 아니에요. 매번 가능성은 같아요.', '아래 막대를 보세요. 많이 굴릴수록 여섯 눈이 비슷하게 나와요.'],
+        make: function (api, lv) {
+            var goal = [30, 40, 50][lv], turns = 10, bank = 0, pot = 0, face = 6, rolling = 0, count = [0, 0, 0, 0, 0, 0], dragon = 0, t = 0;
+            var faces = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+            api.button({ t: '🎲 굴리기', key: 'Space', cls: 'go', down: function () { if (rolling > 0 || dragon > 0) return; rolling = 0.7; api.sfx('pop'); } });
+            api.button({ t: '💰 저금하기', key: 'ArrowDown', down: function () { if (rolling > 0 || !pot) return; bank += pot; api.add(pot * 3); api.float(150, 200, '+' + pot, '#b45309'); pot = 0; turns--; api.sfx('good'); judge(); } });
+            function judge() { if (bank >= goal) api.later(function () { api.win('금화 ' + bank + '개를 지켰어요!'); }, 0.5); else if (turns <= 0) api.later(function () { api.fail('기회가 끝났어요. 금화 ' + bank + '개 / 목표 ' + goal + '개'); }, 0.5); }
+            return {
+                step: function (dt) {
+                    t += dt; dragon -= dt;
+                    if (rolling > 0) { rolling -= dt; face = 1 + Math.floor(Math.random() * 6); if (rolling <= 0) { count[face - 1]++; if (face === 1) { dragon = 1.4; pot = 0; turns--; api.hurt('🐲 용이 깨어났어요! 이번 금화를 잃었어요.'); if (api.playing()) judge(); } else { pot += face; api.sfx('good'); api.burst(360, 220, '#facc15', face * 4); api.say(face + '! 더 굴릴까요, 저금할까요?', true); } } }
+                },
+                draw: function () {
+                    api.clear('#451a03', '#92400e'); api.rect(0, 330, api.W, 110, '#78350f');
+                    api.emoji(dragon > 0 ? '🐲' : '😴', 600, 190 + Math.sin(t * 2) * 6, dragon > 0 ? 130 : 90); api.emoji(dragon > 0 ? '🔥' : '💤', dragon > 0 ? 500 : 660, 140, dragon > 0 ? 70 : 36);
+                    if (dragon <= 0) api.text('용이 자고 있어요', 600, 270, 16, '#fde68a');
+                    for (var i = 0; i < Math.min(30, pot); i++) api.emoji('🪙', 300 + (i * 37) % 150, 310 - Math.floor(i / 5) * 14, 24);
+                    api.rect(300, 130, 120, 120, '#fff', 24); api.text(faces[face - 1], 360, 196, rolling > 0 ? 100 : 108, '#111827');
+                    api.rect(30, 60, 230, 96, '#fff', 14); api.text('🏦 저금 ' + bank + ' / ' + goal, 145, 88, 21); api.bar(55, 106, 180, 16, bank / goal, '#f59e0b'); api.text('이번 금화 ' + pot, 145, 140, 18, '#b45309');
+                    api.text('지금까지 나온 눈', 145, 346, 15, '#fde68a'); var max = Math.max.apply(null, count.concat([4]));
+                    count.forEach(function (c, i) { var h = c / max * 56; api.rect(46 + i * 36, 414 - h, 24, h, '#fbbf24', 4); api.text(faces[i], 58 + i * 36, 426, 18, '#fff'); if (c) api.text(String(c), 58 + i * 36, 404 - h, 12, '#fff'); });
+                    api.hud('남은 기회 ' + turns);
+                }
+            };
+        }
+    });
+
+    // ⑩ 청소 로봇
+    RG('clean', {
+        stages: ['방향 버튼(또는 화면 끌기)으로 청소해요. 전지가 떨어지기 전에 먼지를 모두! 충전기에 가면 충전돼요.', '가구가 늘었어요. 길을 잘 짜 보세요.', '💧 얼룩은 [물걸레]를 켜야 지워져요. 물걸레는 전기를 더 써요.'],
+        tips: ['청소 로봇은 전지의 에너지를 아끼며 빈 곳 없이 움직이는 것이 중요해요.', '장애물을 돌아가는 가장 짧은 길을 찾으면 에너지를 아낄 수 있어요.', '필요할 때만 기능을 켜면 에너지를 절약해요. 발명은 이런 고민에서 좋아져요.'],
+        make: function (api, lv) {
+            var items = [[[300, 170, 110, 70, '🛋️']], [[220, 120, 100, 70, '🛋️'], [440, 280, 100, 70, '🛏️'], [520, 90, 60, 60, '🪴']], [[220, 130, 100, 70, '🛋️'], [430, 270, 110, 70, '🛏️'], [500, 80, 60, 60, '🪴'], [130, 280, 70, 60, '🪑']]][lv];
+            var r = { x: 70, y: 380 }, bat = 100, mop = false, dirt = [], total, aim = null, t = 0, face = 0;
+            function free(x, y, pad) { return x > 24 && x < 696 && y > 64 && y < 416 && !items.some(function (f) { return x > f[0] - pad && x < f[0] + f[2] + pad && y > f[1] - pad && y < f[1] + f[3] + pad; }); }
+            var count = [14, 18, 20][lv]; while (dirt.length < count) { var d = { x: api.rnd(40, 680), y: api.rnd(80, 400), wet: lv === 2 && dirt.length < 5 }; if (free(d.x, d.y, 24) && Math.hypot(d.x - 70, d.y - 380) > 60) dirt.push(d); } total = dirt.length;
+            [['⬅', 'ArrowLeft'], ['⬆', 'ArrowUp'], ['⬇', 'ArrowDown'], ['➡', 'ArrowRight']].forEach(function (k) { api.button({ t: k[0], key: k[1] }); });
+            if (lv === 2) api.button({ t: '💧 물걸레 켜기/끄기', key: 'Space', down: function (b) { mop = !mop; b.classList.toggle('on', mop); api.sfx('pop'); } });
+            return {
+                down: function (x, y) { aim = [x, y]; }, move: function (x, y, p) { if (p) aim = [x, y]; }, up: function () { aim = null; },
+                step: function (dt) {
+                    t += dt; var mx = (api.held('ArrowRight') ? 1 : 0) - (api.held('ArrowLeft') ? 1 : 0), my = (api.held('ArrowDown') ? 1 : 0) - (api.held('ArrowUp') ? 1 : 0);
+                    if (!mx && !my && aim) { var ax = aim[0] - r.x, ay = aim[1] - r.y, l = Math.hypot(ax, ay); if (l > 8) { mx = ax / l; my = ay / l; } }
+                    var len = Math.hypot(mx, my); if (len) { mx /= len; my /= len; face = Math.atan2(my, mx); var nx = r.x + mx * 150 * dt, ny = r.y + my * 150 * dt; if (free(nx, r.y, 20)) r.x = nx; if (free(r.x, ny, 20)) r.y = ny; bat -= dt * (mop ? 6.2 : 3.7); }
+                    bat -= dt * 0.4;
+                    if (r.x < 100 && r.y < 130) bat = Math.min(100, bat + dt * 45);
+                    dirt = dirt.filter(function (d) { if (Math.hypot(d.x - r.x, d.y - r.y) < 30 && (!d.wet || mop)) { api.add(10); api.sfx('pop'); api.burst(d.x, d.y, d.wet ? '#38bdf8' : '#a16207', 8); return false; } return true; });
+                    if (!dirt.length) { api.add(Math.round(bat * 3)); api.win('반짝반짝! 전지 ' + Math.round(bat) + '% 남음'); } else if (bat <= 0) api.fail('전지가 다 됐어요. 왼쪽 위 충전기를 이용해 보세요.');
+                },
+                draw: function () {
+                    var g = api.g; api.clear('#fef3c7', '#fde68a'); for (var i = 0; i < 9; i++) api.line([[0, 44 + i * 48], [720, 44 + i * 48]], 'rgba(146,64,14,.15)', 2);
+                    api.rect(24, 56, 72, 66, '#86efac', 14); api.emoji('🔌', 60, 88, 34);
+                    items.forEach(function (f) { api.rect(f[0], f[1], f[2], f[3], '#a8a29e', 14); api.emoji(f[4], f[0] + f[2] / 2, f[1] + f[3] / 2, Math.min(f[2], f[3]) - 16); });
+                    dirt.forEach(function (d) { if (d.wet) api.emoji('💧', d.x, d.y, 24); else { api.circle(d.x, d.y, 8, '#78350f'); api.circle(d.x + 9, d.y + 5, 5, '#92400e'); } });
+                    g.save(); g.translate(r.x, r.y); g.rotate(face); api.circle(0, 0, 23, mop ? '#38bdf8' : '#334155', '#fff', 3); api.circle(10, -8, 4, '#facc15'); api.circle(10, 8, 4, '#facc15'); g.rotate(t * 9); api.line([[16, 16], [30, 30]], '#ea580c', 4); api.line([[-16, 16], [-30, 30]], '#ea580c', 4); g.restore();
+                    api.text('🔋', 470, 60, 18); api.bar(488, 51, 200, 18, bat / 100, bat < 25 ? '#dc2626' : '#22c55e');
+                    api.hud('남은 먼지 ' + dirt.length + ' / ' + total);
+                }
+            };
+        }
+    });
+
+    // ⑪ 중력: 행성 착륙선
+    RG('gravity', {
+        stages: ['달에 착륙해요! [분사]를 눌러 속도를 줄이고 초록 착륙장에 살살 내려요. (속도 40 이하)', '화성은 달보다 중력이 세요. 착륙장에 살살!', '지구는 중력이 가장 세요! 연료를 아껴 착륙하세요.'],
+        tips: ['달의 중력은 지구의 약 6분의 1이라 천천히 떨어져요.', '화성의 중력은 지구의 약 3분의 1이에요. 같은 착륙선도 더 빨리 떨어져요.', '중력이 셀수록 속도가 빠르게 늘어나서 더 세게, 더 알맞은 때에 분사해야 해요.'],
+        make: function (api, lv) {
+            var planet = [['🌕 달', 28, '#0f172a', '#cbd5e1'], ['🔴 화성', 62, '#7c2d12', '#ea580c'], ['🌍 지구', 150, '#38bdf8', '#65a30d']][lv];
+            var x = api.rnd(100, 620), y = 90, vx = 0, vy = 0, fuel = [100, 100, 115][lv], pad = api.rnd(140, 580), flame = false, over = false;
+            api.button({ t: '⬅', key: 'ArrowLeft' }); api.button({ t: '🔥 분사 (누르고 있기)', key: 'ArrowUp', cls: 'go' }); api.button({ t: '➡', key: 'ArrowRight' });
+            return {
+                step: function (dt) {
+                    if (over) return;
+                    flame = api.held('ArrowUp') && fuel > 0; var side = (api.held('ArrowRight') ? 1 : 0) - (api.held('ArrowLeft') ? 1 : 0);
+                    vy += (planet[1] - (flame ? [85, 150, 290][lv] : 0)) * dt; if (fuel > 0) vx += side * 90 * dt; vx *= Math.pow(0.5, dt);
+                    if (flame) { fuel -= 19 * dt; if (Math.random() < dt * 16) api.tone(110, 0.06, 0, 'sawtooth', 0.05); } if (side && fuel > 0) fuel -= 6 * dt;
+                    x = api.clamp(x + vx * dt, 30, 690); y += vy * dt; if (y < 66) { y = 66; vy = Math.max(0, vy); }
+                    if (y >= 358) {
+                        y = 358; over = true; var on = Math.abs(x - pad) <= 52;
+                        if (on && vy <= 40 + (lv === 2 ? 8 : 0)) { api.add(100 + Math.round(fuel * 3)); api.burst(x, 380); api.win('사뿐! 속도 ' + Math.round(vy) + '로 착륙했어요.'); }
+                        else { api.burst(x, 380, '#f97316', 40); api.hurt(!on ? '착륙장을 벗어났어요.' : '너무 빨라요! 속도 ' + Math.round(vy)); api.later(function () { x = api.rnd(100, 620); y = 90; vx = vy = 0; fuel = [100, 100, 115][lv]; over = false; }, 1.1); }
+                    }
+                },
+                draw: function () {
+                    api.clear(planet[2], lv === 2 ? '#e0f2fe' : planet[2]); if (lv < 2) for (var i = 0; i < 40; i++) api.circle((i * 131) % 720, 50 + (i * 71) % 300, 1.4, '#fff');
+                    api.rect(0, 388, api.W, 52, planet[3]); api.rect(pad - 54, 382, 108, 12, '#22c55e', 5); api.emoji('🚩', pad + 60, 366, 30);
+                    if (flame) api.emoji('🔥', x, y + 42 + Math.random() * 6, 34, Math.PI);
+                    api.rect(x - 26, y - 20, 52, 40, '#e5e7eb', 16); api.circle(x, y - 4, 11, '#38bdf8', '#334155', 3); api.line([[x - 20, y + 18], [x - 32, y + 30]], '#334155', 6); api.line([[x + 20, y + 18], [x + 32, y + 30]], '#334155', 6);
+                    api.rect(14, 48, 210, 88, 'rgba(255,255,255,.9)', 14); api.text(planet[0] + ' 중력 ' + planet[1], 119, 68, 16); api.text('떨어지는 속도 ' + Math.max(0, Math.round(vy)), 119, 92, 17, vy > 40 ? '#dc2626' : '#059669'); api.bar(34, 108, 170, 16, fuel / 115, '#f59e0b', '연료');
+                    api.hud('초록 착륙장에 살살!');
+                }
+            };
+        }
+    });
+
+    // ⑫ 도미노와 거리
+    RG('domino', {
+        stages: ['바닥을 눌러 도미노를 세우고(다시 누르면 빼기) [밀기]! 종 🔔 까지 넘어뜨리세요. 도미노 10개까지', '더 먼 길! 도미노 11개로 종까지.', '웅덩이에는 세울 수 없어요. 간격을 잘 맞춰 건너세요. 11개'],
+        tips: ['도미노 사이 거리가 도미노 키보다 짧아야 다음 것에 닿아요.', '간격을 넓히면 적은 개수로 멀리 갈 수 있지만, 너무 넓으면 끊겨요.', '일정한 간격은 “전체 거리 ÷ 칸 수”로 어림할 수 있어요.'],
+        make: function (api, lv) {
+            var H = 60, REACH = 59, startX = 70, bell = [470, 600, 620][lv], max = [10, 11, 11][lv], holes = lv === 2 ? [[240, 276], [436, 472]] : [], list = [startX], angles = [], falling = false, t = 0, chain = 0, rung = false, snd = 0;
+            api.button({ t: '👉 밀기', key: 'Space', cls: 'go', down: function () { if (falling) return; list.sort(function (a, b) { return a - b; }); falling = true; t = 0; snd = 0; chain = 1; while (chain < list.length && list[chain] - list[chain - 1] <= REACH) chain++; } });
+            api.button({ t: '↺ 모두 치우기', down: function () { if (!falling) { list = [startX]; angles = []; } } });
+            return {
+                down: function (x, y) {
+                    if (falling || y < 150) return; var hit = list.filter(function (p) { return Math.abs(p - x) < 11; })[0];
+                    if (hit !== undefined) { if (hit !== startX) list.splice(list.indexOf(hit), 1); return; }
+                    if (x < startX + 14 || x > bell - 16) return api.say('출발 도미노와 종 사이에 세워요.');
+                    if (holes.some(function (h) { return x > h[0] && x < h[1]; })) return api.say('웅덩이에는 세울 수 없어요!');
+                    if (list.length >= max) return api.say('도미노는 ' + max + '개까지예요.');
+                    list.push(Math.round(x)); api.sfx('pop');
+                },
+                step: function (dt) {
+                    if (!falling) return; t += dt;
+                    for (var i = 0; i < chain; i++) { var next = i + 1 < list.length ? list[i + 1] : bell, gap = next - list[i], stop = gap <= REACH ? Math.asin(Math.min(1, gap / H)) + 0.1 : 1.5708; angles[i] = Math.max(0, Math.min(stop, (t - i * 0.17) * 6)); if (i >= snd && angles[i] > 0.4) { snd = i + 1; api.tone(300 + i * 55, 0.09, 0, 'triangle'); } }
+                    if (t > chain * 0.17 + 0.55) {
+                        falling = false; var ok = chain === list.length && bell - list[list.length - 1] <= REACH;
+                        if (ok) { rung = true; api.tone(1200, 0.7); api.burst(bell, 300, '#facc15', 40); api.add(100 + (max - list.length) * 40); api.win('딩동! 도미노 ' + list.length + '개로 성공!'); }
+                        else { api.hurt(chain < list.length ? chain + '번째에서 끊겼어요. 다음 도미노가 너무 멀어요.' : '마지막 도미노가 종에 닿지 않아요.'); api.later(function () { angles = []; }, 1.2); }
+                    }
+                },
+                draw: function () {
+                    var g = api.g; api.clear('#ede9fe', '#faf5ff'); api.rect(0, 350, api.W, 90, '#a8a29e');
+                    holes.forEach(function (h) { api.rect(h[0], 346, h[1] - h[0], 26, '#38bdf8', 10); api.emoji('💧', (h[0] + h[1]) / 2, 392, 22); });
+                    for (var x = startX; x <= bell; x += 59) { api.line([[x, 358], [x, 368]], '#44403c', 2); }
+                    api.text('눈금 한 칸 = 도미노가 닿는 거리', 360, 420, 15, '#1c1917');
+                    list.forEach(function (p, i) { g.save(); g.translate(p + 6, 350); g.rotate(angles[i] || 0); api.rect(-12, -H, 12, H, i === 0 ? '#111827' : ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'][i % 6], 3); api.circle(-6, -H + 14, 3, '#fff'); api.circle(-6, -14, 3, '#fff'); g.restore(); });
+                    api.line([[bell + 24, 350], [bell + 24, 262]], '#57534e', 6); api.emoji('🔔', bell + 8, 300, rung ? 60 : 46, rung ? 0.4 : 0);
+                    api.text('출발', startX, 262, 15); api.text('도미노 키 ' + H, 100, 76, 17, '#6d28d9');
+                    api.hud('도미노 ' + list.length + ' / ' + max);
+                }
+            };
+        }
+    });
+})();
+</script>
+{% endverbatim %}
