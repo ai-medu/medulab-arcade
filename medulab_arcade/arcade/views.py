@@ -3030,6 +3030,10 @@ def member_list(request):
             Q(username__icontains=search) |
             Q(email__icontains=search)
         )
+    # 유형 버튼 옆 숫자: 그 버튼을 눌렀을 때 목록에 나오는 사람 수 (검색 중이면 검색 결과 안에서 센다)
+    countable = users if search else users.filter(profile__onboarding_complete=True)
+    type_counts = dict(countable.order_by().values_list('profile__user_type').annotate(n=Count('id', distinct=True)))
+    all_count = sum(type_counts.values())
     if user_type:
         users = users.filter(profile__user_type=user_type)
     if status == 'pending':
@@ -3062,6 +3066,7 @@ def member_list(request):
             'code': code,
             'label': type_labels[code],
             'active': user_type == code,
+            'count': type_counts.get(code, 0),
         }
         for code in ordered_codes
     ]
@@ -3075,6 +3080,7 @@ def member_list(request):
         'user_types': UserProfile.USER_TYPE_CHOICES,
         'type_filters': type_filters,
         'incomplete_count': incomplete_count,
+        'all_count': all_count,
         'onboard_type_choices': UserProfile.PUBLIC_TYPE_CHOICES,
         # 가입 신청을 거절할 때 바꿔 줄 수 있는 유형 (승인 없이 바로 쓸 수 있는 일반 유형)
         'reject_type_choices': [c for c in UserProfile.USER_TYPE_CHOICES if c[0] in UserProfile.AUTO_APPROVE_TYPES],
