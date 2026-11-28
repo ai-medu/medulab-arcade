@@ -186,6 +186,7 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 # Media files (업로드된 학생 작품)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+ROBOT_LESSON_DIR = BASE_DIR / 'robot_lessons_media'   # 로봇 수업 교재·조립서 그림 (저작물이라 저장소에 올리지 않고 회원에게만 보여 준다)
 # 메듀코드(블록코딩 도구) 빌드 결과를 복사해 두는 폴더 (저장소에는 올리지 않고 서버에 직접 복사)
 MEDUCODE_DIST = BASE_DIR / 'meducode_dist'
 # 메듀코드 TTS (구글 Text-to-Speech). 키는 .env 에만 넣는다. 비어 있으면 음성 만들기가 안내와 함께 거절된다

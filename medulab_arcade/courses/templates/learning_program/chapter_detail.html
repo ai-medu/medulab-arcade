@@ -59,6 +59,10 @@
         margin-bottom: 8px;
         white-space: pre-line;
     }
+    .robot-thumb { width: 100%; aspect-ratio: 4 / 3; object-fit: contain; background: #fff; border-radius: 12px; margin-bottom: 14px; display: block; }
+    .robot-name { font-size: 21px; font-weight: 800; color: #fff; margin-bottom: 6px; }
+    .robot-topic { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 10px; }
+    .robot-steps { font-size: 12px; color: var(--text-muted); }
     .item-key {
         font: 700 12px 'JetBrains Mono', monospace;
         color: var(--text-muted);
@@ -110,6 +114,16 @@
                 <div class="item-badge olympiad">사고력 올림피아드</div>
                 <div class="item-title">문제 {{ card.item.number }}-{{ card.sq.number }}</div>
                 <div class="item-key" style="margin-top:6px;line-height:1.5;">{{ card.sq.question_text|truncatechars:60 }}</div>
+                <div class="status-icon {% if card.is_completed %}completed{% endif %}">
+                    {% if card.is_completed %}✓{% else %}?{% endif %}
+                </div>
+            </a>
+            {% elif card.item.robot_data %}
+            <a href="{% url 'item_page' card.item.id %}" class="item-card">
+                <img class="robot-thumb" src="{% url 'robot_asset' card.item.id 'thumb.jpg' %}" alt="{{ card.item.robot_data.robot }} 완성 모습" loading="lazy">
+                <div class="robot-name">{{ card.item.number }}. {{ card.item.robot_data.robot }}</div>
+                <div class="robot-topic">{{ card.item.robot_data.topic }}</div>
+                <div class="robot-steps">🔬 이론·문제 → 🔧 제작 → 💻 코딩 → 🏆 미션</div>
                 <div class="status-icon {% if card.is_completed %}completed{% endif %}">
                     {% if card.is_completed %}✓{% else %}?{% endif %}
                 </div>

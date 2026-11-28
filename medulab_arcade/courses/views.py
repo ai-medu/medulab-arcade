@@ -57,6 +57,7 @@ from .models import (
     OlympiadSubAnswer,
     RoadmapNode,
 )
+from . import robot_views
 from .forms import (
     AnswerZipImportForm,
     ChapterForm,
@@ -2223,6 +2224,29 @@ def chapter_detail(request, chapter_id):
         "program": chapter.program
     })
 
+# --- 로봇 수업: 조립서 그림 · 문제 채점 · 미션 ---
+def robot_asset(request, item_id, name):
+    item = get_object_or_404(Item, id=item_id)
+    if name == 'thumb.jpg':   # 로봇 목록에 보이는 작은 그림
+        return robot_views.send_asset(item, name)
+    return _robot_asset_member(request, item, name)
+
+
+@require_full_member_page
+def _robot_asset_member(request, item, name):
+    return robot_views.send_asset(item, name)
+
+
+@require_full_member_page
+def robot_quiz(request, item_id):
+    return robot_views.quiz_view(request, item_id)
+
+
+@require_full_member_page
+def robot_mission(request, item_id):
+    return robot_views.mission_view(request, item_id)
+
+
 # --- (6) 학습 아이템 페이지 ---
 @require_full_member_page
 def item_page(request, item_id):
@@ -2280,6 +2304,9 @@ def item_page(request, item_id):
             {"sq": sq, "my_answer": my_answers.get(sq.id)}
             for sq in sqs
         ]
+
+    if item.robot_data:
+        return robot_views.render_lesson(request, item, prev_item, next_item, progress)
 
     # 템플릿 결정 (과정 이름이나 유형에 따라 분기 가능)
     template_name = "learning_program/item_page.html"

@@ -24,6 +24,7 @@ staticfiles/
 meducode_dist/
 meducode_tts_cache/
 meducode_examples/
+robot_lessons_media/
 
 # Environment variables
 .env

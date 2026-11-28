@@ -478,7 +478,7 @@
 
                 <div class="chapter-main">
                     <div class="chapter-name">{{ ch.title }}</div>
-                    <div class="chapter-summary">{{ ch.content|truncatechars:120|default:"학습 목표와 주요 내용을 확인하세요." }}</div>
+                    <div class="chapter-summary">{% if "학습목표" in ch.content %}{{ ch.content }}{% else %}{{ ch.content|default:"학습 목표와 주요 내용을 확인하세요."|truncatechars:120 }}{% endif %}</div>
                 </div>
 
                 <div class="progress-info">
