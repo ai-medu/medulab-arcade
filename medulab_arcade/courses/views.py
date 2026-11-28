@@ -57,6 +57,7 @@ from .models import (
     OlympiadSubAnswer,
     RoadmapNode,
 )
+from . import mission_views
 from . import robot_views
 from .forms import (
     AnswerZipImportForm,
@@ -2183,6 +2184,8 @@ def chapter_detail(request, chapter_id):
         progress_map = {}
     for item in items:
         item.is_completed = progress_map.get(item.id, False)
+    if request.user.is_authenticated and any(item.mission_data for item in items):
+        mission_views.attach_stars(items, UserProgress.objects.filter(user=request.user, item__in=items))
 
     # olympiad 아이템은 하위문제별 카드로 확장
     sub_answer_map = {}
@@ -2247,6 +2250,22 @@ def robot_mission(request, item_id):
     return robot_views.mission_view(request, item_id)
 
 
+# --- 코딩 미션 결과 저장 ---
+@require_full_member_page
+def mission_save(request, item_id):
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "POST required"}, status=405)
+    item = get_object_or_404(Item, id=item_id, mission_data__isnull=False)
+    error, success = mission_views.save_result(request, item)
+    if error:
+        return error
+    new_badges = []
+    if success:
+        new_badges.extend(evaluate_mission_badges(request.user))
+        new_badges.extend(evaluate_program_badges(request.user, item.chapter.program))
+    return JsonResponse({"ok": True, "new_badges": new_badges})
+
+
 # --- (6) 학습 아이템 페이지 ---
 @require_full_member_page
 def item_page(request, item_id):
@@ -2307,6 +2326,8 @@ def item_page(request, item_id):
 
     if item.robot_data:
         return robot_views.render_lesson(request, item, prev_item, next_item, progress)
+    if item.mission_data:
+        return mission_views.render_mission(request, item, prev_item, next_item, progress)
 
     # 템플릿 결정 (과정 이름이나 유형에 따라 분기 가능)
     template_name = "learning_program/item_page.html"

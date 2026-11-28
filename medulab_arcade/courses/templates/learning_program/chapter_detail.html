@@ -63,6 +63,8 @@
     .robot-name { font-size: 21px; font-weight: 800; color: #fff; margin-bottom: 6px; }
     .robot-topic { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 10px; }
     .robot-steps { font-size: 12px; color: var(--text-muted); }
+    .mission-stars { font-size: 24px; letter-spacing: 4px; color: rgba(148, 163, 184, 0.45); }
+    .mission-stars .on { color: #fbbf24; }
     .item-key {
         font: 700 12px 'JetBrains Mono', monospace;
         color: var(--text-muted);
@@ -124,6 +126,16 @@
                 <div class="robot-name">{{ card.item.number }}. {{ card.item.robot_data.robot }}</div>
                 <div class="robot-topic">{{ card.item.robot_data.topic }}</div>
                 <div class="robot-steps">🔬 이론·문제 → 🔧 제작 → 💻 코딩 → 🏆 미션</div>
+                <div class="status-icon {% if card.is_completed %}completed{% endif %}">
+                    {% if card.is_completed %}✓{% else %}?{% endif %}
+                </div>
+            </a>
+            {% elif card.item.mission_data %}
+            <a href="{% url 'item_page' card.item.id %}" class="item-card">
+                <div class="item-badge example">미션 {{ chapter.number }}-{{ card.item.number }}</div>
+                <div class="robot-name">{{ card.item.title }}</div>
+                <div class="robot-topic">{{ card.item.mission_data.story }}</div>
+                <div class="mission-stars" aria-label="받은 별 {{ card.item.stars|default:0 }}개">{% for n in "123" %}<span class="{% if card.item.stars >= forloop.counter %}on{% endif %}">★</span>{% endfor %}</div>
                 <div class="status-icon {% if card.is_completed %}completed{% endif %}">
                     {% if card.is_completed %}✓{% else %}?{% endif %}
                 </div>

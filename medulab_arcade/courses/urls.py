@@ -59,6 +59,7 @@ urlpatterns = [
     path('program/<int:program_id>/curriculum/', views.course_curriculum_preview, name='course_curriculum_preview'),
     path('chapter/<int:chapter_id>/', views.chapter_detail, name='chapter_detail'),
     path('item/<int:item_id>/', views.item_page, name='item_page'),
+    path('item/<int:item_id>/mission/save/', views.mission_save, name='mission_save'),
     path('item/<int:item_id>/robot/quiz/', views.robot_quiz, name='robot_quiz'),
     path('item/<int:item_id>/robot/mission/', views.robot_mission, name='robot_mission'),
     path('item/<int:item_id>/robot/<str:name>', views.robot_asset, name='robot_asset'),
