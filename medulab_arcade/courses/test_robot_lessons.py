@@ -64,7 +64,8 @@ class RobotLessonTests(TestCase):
                 self.assertIn(q['answer'], range(4), q['q'])
             self.assertEqual([m['id'] for m in lesson['missions']], ['m1', 'm2', 'm3'])
             number = int(lesson['key'][-2:])
-            self.assertEqual(lesson['code']['start'], None if number == 1 else number)   # 활은 직접 만드는 과녁 코드
+            # 활(과녁)과 트레일러(라인 따라가기)는 통합 예제가 아니라 직접 만드는 코드
+            self.assertEqual(lesson['code']['start'], None if number in (1, 9) else number)
             code = os.path.join(os.path.dirname(__file__), 'robot_lessons', 'ollo_lv1_code', f'code{number:02d}.svg')
             self.assertTrue(os.path.isfile(code), code)
             self.assertTrue(lesson['easy'] and lesson['school'], lesson['key'])
