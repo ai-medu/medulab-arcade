@@ -194,6 +194,7 @@ MEDUCODE_TTS_VOICE = os.environ.get('MEDUCODE_TTS_VOICE', 'ko-KR-Standard-A')
 MEDUCODE_TTS_USER_DAILY_CHARS = int(os.environ.get('MEDUCODE_TTS_USER_DAILY_CHARS', '500'))   # 회원 한 명의 하루 글자 수
 MEDUCODE_TTS_MONTHLY_CHARS = int(os.environ.get('MEDUCODE_TTS_MONTHLY_CHARS', '1000000'))      # 전체의 한 달 글자 수
 MEDUCODE_TTS_CACHE = BASE_DIR / 'meducode_tts_cache'   # 한 번 만든 음성 보관
+MEDUCODE_EXAMPLES = BASE_DIR / 'meducode_examples'   # 관리자가 메듀코드에서 업데이트한 예제 (서버에 계속 보관)
 
 # 업로드 파일 크기 제한 (50MB)
 FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800
