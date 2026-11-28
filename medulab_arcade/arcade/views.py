@@ -3010,6 +3010,13 @@ def member_complete_onboarding(request, user_id):
     messages.success(request, f'"{data["real_name"]}" 님의 가입을 완료했습니다.' + (' (승인됨)' if profile.is_approved else ' (승인 대기)'))
     return redirect(next_url)
 
+# 회원 관리 필터의 묶음: (주소 값, 버튼 이름, 묶음에 속한 유형 — 화면에 보이는 순서)
+MEMBER_GROUPS = (
+    ('medulab', '메듀랩', ('medulab_member', 'medulab_parent', 'medulab_teacher', 'medulab_inactive', 'medulab_staff')),
+    ('site', '사이트회원', ('student', 'parent', 'general', 'teacher')),
+)
+
+
 @login_required
 @user_passes_test(staff_check)
 def member_list(request):
@@ -3034,8 +3041,15 @@ def member_list(request):
     countable = users if search else users.filter(profile__onboarding_complete=True)
     type_counts = dict(countable.order_by().values_list('profile__user_type').annotate(n=Count('id', distinct=True)))
     all_count = sum(type_counts.values())
+    # 회원 묶음(메듀랩 / 사이트회원). 유형 하나를 고르면 그 유형이 속한 묶음이 펼쳐진 채로 남는다
+    group = next((key for key, _, codes in MEMBER_GROUPS if user_type in codes), request.GET.get('group', ''))
+    group_codes = next((codes for key, _, codes in MEMBER_GROUPS if key == group), None)
+    if group_codes is None:
+        group = ''
     if user_type:
         users = users.filter(profile__user_type=user_type)
+    elif group_codes:
+        users = users.filter(profile__user_type__in=group_codes)
     if status == 'pending':
         users = users.filter(pending_q)
     # 소셜 가입 후 추가정보 입력을 끝내지 않은 계정은 가입이 끝난 회원이 아니므로 목록에서 빼고,
@@ -3053,24 +3067,16 @@ def member_list(request):
         u.signup_providers = ', '.join(sorted({a.get_provider().name for a in u.socialaccount_set.all()})) or '이메일 가입'
         u.signup_via = provider_ids[0] if len(provider_ids) == 1 else ('social' if provider_ids else 'email')
 
-    # 필터 버튼 표시 순서 (메듀랩 회원 먼저, 그다음 일반 가입 유형, 레거시 유형은 맨 뒤)
-    type_filter_order = [
-        'medulab_member', 'medulab_parent', 'medulab_staff', 'medulab_inactive',
-        'student', 'parent', 'teacher', 'general', 'medulab_teacher',
-    ]
     type_labels = dict(UserProfile.USER_TYPE_CHOICES)
-    ordered_codes = [c for c in type_filter_order if c in type_labels]
-    ordered_codes += [c for c in type_labels if c not in ordered_codes]
-    type_filters = [
-        {
-            'code': code,
-            'label': type_labels[code],
-            'active': user_type == code,
-            'count': type_counts.get(code, 0),
-        }
-        for code in ordered_codes
-    ]
-        
+    member_groups = [{
+        'key': key,
+        'label': label,
+        'count': sum(type_counts.get(code, 0) for code in codes),
+        'active': group == key,
+        'filters': [{'code': code, 'label': type_labels[code], 'active': user_type == code, 'count': type_counts.get(code, 0)}
+                    for code in codes],
+    } for key, label, codes in MEMBER_GROUPS]
+
     context = {
         'users': users,
         'search_query': search,
@@ -3078,7 +3084,8 @@ def member_list(request):
         'current_status': status,
         'pending_count': pending_count,
         'user_types': UserProfile.USER_TYPE_CHOICES,
-        'type_filters': type_filters,
+        'member_groups': member_groups,
+        'current_group': group,
         'incomplete_count': incomplete_count,
         'all_count': all_count,
         'onboard_type_choices': UserProfile.PUBLIC_TYPE_CHOICES,

@@ -4,7 +4,7 @@
 
 {% block extra_css %}
 <style>
-    .admin-wrap { max-width: 1360px; margin: 40px auto; padding: 0 24px; animation: fadeSlideIn 0.4s ease; }
+    .admin-wrap { max-width: 1200px; margin: 40px auto; padding: 0 24px; animation: fadeSlideIn 0.4s ease; }
     .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; flex-wrap: wrap; gap: 16px; }
     .page-title { font: 900 28px 'Orbitron', sans-serif; background: linear-gradient(90deg, var(--accent-green), var(--accent-blue)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
     
@@ -16,12 +16,12 @@
     .search-input-group span { position: absolute; left: 16px; top: 14px; color: var(--text-muted); }
     
     .type-filter select { padding: 12px 16px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 12px; color: #fff; outline: none; appearance: none; cursor: pointer; }
-    /* 회원 종류 필터는 검색창 아래 한 줄. 화면이 좁으면 줄바꿈 대신 옆으로 밀어서 본다 */
-    .type-filter { width: 100%; min-width: 0; }
-    .type-filter-buttons { display: flex; flex-wrap: nowrap; gap: 5px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
-    .type-filter-btn { display: inline-flex; flex: 1 0 auto; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; padding: 9px 8px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #fff; text-decoration: none; font-size: 12px; font-weight: 700; }
+    .type-filter { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+    .type-filter-buttons { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .type-filter-btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap; padding: 10px 18px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #fff; text-decoration: none; font-size: 14px; font-weight: 700; }
     .type-filter-btn .n { font-weight: 900; opacity: 0.75; }
-    @media (max-width: 1340px) { .admin-wrap { padding: 0 14px; } .type-filter-buttons { gap: 3px; } .type-filter-btn { padding: 8px 5px; font-size: 11px; gap: 2px; letter-spacing: -0.3px; } }
+    .type-filter-btn.group { border-width: 2px; border-color: rgba(59,130,246,0.45); }
+    .type-filter-sub { padding: 10px 12px; border-radius: 16px; border: 1px solid var(--border); background: rgba(59,130,246,0.07); }
     .type-filter-btn.active { background: linear-gradient(135deg, #3b82f6, #6366f1); border-color: transparent; }
 
     /* 테이블 스타일 */
@@ -119,11 +119,18 @@
             <div class="type-filter-buttons">
                 <a href="{% url 'member_list' %}?status=pending" class="type-filter-btn {% if current_status == 'pending' %}active{% endif %}" style="border-color:rgba(255,193,7,0.5); color:#ffc107;">⏳ 승인대기 ({{ pending_count }})</a>
                 <a href="{% url 'member_list' %}?status=incomplete" class="type-filter-btn {% if current_status == 'incomplete' %}active{% endif %}" title="구글/카카오로 가입만 하고 추가정보 입력을 끝내지 않은 계정">📝 가입 미완료 ({{ incomplete_count }})</a>
-                <a href="{% url 'member_list' %}{% if search_query %}?q={{ search_query|urlencode }}{% endif %}" class="type-filter-btn {% if not current_type and current_status != 'pending' and current_status != 'incomplete' %}active{% endif %}">모든 회원 유형 <span class="n">({{ all_count }})</span></a>
-                {% for filter in type_filters %}
+                <a href="{% url 'member_list' %}{% if search_query %}?q={{ search_query|urlencode }}{% endif %}" class="type-filter-btn {% if not current_type and not current_group and current_status != 'pending' and current_status != 'incomplete' %}active{% endif %}">모든 회원 유형 <span class="n">({{ all_count }})</span></a>
+                {% for g in member_groups %}
+                <a href="{% url 'member_list' %}?group={{ g.key }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}" class="type-filter-btn group {% if g.active and not current_type %}active{% endif %}" aria-expanded="{{ g.active|yesno:'true,false' }}">{{ g.label }} <span class="n">({{ g.count }})</span> {% if g.active %}▲{% else %}▼{% endif %}</a>
+                {% endfor %}
+            </div>
+            {% for g in member_groups %}{% if g.active %}
+            <div class="type-filter-buttons type-filter-sub">
+                {% for filter in g.filters %}
                 <a href="{% url 'member_list' %}?type={{ filter.code }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}" class="type-filter-btn {% if filter.active %}active{% endif %}">{{ filter.label }} <span class="n">({{ filter.count }})</span></a>
                 {% endfor %}
             </div>
+            {% endif %}{% endfor %}
         </div>
     </form>
 
