@@ -44,8 +44,17 @@ class GameRecordTests(TestCase):
         self.assertEqual(self._get()['games']['rain']['top']['name'], 'kid')
         res = self._save(self.friend, 'rain', 2, 90).json()
         self.assertTrue(res['new_top'])
-        self.assertEqual(res['games']['rain']['top'], {'level': 2, 'value': 90.0, 'name': 'friend'})
+        self.assertEqual(res['games']['rain']['top'], {'level': 2, 'value': 90.0, 'name': 'friend', 'me': True})
         self.assertEqual(res['games']['rain']['mine'], {'level': 2, 'value': 90.0})
+
+    def test_top_shows_real_name_and_masks_it_for_visitors(self):
+        self.kid.profile.real_name = '홍길동'
+        self.kid.profile.save()
+        self._save(self.kid, 'rain', 1, 100)
+        self.client.force_login(self.friend)
+        self.assertEqual(self._get()['games']['rain']['top']['name'], '홍길동')
+        self.client.logout()
+        self.assertEqual(self._get()['games']['rain']['top']['name'], '홍*동')
 
     def test_only_better_record_replaces_and_time_games_prefer_shorter(self):
         self._save(self.kid, 'car', 1, 40)

@@ -30,11 +30,22 @@ def _better(a, b, game):
     return a[1] < b[1] if game in TIME_GAMES else a[1] > b[1]
 
 
+def display_name(row_user, viewer):
+    """전체 최고에 보이는 이름(없으면 아이디). 로그인하지 않은 방문자에게는 가운데를 가린다."""
+    profile = getattr(row_user, 'profile', None)
+    name = ((profile.real_name if profile else '') or '').strip() or row_user.username
+    if viewer.is_authenticated:
+        return name
+    if len(name) <= 2:
+        return name[:1] + '*'
+    return name[0] + '*' * (len(name) - 2) + name[-1]
+
+
 def summary(user, language):
     """게임별 {mine: 내 최고, top: 전체 최고, cleared: 내가 성공한 가장 높은 레벨}. 선생님(직원) 기록은 전체 최고에서 뺀다."""
     games = {g: {'mine': None, 'top': None, 'cleared': 0} for g in GAMES}
     best_top, best_mine = {}, {}
-    rows = TypingGameRecord.objects.filter(language=language, game__in=GAMES).select_related('user').order_by(
+    rows = TypingGameRecord.objects.filter(language=language, game__in=GAMES).select_related('user__profile').order_by(
         'achieved_at', 'id')   # 같은 기록이면 먼저 세운 사람이 최고
     for row in rows:
         key = (row.level, row.value)
@@ -45,7 +56,8 @@ def summary(user, language):
                 games[row.game]['mine'] = {'level': row.level, 'value': row.value}
         if not row.user.is_staff and row.user.is_active and _better(key, best_top.get(row.game), row.game):
             best_top[row.game] = key
-            games[row.game]['top'] = {'level': row.level, 'value': row.value, 'name': row.user.username}
+            games[row.game]['top'] = {'level': row.level, 'value': row.value, 'name': display_name(row.user, user),
+                                      'me': user.is_authenticated and row.user_id == user.id}
     return games
 
 
@@ -92,5 +104,5 @@ def game_records(request):
         record.save()
     response = _payload(request, language, new_best=new_best)
     top = json.loads(response.content)['games'][game]['top']
-    is_top = bool(top) and top['name'] == request.user.username and top['level'] == level and top['value'] == value
+    is_top = bool(top) and top['me'] and top['level'] == level and top['value'] == value
     return _payload(request, language, new_best=new_best, new_top=new_best and is_top)

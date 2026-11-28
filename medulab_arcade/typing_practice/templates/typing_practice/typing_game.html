@@ -189,13 +189,14 @@
 
     /* =============== 공통 도우미 =============== */
     var lang = 'ko', cur = null, level = 1, onSubmit = null;
+    var spaceReady = null;   // 문장을 쓰는 게임에서만: 지금 띄어쓰기를 눌렀을 때 입력해도 되는지 알려 주는 함수
     try { lang = localStorage.getItem('tg2_lang') === 'en' ? 'en' : 'ko'; } catch (e) {}
     var menu = document.getElementById('tgMenu'), gameEl = document.getElementById('tgGame'), board = document.getElementById('tgBoard'), input = document.getElementById('tgInput');
     var infoEl = document.getElementById('tgInfo'), laEl = document.getElementById('tgLA'), aEl = document.getElementById('tgA'), lbEl = document.getElementById('tgLB'), bEl = document.getElementById('tgB');
     var cWrap = document.getElementById('tgCWrap'), lcEl = document.getElementById('tgLC'), cEl = document.getElementById('tgC'), recEl = document.getElementById('tgRec');
     var cleanups = [];
     function addC(fn) { cleanups.push(fn); }
-    function stopAll() { cleanups.forEach(function (f) { try { f(); } catch (e) {} }); cleanups = []; onSubmit = null; }
+    function stopAll() { cleanups.forEach(function (f) { try { f(); } catch (e) {} }); cleanups = []; onSubmit = null; spaceReady = null; }
     function after(fn, ms) { var id = setTimeout(fn, ms); addC(function () { clearTimeout(id); }); return id; }
     function every(fn, ms) { var id = setInterval(fn, ms); addC(function () { clearInterval(id); }); }
     function frames(fn) {
@@ -440,8 +441,10 @@
         for (var i = 0; i < goal; i++) prompts.push(order[i % order.length]);
         setInfo(c.unitLabel, goal, '시간', '0.0');
         function place(el, prog) { el.style.left = (8 + prog * (W - 130)) + 'px'; }
-        function show() { promptEl.innerHTML = '<div class="s">이 ' + c.unit + '을(를) 똑같이 쓰고 Enter!</div><div class="w" style="font-size:' + (c.big || 34) + 'px">' + prompts[done] + '</div>'; }
+        function show() { promptEl.innerHTML = '<div class="s">이 ' + c.unit + '을(를) 똑같이 쓰고 Enter 또는 스페이스!</div><div class="w" style="font-size:' + (c.big || 34) + 'px">' + prompts[done] + '</div>'; }
         place(runP, 0); place(runO, 0);
+        // 문장에는 띄어쓰기가 있으므로, 문장을 다 맞게 쓴 뒤의 스페이스만 입력으로 본다
+        if (c.sentence) spaceReady = function (v) { return done < goal && normSent(v) === normSent(prompts[done]); };
         countdown3(function () {
             startAt = Date.now(); show(); input.disabled = false; input.focus();
             var elapsedFn = timerUp();
@@ -530,7 +533,7 @@
         fallGame({ dir: 'arc', bombs: true, bg: 'linear-gradient(#fde68a,#fef3c7)', emoji: function () { return F[rnd(0, F.length)]; }, grow: 0 });
     } };
     GAMES.car = { name: '자동차 경주', icon: '🏎️', stars: 2, unit: '초', lower: true, run: function () {
-        raceGame({ bg: 'linear-gradient(#bbf7d0,#ecfccb)', pEmoji: '🏎️', oEmoji: '🚙', oName: '컴퓨터 자동차', pool: pool(SENT), unit: '문장', unitLabel: '남은 문장', big: 28, winText: '문장을 정확하게 모두 썼어요' });
+        raceGame({ bg: 'linear-gradient(#bbf7d0,#ecfccb)', pEmoji: '🏎️', oEmoji: '🚙', oName: '컴퓨터 자동차', pool: pool(SENT), unit: '문장', sentence: true, unitLabel: '남은 문장', big: 28, winText: '문장을 정확하게 모두 썼어요' });
     } };
     GAMES.rabbit = { name: '토끼와 거북이', icon: '🐢', stars: 1, unit: '초', lower: true, run: function () {
         raceGame({ bg: 'linear-gradient(#fef9c3,#ecfccb)', pEmoji: '🐰', oEmoji: '🐢', oName: '거북이', freeze: true, pool: wordsFor(level), unit: '낱말', unitLabel: '남은 낱말', winText: '틀리지 않고 달려서 도착했어요' });
@@ -775,7 +778,7 @@
         openGameView(id); view = 'play'; level = n;
         infoEl.style.display = ''; input.style.display = ''; document.getElementById('tgLevelBtn').style.visibility = '';
         document.getElementById('tgTitle').textContent = GAMES[id].icon + ' ' + GAMES[id].name + ' · ' + (id === 'chain' ? CHAIN_LV[n - 1].short : 'Lv.' + n);
-        input.value = ''; input.disabled = false; input.placeholder = lang === 'ko' ? '여기에 쓰고 Enter' : 'Type here and press Enter';
+        input.value = ''; input.disabled = false; input.placeholder = lang === 'ko' ? '여기에 쓰고 Enter 또는 스페이스' : 'Type here, then press Enter or Space';
         GAMES[id].run();
         if (!input.disabled) input.focus();
     }
@@ -791,10 +794,23 @@
     }
     document.getElementById('tgBack').onclick = toMenu;
     document.getElementById('tgLevelBtn').onclick = function () { if (cur) showLevels(cur); };
+    function typed() { return input.value.replace(/\s+/g, ' ').trim(); }
+    function submitInput() { var v = typed(); input.value = ''; if (onSubmit && v) onSubmit(v); }
     input.addEventListener('keydown', function (e) {
         if (e.key !== 'Enter' || !onSubmit) return;
         // 한글 조합 중에 눌러도 마지막 글자가 확정된 뒤 값을 읽는다
-        setTimeout(function () { var v = input.value.replace(/\s+/g, ' ').trim(); input.value = ''; if (onSubmit && v) onSubmit(v); }, 0);
+        setTimeout(submitInput, 0);
+    });
+    // 스페이스: 한글 조합이나 휴대폰 키보드에서도 통하도록, 눌린 키가 아니라 입력칸에 빈칸이 들어온 것을 본다
+    input.addEventListener('input', function () {
+        if (!onSubmit || !/\s$/.test(input.value)) return;
+        setTimeout(function () {
+            if (!onSubmit || !/\s$/.test(input.value)) return;
+            var v = typed();
+            if (!v) { input.value = ''; return; }
+            if (spaceReady && !spaceReady(v)) return;   // 문장을 쓰는 중의 띄어쓰기
+            submitInput();
+        }, 0);
     });
     document.querySelectorAll('.tg-tab').forEach(function (b) {
         b.classList.toggle('active', b.dataset.lang === lang);
