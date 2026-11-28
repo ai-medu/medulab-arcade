@@ -487,6 +487,19 @@
             </a>
             {% endfor %}
             {% endif %}
+            {% if viewing_as_admin and profile.user_type == 'medulab_member' %}
+            {% if gallery_url %}
+            <a href="{{ gallery_url }}" target="_blank" rel="noopener noreferrer" class="gallery-btn"
+               style="padding:7px 16px; border-radius:999px; font-size:13px; font-weight:700; text-decoration:none; background:rgba(168,85,247,0.15); color:#a855f7; border:1px solid rgba(168,85,247,0.35);">
+                🖼️ 수업갤러리
+            </a>
+            {% else %}
+            <span title="학생 이름을 등록하면 갤러리를 열 수 있어요"
+               style="padding:7px 16px; border-radius:999px; font-size:13px; font-weight:700; color:var(--text-muted); border:1px dashed var(--border);">
+                🖼️ 수업갤러리 (이름 미등록)
+            </span>
+            {% endif %}
+            {% endif %}
             {% if not viewing_as_admin %}
             {% if gallery_url and user.profile.user_type == 'medulab_parent' %}
             <a href="{{ gallery_url }}" target="_blank" rel="noopener noreferrer" class="gallery-btn"

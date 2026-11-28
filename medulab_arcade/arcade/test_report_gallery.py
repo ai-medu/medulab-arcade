@@ -41,10 +41,17 @@ class ClassGalleryButtonTests(TestCase):
         html = res.content.decode()
         self.assertLess(html.index('수업갤러리'), html.index('📋 납부내역'))
 
-    def test_hidden_without_name_and_for_other_viewers(self):
-        nameless = member('anon', 'medulab_member')
-        self.client.force_login(nameless)
+    def test_hidden_for_student_without_name(self):
+        self.client.force_login(member('anon', 'medulab_member'))
         self.assertNotContains(self.client.get(reverse('my_report')), '수업갤러리')
-        staff = User.objects.create_user('boss', password='x', is_staff=True)
-        self.client.force_login(staff)
-        self.assertNotContains(self.client.get(reverse('admin_student_report', args=[self.kid.id])), '수업갤러리')
+
+    def test_admin_sees_students_gallery_or_why_it_is_missing(self):
+        self.client.force_login(User.objects.create_user('boss', password='x', is_staff=True))
+        res = self.client.get(reverse('admin_student_report', args=[self.kid.id]))
+        self.assertContains(res, '수업갤러리', count=1)
+        self.assertContains(res, 'class="gallery-btn"')
+        self.assertEqual(self._gallery(res)[2]['student'], ['김준한'])
+        nameless = member('anon', 'medulab_member')
+        res = self.client.get(reverse('admin_student_report', args=[nameless.id]))
+        self.assertContains(res, '수업갤러리 (이름 미등록)')
+        self.assertNotContains(res, 'class="gallery-btn"')
