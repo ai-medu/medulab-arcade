@@ -488,12 +488,27 @@
             {% endfor %}
             {% endif %}
             {% if not viewing_as_admin %}
+            {% if gallery_url and user.profile.user_type == 'medulab_parent' %}
+            <a href="{{ gallery_url }}" target="_blank" rel="noopener noreferrer" class="gallery-btn"
+               style="padding:7px 16px; border-radius:999px; font-size:13px; font-weight:700; text-decoration:none; background:rgba(168,85,247,0.15); color:#a855f7; border:1px solid rgba(168,85,247,0.35);">
+                🖼️ 수업갤러리
+            </a>
+            {% endif %}
             <a href="{% url 'parent_payment_history' %}"
                style="padding:7px 16px; border-radius:999px; font-size:13px; font-weight:700; text-decoration:none; background:rgba(59,130,246,0.15); color:#93c5fd; border:1px solid rgba(59,130,246,0.3);">
                 📋 납부내역
             </a>
             {% endif %}
         </div>
+    </div>
+    {% endif %}
+
+    {% if not viewing_as_parent and gallery_url and profile.user_type == 'medulab_member' %}
+    <div style="margin-bottom:16px; display:flex; justify-content:flex-end;">
+        <a href="{{ gallery_url }}" target="_blank" rel="noopener noreferrer" class="gallery-btn"
+           style="padding:7px 16px; border-radius:999px; font-size:13px; font-weight:700; text-decoration:none; background:rgba(168,85,247,0.15); color:#a855f7; border:1px solid rgba(168,85,247,0.35);">
+            🖼️ 수업갤러리
+        </a>
     </div>
     {% endif %}
 

@@ -186,6 +186,8 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 # Media files (업로드된 학생 작품)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+# 마이 리포트의 [수업갤러리] 버튼이 여는 학원 갤러리 (뒤에 ?school=메듀랩&student=이름 을 붙인다)
+CLASS_GALLERY_URL = 'http://medu.ipdisk.co.kr:8000/%EA%B0%A4%EB%9F%AC%EB%A6%AC/gallery_index.html'
 ROBOT_LESSON_DIR = BASE_DIR / 'robot_lessons_media'   # 로봇 수업 교재·조립서 그림 (저작물이라 저장소에 올리지 않고 회원에게만 보여 준다)
 # 메듀코드(블록코딩 도구) 빌드 결과를 복사해 두는 폴더 (저장소에는 올리지 않고 서버에 직접 복사)
 MEDUCODE_DIST = BASE_DIR / 'meducode_dist'

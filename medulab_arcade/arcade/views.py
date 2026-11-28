@@ -7032,6 +7032,16 @@ def _today_typing_rows(scores):
     } for r in rows]
 
 
+def _class_gallery_url(profile):
+    """학원 수업 갤러리(외부 저장소)에서 이 학생의 사진·작품을 보는 주소. 이름이 등록되지 않았으면 빈 문자열."""
+    from urllib.parse import quote, urlencode
+
+    name = (profile.real_name or '').strip()
+    if not name:
+        return ''
+    return f"{settings.CLASS_GALLERY_URL}?{urlencode({'school': '메듀랩', 'student': name}, quote_via=quote)}"
+
+
 def _build_report_context(user, view_year=None, view_month=None):
     """마이 리포트 통계 집계. 본인 조회(my_report)와 학부모의 자녀 조회(child_report)가 공유.
 
@@ -7372,6 +7382,7 @@ def _build_report_context(user, view_year=None, view_month=None):
         'coding_count': coding_count,
         'today_progress_list': today_progress_qs,
         'typing_today': typing_today,
+        'gallery_url': _class_gallery_url(profile),
         'has_attended_today': has_attended_today,
         'today_attendance_type_display': today_attendance_type_display,
         'attendance_dates': attendance_dates,
