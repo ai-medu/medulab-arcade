@@ -326,9 +326,10 @@
         </div>
         {{ ext_pages|json_script:"rbExtPages" }}
         {% endif %}
-        {% if next_item and next_item.chapter_id == item.chapter_id %}
-        <div class="rb-next"><a class="rb-btn primary" href="{% url 'item_page' next_item.id %}">다음 로봇으로 →</a></div>
-        {% endif %}
+        <div class="rb-next">
+            <a class="rb-btn" href="{% url 'chapter_detail' item.chapter.id %}">☰ 로봇 목록으로</a>
+            {% if next_item and next_item.chapter_id == item.chapter_id %}<a class="rb-btn primary" href="{% url 'item_page' next_item.id %}">다음 로봇으로 →</a>{% endif %}
+        </div>
     </section>
 
 </main>
