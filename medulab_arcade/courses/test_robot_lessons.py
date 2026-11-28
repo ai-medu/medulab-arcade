@@ -11,6 +11,7 @@ from django.urls import reverse
 
 from .models import Chapter, Item, LearningProgram, UserProgress
 from .robot_lessons.ollo_lv1 import LESSONS
+from .robot_lessons.ollo_lv1_kids import ART
 
 
 class RobotLessonTests(TestCase):
@@ -30,7 +31,7 @@ class RobotLessonTests(TestCase):
         self.item = Item.objects.get(key='lv1_01')
         folder = os.path.join(self.dir, 'lv1_01')
         os.makedirs(folder)
-        for name in ('thumb.jpg', 'theory.jpg', 'guide.jpg', 'code.svg', 'build-01.jpg', 'build-02.jpg', 'ext-01.jpg'):
+        for name in ('thumb.jpg', 'guide.jpg', 'code.svg', 'build-01.jpg', 'build-02.jpg', 'ext-01.jpg', 'word-01.jpg'):
             with open(os.path.join(folder, name), 'wb') as f:
                 f.write(b'x')
 
@@ -48,15 +49,25 @@ class RobotLessonTests(TestCase):
 
     def test_lesson_data_is_well_formed(self):
         self.assertEqual(len(LESSONS), 12)
+        with open(os.path.join(os.path.dirname(__file__), 'templates', 'learning_program', '_robot_games.html'), encoding='utf-8') as f:
+            games = f.read()
         for lesson in LESSONS:
             self.assertEqual(len(lesson['quiz']), 5, lesson['key'])
             for q in lesson['quiz']:
                 self.assertEqual(len(q['choices']), 4, q['q'])
                 self.assertIn(q['answer'], range(4), q['q'])
             self.assertEqual([m['id'] for m in lesson['missions']], ['m1', 'm2', 'm3'])
-            self.assertEqual(lesson['code']['start'], int(lesson['key'][-2:]))
-            code = os.path.join(os.path.dirname(__file__), 'robot_lessons', 'ollo_lv1_code', f"code{lesson['code']['start']:02d}.svg")
+            number = int(lesson['key'][-2:])
+            self.assertEqual(lesson['code']['start'], None if number == 1 else number)   # 활은 직접 만드는 과녁 코드
+            code = os.path.join(os.path.dirname(__file__), 'robot_lessons', 'ollo_lv1_code', f'code{number:02d}.svg')
             self.assertTrue(os.path.isfile(code), code)
+            self.assertTrue(lesson['easy'] and lesson['school'], lesson['key'])
+            self.assertIn(f"{lesson['play']['id']}: function", games)
+            for term, desc, pic in lesson['words']:
+                kind = pic.split(':')[0]
+                self.assertIn(kind, ('crop', 'svg', 'thumb'), term)
+                if kind == 'svg':
+                    self.assertIn(pic[4:], ART, term)
 
     def test_seed_fills_only_empty_chapter_text(self):
         res = self.client.get(reverse('course_home', args=[self.program.id]))
@@ -88,8 +99,13 @@ class RobotLessonTests(TestCase):
         self.client.force_login(self.member)
         res = self.client.get(reverse('item_page', args=[self.item.id]))
         self.assertTemplateUsed(res, 'learning_program/item_page_robot.html')
-        for text in ('로봇 제작', '로봇 코딩', '미션 퀘스트', 'data-src="/meducode/"', 'build-02.jpg', 'ext-01.jpg'):
+        for text in ('로봇 제작', '로봇 코딩', '미션 퀘스트', 'data-src="/meducode/"', 'build-02.jpg', 'ext-01.jpg',
+                     '교과 연계', 'data-game="bow"', 'word-01.jpg', 'word-06.jpg', '전체화면 보기', '② 움직이는 과녁 만들기'):
             self.assertContains(res, text)
+        self.assertNotContains(res, '교재 원본')
+        self.assertNotContains(res, '시작 버튼 None')
+        self.assertEqual(len(res.context['build_pages']), 3)      # 활 2쪽 + 과녁 1쪽 (시험용)
+        self.assertEqual(res.context['ext_pages'], [])
         self.assertNotContains(res, LESSONS[0]['quiz'][0]['explain'])
         self.assertNotIn('answer', res.context['quiz'][0])
 

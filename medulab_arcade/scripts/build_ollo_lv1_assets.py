@@ -14,6 +14,10 @@ import sys
 import fitz
 from PIL import Image, ImageChops, ImageFilter
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from courses.robot_lessons.ollo_lv1 import LESSONS   # noqa: E402  (낱말 그림 위치)
+from courses.robot_lessons.ollo_lv1_kids import ART   # noqa: E402
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'robot_lessons_media')
 CODE = os.path.join(ROOT, 'courses', 'robot_lessons', 'ollo_lv1_code')
@@ -81,6 +85,22 @@ def thumbnail(cover):
     return canvas.resize((480, 480), Image.LANCZOS)
 
 
+def word_pictures(book, lesson, folder):
+    """낱말 그림: 교재에서 잘라 내거나(crop), 직접 그린 그림(svg), 완성 로봇(thumb)."""
+    for n, (_term, _desc, pic) in enumerate(lesson['words'], 1):
+        path = os.path.join(folder, f'word-{n:02d}')
+        kind, _, rest = pic.partition(':')
+        if kind == 'svg':
+            with open(path + '.svg', 'w', encoding='utf-8') as f:
+                f.write(ART[rest])
+        elif kind == 'thumb':
+            shutil.copy(os.path.join(folder, 'thumb.jpg'), path + '.jpg')
+        else:
+            number, box = rest.split(':')
+            page = render(book, int(number), 1600)   # 좌표는 쪽 너비 800 기준
+            save(page.crop([int(v) * 2 for v in box.split(',')]), path + '.jpg')
+
+
 def main(pdf_dir):
     book = fitz.open(os.path.join(pdf_dir, BOOK))
     ext_files = sorted(glob.glob(os.path.join(pdf_dir, EXT_DIR, '*.pdf')),
@@ -91,7 +111,6 @@ def main(pdf_dir):
         folder = os.path.join(OUT, f'lv1_{n:02d}')
         shutil.rmtree(folder, ignore_errors=True)
         theory = 8 * n              # 이론 1쪽, 이어서 조립서 7쪽
-        save(render(book, theory, 1200), os.path.join(folder, 'theory.jpg'))
         for i in range(1, 8):
             page = render(book, theory + i, 1100)
             save(page, os.path.join(folder, f'build-{i:02d}.jpg'))
@@ -102,6 +121,7 @@ def main(pdf_dir):
             save(render(ext, i, 1100), os.path.join(folder, f'ext-{i:02d}.jpg'))
         save(guide, os.path.join(folder, 'guide.jpg'))
         shutil.copy(os.path.join(CODE, f'code{n:02d}.svg'), os.path.join(folder, 'code.svg'))
+        word_pictures(book, LESSONS[n - 1], folder)
         print(folder, 'ext pages', ext.page_count)
 
 

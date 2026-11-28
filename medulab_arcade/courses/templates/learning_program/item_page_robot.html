@@ -27,9 +27,28 @@
     .rb-card h2 { font-size: 18px; color: var(--text-primary); margin: 0 0 10px; }
     .rb-card p, .rb-card li { font-size: 15px; line-height: 1.8; color: var(--text-primary); margin: 0 0 6px; }
     .rb-card ul, .rb-card ol { margin: 0; padding-left: 20px; }
-    .rb-words { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
-    .rb-word { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.6; }
-    .rb-word b { display: block; color: #d97706; font-size: 14px; }
+    .rb-words { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+    .rb-word { border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; font-size: 17px; line-height: 1.65; text-align: center; }
+    .rb-word img { width: 100%; height: 150px; object-fit: contain; background: #fff; border-radius: 10px; display: block; margin-bottom: 10px; }
+    .rb-word b { display: block; color: #d97706; font-size: 21px; margin-bottom: 4px; }
+    .rb-easy { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+    .rb-easy-card { background: rgba(251,191,36,.13); border-radius: 18px; padding: 18px 16px; text-align: center; }
+    .rb-easy-card .pic { font-size: 62px; line-height: 1.25; }
+    .rb-easy-card b { display: block; font-size: 22px; margin: 6px 0 8px; line-height: 1.5; }
+    .rb-school p { margin: 0; }
+    /* 초등학생이 읽는 이론·문제와 미션은 글자를 크게 */
+    [data-panel="theory"] .rb-card h2, [data-panel="quest"] .rb-card h2 { font-size: 23px; }
+    [data-panel="theory"] .rb-card p, [data-panel="theory"] .rb-card li, [data-panel="quest"] .rb-card p, [data-panel="quest"] .rb-card li { font-size: 19px; line-height: 1.85; }
+    [data-panel="theory"] .rb-q .t { font-size: 21px; }
+    [data-panel="theory"] .rb-choice { font-size: 19px; padding: 13px 16px; }
+    [data-panel="theory"] .rb-choice input { width: 20px; height: 20px; margin-top: 5px; flex-shrink: 0; }
+    [data-panel="theory"] .rb-explain { font-size: 17px; line-height: 1.7; }
+    [data-panel="theory"] .rb-btn { font-size: 18px; }
+    [data-panel="quest"] .rb-mission b { font-size: 20px; }
+    [data-panel="quest"] .rb-mission span { font-size: 18px; }
+    [data-panel="quest"] .rb-mission .hint { font-size: 16px; }
+    .rb-sections { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 10px; }
+    .rb-sections .on { background: #d97706; border-color: #d97706; color: #fff; }
     .rb-page-img { width: 100%; max-width: 760px; display: block; margin: 10px auto 0; border-radius: 10px; background: #fff; }
     details.rb-card summary { cursor: pointer; font-weight: 800; color: var(--text-primary); }
 
@@ -62,9 +81,21 @@
     .rb-dot.on { background: #2563eb; color: #fff; border-color: #2563eb; }
 
     /* 코딩: 왼쪽 메듀코드, 오른쪽 참고 코드 */
-    .rb-code { display: grid; grid-template-columns: minmax(0, 1fr) clamp(300px, 25vw, 420px); gap: 12px; align-items: start; }
-    .rb-code.wide { grid-template-columns: minmax(0, 1fr); }
+    .rb-code { display: grid; grid-template-columns: minmax(0, 1fr) 30px clamp(300px, 25vw, 420px); gap: 8px; align-items: stretch; }
+    .rb-code.wide { grid-template-columns: minmax(0, 1fr) 30px; }
     .rb-code.wide .rb-ref { display: none; }
+    .rb-handle { border: 1px solid var(--border); background: var(--bg-card); color: var(--text-primary); border-radius: 10px; cursor: pointer; font-size: 15px; font-weight: 900; padding: 0; }
+    .rb-handle span { position: sticky; top: 45vh; display: block; padding: 16px 0; }
+    .rb-handle:hover { background: #2563eb; color: #fff; }
+    .rb-ref { margin-bottom: 0; align-self: start; }
+    .rb-codebox:fullscreen, .rb-codebox.full { background: var(--bg-primary); padding: 8px; }
+    .rb-codebox.full { position: fixed; inset: 0; z-index: 2500; overflow: auto; }
+    .rb-codebox .rb-exit { display: none; }
+    .rb-codebox:fullscreen .rb-exit, .rb-codebox.full .rb-exit { display: inline-block; position: absolute; right: 14px; bottom: 14px; z-index: 5; background: #111827; color: #fff; }
+    .rb-codebox:fullscreen, .rb-codebox.full { box-sizing: border-box; }
+    .rb-codebox:fullscreen .rb-code, .rb-codebox.full .rb-code { height: 100%; grid-template-rows: minmax(0, 1fr); }
+    .rb-codebox:fullscreen .rb-ide iframe, .rb-codebox.full .rb-ide iframe { height: 100%; min-height: 0; }
+    .rb-codebox:fullscreen .rb-ref, .rb-codebox.full .rb-ref { max-height: 100%; }
     .rb-ide { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: #fff; }
     .rb-ide iframe { width: 100%; height: calc(100vh - 200px); min-height: 560px; border: 0; display: block; }
     .rb-ref { max-height: calc(100vh - 160px); overflow: auto; }
@@ -83,8 +114,13 @@
     .rb-mission .hint { display: block; font-size: 13px; color: #3b82f6; margin-top: 4px; }
 
     @media (max-width: 1000px) {
-        .rb-code { grid-template-columns: minmax(0, 1fr); }
-        .rb-ref { max-height: none; order: -1; }
+        .rb-code, .rb-code.wide { grid-template-columns: minmax(0, 1fr); }
+        .rb-ref { max-height: none; order: -2; }
+        .rb-handle { order: -1; min-height: 40px; }
+        .rb-handle span { position: static; padding: 0; transform: rotate(90deg); }
+        .rb-codebox:fullscreen .rb-code, .rb-codebox.full .rb-code { height: auto; }
+        .rb-codebox:fullscreen .rb-ide iframe, .rb-codebox.full .rb-ide iframe { height: 80vh; }
+        .rb-codebox:fullscreen, .rb-codebox.full { overflow: auto; }
     }
     @media (max-width: 640px) {
         .rb-tabs { grid-template-columns: repeat(2, 1fr); position: static; }
@@ -125,10 +161,34 @@
 
     <!-- ① 이론 · 문제 -->
     <section class="rb-panel" data-panel="theory">
+        <div class="rb-card rb-school">
+            <h2>🏫 교과 연계</h2>
+            <p><b>{{ lesson.subject }}</b></p>
+            <p>{{ lesson.school }}</p>
+        </div>
         <div class="rb-card">
-            <h2>🎯 학습 목표</h2>
+            <h2>🎯 오늘의 목표</h2>
             <ul>{% for g in lesson.goals %}<li>{{ g }}</li>{% endfor %}</ul>
         </div>
+        {% if lesson.easy %}
+        <div class="rb-card">
+            <h2>🐣 아주 쉽게 알아보기</h2>
+            <div class="rb-easy">
+                {% for e in lesson.easy %}
+                <div class="rb-easy-card"><div class="pic">{{ e.0 }}</div><b>{{ e.1 }}</b><p>{{ e.2 }}</p></div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% if lesson.play %}
+        <div class="rb-card rg" id="rbGame" data-game="{{ lesson.play.id }}">
+            <div class="rg-head"><h2>🎮 놀면서 배우기: {{ lesson.play.title }}</h2><span class="rg-score"></span></div>
+            <p>{{ lesson.play.how }}</p>
+            <button type="button" class="rg-btn go rg-start">▶ 게임 시작</button>
+            <div class="rg-stage"></div>
+            <div class="rg-msg" aria-live="polite"></div>
+        </div>
+        {% endif %}
         {% for s in lesson.sections %}
         <div class="rb-card">
             <h2>📖 {{ s.h }}</h2>
@@ -137,13 +197,13 @@
         {% endfor %}
         <div class="rb-card">
             <h2>🔑 꼭 알아둘 낱말</h2>
-            <div class="rb-words">{% for w in lesson.words %}<div class="rb-word"><b>{{ w.0 }}</b>{{ w.1 }}</div>{% endfor %}</div>
+            <div class="rb-words">
+                {% for w in words %}
+                <div class="rb-word">{% if w.img %}<img src="{{ w.img }}" alt="{{ w.term }} 그림" loading="lazy">{% endif %}<b>{{ w.term }}</b>{{ w.desc }}</div>
+                {% endfor %}
+            </div>
         </div>
         <div class="rb-card"><h2>💬 생각해 보기</h2><p>{{ lesson.think }}</p></div>
-        <details class="rb-card">
-            <summary>📕 교재 원본 쪽 보기</summary>
-            <img class="rb-page-img" src="{{ theory_url }}" alt="교재 이론 쪽" loading="lazy">
-        </details>
 
         <div class="rb-card">
             <h2>✏️ 문제 풀기 <small style="font-weight:500; color:var(--text-muted);">{{ pass_percent }}점 이상이면 학습 완료{% if state.quiz_best != None %} · 내 최고 {{ state.quiz_best }}점{% endif %}</small></h2>
@@ -174,6 +234,9 @@
             <img class="rb-page-img" src="{{ guide_url }}" alt="올로AI 사용 방법" loading="lazy">
         </details>
         {% if build_pages %}
+        {% if sections %}
+        <div class="rb-sections">{% for s in sections %}<button type="button" class="rb-btn" data-page="{{ s.start }}">{{ s.label }}</button>{% endfor %}</div>
+        {% endif %}
         <div class="rb-book" data-book="build">
             <div class="rb-book-bar">
                 <button type="button" class="rb-btn" data-act="prev">◀ 이전</button>
@@ -197,14 +260,17 @@
         <div class="rb-top">
             <span>왼쪽 <b>메듀코드</b>에서 오른쪽 예제를 보며 블록을 만들어 보세요.</span>
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                <button type="button" class="rb-btn" id="rbWide">참고 코드 접기</button>
+                <button type="button" class="rb-btn" id="rbFull">⛶ 전체화면 보기</button>
                 <a class="rb-btn" href="/meducode/" target="_blank" rel="noopener">메듀코드 새 창 ↗</a>
             </div>
         </div>
+        <div class="rb-codebox" id="rbCodeBox">
+        <button type="button" class="rb-btn rb-exit" id="rbExit">✕ 전체화면 끝내기</button>
         <div class="rb-code" id="rbCode">
             <div class="rb-ide">
                 <iframe id="rbIde" title="메듀코드" data-src="/meducode/" allow="serial; bluetooth; usb; camera; microphone; fullscreen; clipboard-read; clipboard-write"></iframe>
             </div>
+            <button type="button" class="rb-handle" id="rbWide" title="참고 코드 접기" aria-label="참고 코드 접기" aria-expanded="true"><span>▶</span></button>
             <aside class="rb-ref rb-card">
                 <h2>📋 {{ lesson.robot }} 참고 코드</h2>
                 <p><b>{{ code.title }}</b><br>{{ code.intro }}</p>
@@ -212,11 +278,15 @@
                 <p style="font-size:12px; color:var(--text-muted); text-align:center;">그림을 누르면 크게 보여요.</p>
                 <ol>{% for s in code.steps %}<li>{{ s }}</li>{% endfor %}</ol>
                 {% if code.note %}<div class="rb-note">⚠️ {{ code.note }}</div>{% endif %}
+                {% if code.start %}
                 <div class="rb-note" style="border-color:rgba(59,130,246,.35); background:rgba(59,130,246,.1);">
                     완성된 전체 예제는 메듀코드의 <b>예제 → 올로AI 1단계 코딩</b>에 있어요. 로봇에 내려받은 뒤 <b>시작 버튼 {{ code.start }}번</b> 동작이 이 로봇의 코드예요.<br>
                     예제를 열기 전에 내가 만든 작품은 먼저 저장하세요.
                 </div>
+                {% endif %}
             </aside>
+        </div>
+        <div class="rb-zoom" id="rbZoom"><img src="{{ code_url }}" alt="예제 블록 크게 보기"></div>
         </div>
         <div class="rb-next"><button type="button" class="rb-btn primary" data-go="quest">④ 미션 도전하기 →</button></div>
     </section>
@@ -261,11 +331,11 @@
         {% endif %}
     </section>
 
-    <div class="rb-zoom" id="rbZoom"><img src="{{ code_url }}" alt="예제 블록 크게 보기"></div>
 </main>
 {% endblock %}
 
 {% block extra_js %}
+{% include "learning_program/_robot_games.html" %}
 <script>
 (function () {
     var csrf = '{{ csrf_token }}';
@@ -327,6 +397,10 @@
             $('[data-act="prev"]', el).disabled = i === 0;
             $('[data-act="next"]', el).disabled = i + step() >= pages.length;
             $$('.rb-dot', dots).forEach(function (d, k) { d.classList.toggle('on', k >= i && k < i + step()); });
+            if (el.dataset.book === 'build') {
+                var marks = $$('[data-page]'), now = marks.filter(function (m) { return Number(m.dataset.page) <= i; }).pop();
+                marks.forEach(function (m) { m.classList.toggle('on', m === now); });
+            }
             if (pages[i + step()]) { new Image().src = pages[i + step()]; }
         }
         pages.forEach(function (_, k) {
@@ -352,14 +426,15 @@
             var dx = e.changedTouches[0].clientX - startX; startX = null;
             if (Math.abs(dx) > 50) go(i + (dx < 0 ? step() : -step()));
         });
-        return { el: el, draw: draw, prev: function () { go(i - step()); }, next: function () { go(i + step()); } };
+        return { el: el, draw: draw, go: go, prev: function () { go(i - step()); }, next: function () { go(i + step()); } };
     }
     [['build', 'rbBuildPages'], ['ext', 'rbExtPages']].forEach(function (pair) {
         var el = $('[data-book="' + pair[0] + '"]'), data = document.getElementById(pair[1]);
         if (el && data) books[pair[0]] = makeBook(el, JSON.parse(data.textContent));
     });
+    $$('[data-page]').forEach(function (b) { b.addEventListener('click', function () { books.build.go(Number(b.dataset.page)); }); });
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') $('#rbZoom').classList.remove('on');
+        if (e.key === 'Escape') { $('#rbZoom').classList.remove('on'); $('#rbCodeBox').classList.remove('full'); }
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
         if (/INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
         var panel = $('.rb-panel.on').dataset.panel;
@@ -414,8 +489,24 @@
 
     // 참고 코드 접기 / 크게 보기
     $('#rbWide').addEventListener('click', function () {
-        var wide = $('#rbCode').classList.toggle('wide');
-        this.textContent = wide ? '참고 코드 펼치기' : '참고 코드 접기';
+        var wide = $('#rbCode').classList.toggle('wide'), label = wide ? '참고 코드 펼치기' : '참고 코드 접기';
+        this.firstChild.textContent = wide ? '◀' : '▶';
+        this.title = label; this.setAttribute('aria-label', label); this.setAttribute('aria-expanded', String(!wide));
+    });
+    // 전체화면: 지원하지 않는 기기(아이폰 등)에서는 화면을 가득 채우는 방식으로 보여 준다
+    var codeBox = $('#rbCodeBox');
+    function fill() { codeBox.classList.add('full'); }
+    $('#rbFull').addEventListener('click', function () {
+        openIde();
+        if (!codeBox.requestFullscreen) return fill();
+        var asked = codeBox.requestFullscreen();
+        if (asked) asked.catch(fill);
+        // 요청을 조용히 무시하는 브라우저도 있으므로, 잠시 뒤에도 전체화면이 아니면 화면 채우기로 보여 준다
+        setTimeout(function () { if (!document.fullscreenElement) fill(); }, 700);
+    });
+    $('#rbExit').addEventListener('click', function () {
+        codeBox.classList.remove('full');
+        if (document.fullscreenElement) document.exitFullscreen();
     });
     $('#rbRefImg').addEventListener('click', function () { $('#rbZoom').classList.add('on'); });
     $('#rbZoom').addEventListener('click', function () { this.classList.remove('on'); });

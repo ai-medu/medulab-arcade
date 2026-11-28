@@ -15,7 +15,7 @@ from django.views.decorators.http import require_POST
 
 from .models import Item, UserProgress
 
-ASSET_NAME = re.compile(r'^(thumb\.jpg|theory\.jpg|guide\.jpg|code\.svg|build-\d{2}\.jpg|ext-\d{2}\.jpg)$')
+ASSET_NAME = re.compile(r'^(thumb\.jpg|guide\.jpg|code\.svg|build-\d{2}\.jpg|ext-\d{2}\.jpg|word-\d{2}\.(jpg|svg))$')
 PASS_PERCENT = 80
 
 
@@ -65,7 +65,16 @@ def render_lesson(request, item, prev_item, next_item, progress):
     data = item.robot_data
     code = data.get('code') or {}
     state = load_state(progress)
+    words = [{'term': w[0], 'desc': w[1],
+              'img': asset_url(item, f"word-{n:02d}.{'svg' if len(w) > 2 and w[2].startswith('svg:') else 'jpg'}") if len(w) > 2 else ''}
+             for n, w in enumerate(data.get('words', []), 1)]
+    build_pages, ext_pages, sections = _asset_urls(item, 'build-'), _asset_urls(item, 'ext-'), []
+    if data.get('build_ext') and ext_pages:      # 추가 조립서도 로봇 제작 단계에서 이어서 만든다
+        sections = [{'label': data['build_ext'][0], 'start': 0}, {'label': data['build_ext'][1], 'start': len(build_pages)}]
+        build_pages, ext_pages = build_pages + ext_pages, []
     return render(request, 'learning_program/item_page_robot.html', {
+        'words': words,
+        'sections': sections,
         'item': item,
         'program': item.chapter.program,
         'prev_item': prev_item,
@@ -77,11 +86,10 @@ def render_lesson(request, item, prev_item, next_item, progress):
         'state': state,
         'completed': progress.completed,
         'thumb_url': asset_url(item, 'thumb.jpg'),
-        'theory_url': asset_url(item, 'theory.jpg'),
         'guide_url': asset_url(item, 'guide.jpg'),
         'code_url': asset_url(item, 'code.svg'),
-        'build_pages': _asset_urls(item, 'build-'),
-        'ext_pages': _asset_urls(item, 'ext-'),
+        'build_pages': build_pages,
+        'ext_pages': ext_pages,
         'pass_percent': PASS_PERCENT,
     })
 

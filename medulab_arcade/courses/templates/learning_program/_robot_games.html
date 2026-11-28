@@ -1,0 +1,308 @@
+{% comment %}로봇 수업의 과학 개념 게임. <div id="rbGame" data-game="이름"> 안에 그린다. 게임 이름은 ollo_lv1_kids.py 의 play.id 와 같다.{% endcomment %}
+<script>
+(function () {
+    var box = document.getElementById('rbGame');
+    if (!box) return;
+    var stage = box.querySelector('.rg-stage'), msg = box.querySelector('.rg-msg'), scoreEl = box.querySelector('.rg-score');
+    var timers = [], frame = null;
+
+    function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; }
+    function btn(label, fn, cls) { var b = el('button', 'rg-btn ' + (cls || ''), label); b.type = 'button'; b.addEventListener('click', fn); return b; }
+    function say(text, good) { msg.textContent = text; msg.className = 'rg-msg' + (good === true ? ' good' : good === false ? ' bad' : ''); }
+    function score(text) { scoreEl.textContent = text; }
+    function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
+    function loop(fn) { var t0 = null; function tick(t) { if (t0 === null) t0 = t; if (fn((t - t0) / 1000) !== false) frame = requestAnimationFrame(tick); } frame = requestAnimationFrame(tick); }
+    function canvas(w, h) { var c = el('canvas', 'rg-canvas'); c.width = w; c.height = h; stage.appendChild(c); return c.getContext('2d'); }
+    function shuffle(a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+
+    // 문제를 하나씩 보여 주고 보기를 고르는 게임의 공통 틀
+    function rounds(list, draw) {
+        var i = 0, right = 0;
+        function next() {
+            stage.innerHTML = '';
+            if (i >= list.length) {
+                score('끝! ' + list.length + '개 중 ' + right + '개 성공');
+                say(right === list.length ? '🏆 모두 맞혔어요! 최고!' : '👏 잘했어요! 다시 해서 모두 맞혀 볼까요?', true);
+                return;
+            }
+            score((i + 1) + ' / ' + list.length);
+            var answered = false;
+            draw(list[i], function (ok, why) {
+                if (answered) return;
+                answered = true;
+                if (ok) right++;
+                say((ok ? '⭕ 맞았어요! ' : '❌ 아쉬워요. ') + why, ok);
+                stage.appendChild(btn(i + 1 < list.length ? '다음 ▶' : '결과 보기 ▶', function () { i++; say(''); next(); }, 'go'));
+            });
+        }
+        next();
+    }
+    function choices(options) { var row = el('div', 'rg-row'); options.forEach(function (o) { row.appendChild(btn(o[0], o[1])); }); stage.appendChild(row); return row; }
+
+    var GAMES = {
+        bow: function () {
+            var g = canvas(640, 280), shots = 5, hits = 0, pull = 0, startX = null, flying = false, target = 420;
+            function paint(arrow) {
+                g.clearRect(0, 0, 640, 280);
+                g.fillStyle = '#e0f2fe'; g.fillRect(0, 0, 640, 280); g.fillStyle = '#86efac'; g.fillRect(0, 240, 640, 40);
+                [[28, '#fff'], [19, '#ef4444'], [10, '#fff'], [4, '#ef4444']].forEach(function (r) { g.beginPath(); g.arc(target, 200, r[0], 0, 7); g.fillStyle = r[1]; g.fill(); g.strokeStyle = '#ef4444'; g.stroke(); });
+                g.strokeStyle = '#92400e'; g.lineWidth = 7; g.beginPath(); g.arc(60, 200, 40, -1.25, 1.25); g.stroke();
+                g.strokeStyle = '#f59e0b'; g.lineWidth = 3; g.beginPath(); g.moveTo(73, 162); g.lineTo(73 - pull * 0.55, 200); g.lineTo(73, 238); g.stroke();
+                var a = arrow || { x: 118 - pull * 0.55, y: 200, r: 0 };
+                g.save(); g.translate(a.x, a.y); g.rotate(a.r); g.strokeStyle = '#334155'; g.lineWidth = 4; g.beginPath(); g.moveTo(-45, 0); g.lineTo(8, 0); g.stroke(); g.fillStyle = '#334155'; g.beginPath(); g.moveTo(18, 0); g.lineTo(4, -7); g.lineTo(4, 7); g.fill(); g.restore();
+                g.fillStyle = '#111827'; g.font = 'bold 18px sans-serif'; g.fillText('당긴 힘', 16, 28); g.fillStyle = '#fff'; g.fillRect(90, 14, 200, 18); g.fillStyle = '#f97316'; g.fillRect(90, 14, pull * 2, 18);
+            }
+            function x(e) { var r = g.canvas.getBoundingClientRect(); return (e.clientX - r.left) * 640 / r.width; }
+            g.canvas.style.touchAction = 'none';
+            g.canvas.addEventListener('pointerdown', function (e) { if (flying || !shots) return; startX = x(e); g.canvas.setPointerCapture(e.pointerId); });
+            g.canvas.addEventListener('pointermove', function (e) { if (startX === null) return; pull = Math.max(0, Math.min(100, (startX - x(e)) / 1.6)); paint(); });
+            g.canvas.addEventListener('pointerup', function () {
+                if (startX === null) return;
+                startX = null;
+                if (pull < 8) { pull = 0; paint(); say('더 많이 당겨 보세요!'); return; }
+                var power = pull, end = 130 + power * 4.8; pull = 0; flying = true; shots--;
+                loop(function (t) {
+                    var k = Math.min(1, t / 0.8), h = 30 + power * 0.9;
+                    paint({ x: 100 + (end - 100) * k, y: 200 - Math.sin(Math.PI * k) * h, r: Math.atan2(-Math.cos(Math.PI * k) * h * Math.PI, end - 100) });
+                    if (k < 1) return true;
+                    flying = false;
+                    var gap = end - target;
+                    if (Math.abs(gap) <= 30) { hits++; say('🎯 명중! 딱 알맞게 당겼어요.', true); target = 240 + Math.random() * 340; later(paint, 900); }
+                    else say(gap < 0 ? '가까이 떨어졌어요. 더 세게 당기면 탄성력이 커져요!' : '너무 멀리 갔어요. 조금만 살살 당겨요!', false);
+                    score('남은 화살 ' + shots + ' · 명중 ' + hits);
+                    if (!shots) say('끝! 5발 중 ' + hits + '발 명중! 많이 당길수록 멀리 날아가는 것이 탄성력이에요.', true);
+                    return false;
+                });
+            });
+            score('남은 화살 5 · 명중 0'); paint();
+        },
+        arm: function () {
+            var list = shuffle([['🪨 무거운 돌을 뒤집어요', 'short'], ['🍎 높은 곳의 사과를 따요', 'long'], ['📦 꽉 찬 상자를 밀어요', 'short'], ['🎈 멀리 있는 풍선을 톡 쳐요', 'long'], ['🔩 빡빡한 것을 힘껏 돌려요', 'short']]);
+            rounds(list, function (q, done) {
+                stage.appendChild(el('div', 'rg-big', q[0]));
+                var arm = el('div', 'rg-arm', '<i></i><b>🤖</b>'); stage.appendChild(arm);
+                function pick(kind) {
+                    arm.className = 'rg-arm ' + kind + ' move';
+                    done(kind === q[1], q[1] === 'long' ? '멀리 닿으려면 긴 팔!' : '센 힘이 필요하면 짧은 팔!');
+                }
+                choices([['🦒 긴 팔', function () { pick('long'); }], ['💪 짧은 팔', function () { pick('short'); }]]);
+            });
+        },
+        wheel: function () {
+            var g = canvas(640, 230), tried = {}, shape = null;
+            function roll(n, name) {
+                cancelAnimationFrame(frame); shape = n; tried[name] = true; score('굴려 본 바퀴 ' + Object.keys(tried).length + ' / 3'); say('굴러가는 중…');
+                var R = 50, trail = [];
+                loop(function (t) {
+                    var turn = t * 3, x = 70 + turn * 42, h = R;
+                    if (n) { var seg = 2 * Math.PI / n; h = R * Math.cos((turn % seg) - Math.PI / n); }
+                    var cy = 190 - h; trail.push([x, cy]);
+                    g.fillStyle = '#f8fafc'; g.fillRect(0, 0, 640, 230); g.fillStyle = '#78716c'; g.fillRect(0, 190, 640, 8);
+                    g.save(); g.translate(x, cy); g.rotate(turn + (n ? Math.PI / 2 - Math.PI / n : 0)); g.beginPath();
+                    if (n) { for (var i = 0; i < n; i++) { var a = i * 2 * Math.PI / n; g[i ? 'lineTo' : 'moveTo'](R * Math.cos(a), R * Math.sin(a)); } g.closePath(); } else g.arc(0, 0, R, 0, 7);
+                    g.fillStyle = '#93c5fd'; g.fill(); g.lineWidth = 5; g.strokeStyle = '#1e3a8a'; g.stroke(); g.beginPath(); g.moveTo(0, 0); g.lineTo(R * 0.6, 0); g.stroke(); g.restore();
+                    g.beginPath(); trail.forEach(function (p, i) { g[i ? 'lineTo' : 'moveTo'](p[0], p[1]); }); g.strokeStyle = '#ef4444'; g.lineWidth = 4; g.stroke();
+                    if (x < 570) return true;
+                    say(n ? name + ' 바퀴는 빨간 선이 출렁출렁! 덜컹거려요.' : '동그란 바퀴는 빨간 선이 반듯해요! 편안하게 굴러가요.', !n);
+                    if (Object.keys(tried).length === 3) say('🏆 세 가지를 모두 굴렸어요. 가장 편안한 것은 동그란 바퀴!', true);
+                    return false;
+                });
+            }
+            choices([['⚪ 동그라미', function () { roll(0, '동그라미'); }], ['🟦 네모', function () { roll(4, '네모'); }], ['🔺 세모', function () { roll(3, '세모'); }]]);
+            g.fillStyle = '#f8fafc'; g.fillRect(0, 0, 640, 230); g.fillStyle = '#111827'; g.font = 'bold 22px sans-serif'; g.fillText('아래에서 바퀴를 골라요!', 200, 115); score('굴려 본 바퀴 0 / 3');
+        },
+        snow: function () {
+            var blade = 1, snow, count;
+            var pick = el('div', 'rg-row'), grid = el('div', 'rg-snow');
+            var narrow = btn('🥄 좁은 판 (1줄)', function () { blade = 1; mark(); }), wide = btn('🚜 넓은 판 (3줄)', function () { blade = 3; mark(); });
+            function mark() { narrow.classList.toggle('on', blade === 1); wide.classList.toggle('on', blade === 3); }
+            function draw() {
+                grid.innerHTML = '';
+                snow.forEach(function (row, r) {
+                    var line = el('div', 'rg-line');
+                    line.appendChild(btn('🚜▶', function () { push(r); }));
+                    row.forEach(function (s) { line.appendChild(el('span', '', s ? '❄️' : '')); });
+                    grid.appendChild(line);
+                });
+            }
+            function push(r) {
+                var rows = blade === 1 ? [r] : [r - 1, r, r + 1];
+                var any = false;
+                rows.forEach(function (i) { if (snow[i] && snow[i].indexOf(true) >= 0) { any = true; snow[i] = snow[i].map(function () { return false; }); } });
+                if (any) count++;
+                draw(); score('민 횟수 ' + count);
+                if (snow.every(function (row) { return row.indexOf(true) < 0; })) say('🏆 ' + count + '번 만에 다 치웠어요! ' + (count <= 2 ? '넓은 판으로 가장 빠르게 치웠어요.' : '넓은 판의 가운데 줄을 누르면 2번에 끝낼 수 있어요.'), true);
+            }
+            function reset() { snow = []; for (var i = 0; i < 6; i++) snow.push([true, true, true, true, true, true]); count = 0; say(''); score('민 횟수 0'); draw(); }
+            pick.appendChild(narrow); pick.appendChild(wide); stage.appendChild(pick); stage.appendChild(grid); mark(); reset();
+        },
+        spin: function () {
+            var list = shuffle([['🌀', '선풍기 날개', 'turn'], ['🛝', '그네', 'swing'], ['🛞', '자동차 바퀴', 'turn'], ['🪚', '쓱쓱 톱질', 'slide'], ['🕒', '시곗바늘', 'turn'], ['🦋', '펄럭이는 날개', 'swing'], ['🎡', '대관람차', 'turn'], ['🚪', '왔다 갔다 하는 문', 'swing']]).slice(0, 6);
+            rounds(list, function (q, done) {
+                stage.appendChild(el('div', 'rg-move rg-' + q[2], q[0])); stage.appendChild(el('div', 'rg-big', q[1]));
+                var turn = q[2] === 'turn', why = turn ? '한 자리에서 계속 도니까 회전 운동!' : '갔다가 돌아오니까 왕복 운동!';
+                choices([['🎡 빙글빙글 (회전)', function () { done(turn, why); }], ['↔️ 왔다갔다 (왕복)', function () { done(!turn, why); }]]);
+            });
+        },
+        punch: function () {
+            var g = canvas(640, 220), tries = 8, hits = 0, now = 0, flash = 0;
+            var go = btn('🥊 펀치!', function () {
+                if (!tries) return;
+                tries--; var reach = (1 - Math.cos(now)) / 2;
+                if (reach > 0.88) { hits++; flash = 20; say('💥 퍽! 가장 멀리 뻗었을 때 맞혔어요.', true); } else say(Math.sin(now) > 0 ? '조금 빨랐어요!' : '조금 늦었어요!', false);
+                score('남은 기회 ' + tries + ' · 성공 ' + hits);
+                if (!tries) say('끝! ' + hits + '번 성공! 빙글 도는 힘이 막대를 지나 주먹 동작으로 바뀌었어요.', true);
+            }, 'go');
+            stage.appendChild(go); score('남은 기회 8 · 성공 0');
+            loop(function (t) {
+                now = t * 3.2;
+                var cx = 110, cy = 120, px = cx + 55 * -Math.cos(now), py = cy + 55 * Math.sin(now), fist = 330 - 55 * Math.cos(now);
+                g.fillStyle = '#f8fafc'; g.fillRect(0, 0, 640, 220);
+                g.beginPath(); g.arc(cx, cy, 68, 0, 7); g.fillStyle = '#334155'; g.fill();
+                g.strokeStyle = '#22c55e'; g.lineWidth = 14; g.lineCap = 'round'; g.beginPath(); g.moveTo(px, py); g.lineTo(fist, 120); g.lineTo(fist + 90, 120); g.stroke();
+                g.beginPath(); g.arc(px, py, 10, 0, 7); g.fillStyle = '#facc15'; g.fill();
+                g.font = '56px sans-serif'; g.fillText('🥊', fist + 70, 140); g.fillText(flash > 0 ? '💥' : '🎯', 545, 140); flash--;
+                return true;
+            });
+        },
+        angle: function () {
+            rounds([['직각(90도)', 90], ['예각 45도', 45], ['둔각 135도', 135], ['평각(180도)', 180], ['60도', 60]], function (q, done) {
+                stage.appendChild(el('div', 'rg-big', '📐 ' + q[0] + '를 만들어요!'));
+                var c = el('canvas', 'rg-canvas'); c.width = 420; c.height = 220; stage.appendChild(c);
+                var g = c.getContext('2d'), range = el('input', 'rg-range'); range.type = 'range'; range.min = 0; range.max = 180; range.value = 20; stage.appendChild(range);
+                function paint(show) {
+                    var a = range.value * Math.PI / 180; g.clearRect(0, 0, 420, 220); g.fillStyle = '#f8fafc'; g.fillRect(0, 0, 420, 220);
+                    g.beginPath(); g.moveTo(210, 190); g.arc(210, 190, 55, 0, -a, true); g.fillStyle = '#fde68a'; g.fill();
+                    g.strokeStyle = '#1e3a8a'; g.lineWidth = 9; g.lineCap = 'round'; g.beginPath(); g.moveTo(375, 190); g.lineTo(210, 190); g.lineTo(210 + 165 * Math.cos(a), 190 - 165 * Math.sin(a)); g.stroke();
+                    if (show) { g.fillStyle = '#111827'; g.font = 'bold 24px sans-serif'; g.fillText(range.value + '도', 20, 34); }
+                }
+                range.addEventListener('input', function () { paint(false); }); paint(false);
+                stage.appendChild(btn('다 만들었어요!', function () { paint(true); range.disabled = true; done(Math.abs(range.value - q[1]) <= 10, '내가 만든 각은 ' + range.value + '도, 목표는 ' + q[1] + '도예요.'); }, 'go'));
+            });
+        },
+        blocks: function () {
+            // S=출발(오른쪽 보기) F=깃발 #=바위
+            var levels = [['.....', '.....', 'S..F.', '.....', '.....'], ['.....', '..F..', '.....', 'S....', '.....'], ['...F.', '.##..', 'S.#..', '.....', '.....']];
+            var level = 0, cmds = [], running = false, pos, dir;
+            var grid = el('div', 'rg-grid'), queue = el('div', 'rg-queue'), row = el('div', 'rg-row');
+            function start() { levels[level].forEach(function (line, r) { var c = line.indexOf('S'); if (c >= 0) pos = [r, c]; }); dir = 1; draw(); }
+            function draw() {
+                grid.innerHTML = '';
+                levels[level].forEach(function (line, r) { line.split('').forEach(function (ch, c) {
+                    var here = pos[0] === r && pos[1] === c;
+                    grid.appendChild(el('span', here ? 'me' : '', here ? '🐂<small>' + '⬆➡⬇⬅'.charAt(dir) + '</small>' : ch === 'F' ? '🚩' : ch === '#' ? '🪨' : ''));
+                }); });
+                queue.textContent = cmds.length ? cmds.map(function (c) { return { f: '⬆앞으로', l: '↰왼쪽', r: '↱오른쪽' }[c]; }).join('  ') : '여기에 명령이 차례로 담겨요';
+                score('길 ' + (level + 1) + ' / ' + levels.length);
+            }
+            function add(c) { if (!running && cmds.length < 16) { cmds.push(c); draw(); } }
+            function run() {
+                if (running || !cmds.length) return;
+                running = true; start(); say('출발!'); var i = 0;
+                (function step() {
+                    if (i >= cmds.length) return finish('깃발까지 못 갔어요. 명령을 고쳐 볼까요?');
+                    var c = cmds[i++];
+                    if (c === 'l') dir = (dir + 3) % 4; else if (c === 'r') dir = (dir + 1) % 4; else {
+                        var r = pos[0] + [-1, 0, 1, 0][dir], k = pos[1] + [0, 1, 0, -1][dir];
+                        var ch = (levels[level][r] || '').charAt(k);
+                        if (!ch || ch === '#') return finish('쿵! 막혔어요.');
+                        pos = [r, k]; if (ch === 'F') { draw(); return win(); }
+                    }
+                    draw(); later(step, 450);
+                })();
+            }
+            function finish(text) { running = false; say(text, false); }
+            function win() {
+                running = false;
+                if (level + 1 >= levels.length) return say('🏆 세 길을 모두 통과! 순서대로 명령하는 것이 코딩이에요.', true);
+                say('⭕ 도착! 다음 길로 가요.', true); later(function () { level++; cmds = []; say(''); start(); }, 1200);
+            }
+            [['⬆ 앞으로', function () { add('f'); }], ['↰ 왼쪽 돌기', function () { add('l'); }], ['↱ 오른쪽 돌기', function () { add('r'); }], ['⌫ 하나 지우기', function () { if (!running) { cmds.pop(); start(); } }], ['▶ 실행', run]].forEach(function (o) { row.appendChild(btn(o[0], o[1])); });
+            stage.appendChild(grid); stage.appendChild(queue); stage.appendChild(row); start();
+        },
+        power: function () {
+            var opts = ['⛽ 연료', '🔋 전기', '🌬️ 바람', '🦵 사람의 힘'];
+            rounds(shuffle([['🚗 휘발유 자동차', 0], ['🤖 올로AI 로봇', 1], ['⛵ 돛단배', 2], ['🚲 자전거', 3], ['📱 휴대폰', 1], ['🪁 연', 2], ['🛴 발로 미는 킥보드', 3]]).slice(0, 6), function (q, done) {
+                stage.appendChild(el('div', 'rg-big', q[0] + '는 무엇의 힘으로 움직일까?'));
+                choices(opts.map(function (o, i) { return [o, function () { done(i === q[1], '정답은 ' + opts[q[1]] + '!'); }]; }));
+            });
+        },
+        bug: function () {
+            // 다리 번호: 0 1 2 = 왼쪽 앞·가운데·뒤, 3 4 5 = 오른쪽 앞·가운데·뒤
+            rounds(shuffle([[[0, 4, 2], true], [[3, 1, 5], true], [[0, 1, 2], false], [[3, 4, 5], false], [[0, 3], false], [[0, 1, 2, 3, 4, 5], true], [[2, 5, 4], false]]).slice(0, 6), function (q, done) {
+                var svg = '<svg viewBox="0 0 260 220" class="rg-svg">';
+                for (var i = 0; i < 6; i++) {
+                    var left = i < 3, y = 55 + (i % 3) * 55, on = q[0].indexOf(i) >= 0, fx = left ? 45 : 215;
+                    svg += '<path d="M130 110L' + fx + ' ' + y + '" stroke="' + (on ? '#111827' : '#cbd5e1') + '" stroke-width="7" ' + (on ? '' : 'stroke-dasharray="6 6"') + '/><circle cx="' + fx + '" cy="' + y + '" r="12" fill="' + (on ? '#111827' : '#fff') + '" stroke="#94a3b8" stroke-width="3"/>';
+                }
+                svg += '<ellipse cx="130" cy="110" rx="48" ry="66" fill="#ef4444"/><circle cx="130" cy="36" r="22" fill="#111827"/><path d="M130 50V176" stroke="#111827" stroke-width="3"/><text x="130" y="121" text-anchor="middle" font-size="30">⭐</text></svg>';
+                stage.appendChild(el('div', '', svg));
+                var why = q[1] ? '⭐이 진한 다리들 안쪽에 있어서 안 넘어져요.' : '⭐이 진한 다리들 바깥이라 기우뚱! 넘어져요.';
+                choices([['😊 안 넘어져요', function () { done(q[1], why); }], ['😵 넘어져요', function () { done(!q[1], why); }]]);
+            });
+        },
+        inertia: function () {
+            rounds(shuffle([['서 있던 버스가 갑자기 부웅! 출발해요', 'back'], ['달리던 버스가 갑자기 끼익! 멈춰요', 'front'], ['멈춰 있던 지하철이 확 출발해요', 'back'], ['신나게 달리던 자전거가 돌에 걸려 멈춰요', 'front'], ['달리던 버스가 갑자기 더 빠르게 달려요', 'back'], ['달리던 버스가 속도를 확 줄여요', 'front']]).slice(0, 5), function (q, done) {
+                stage.appendChild(el('div', 'rg-big', q[0]));
+                var bus = el('div', 'rg-bus', '<span class="rg-kid">🧍</span><em>뒤</em><em class="f">앞 ➡</em>'); stage.appendChild(bus);
+                function pick(side) {
+                    bus.classList.add('lean-' + q[1]);
+                    done(side === q[1], q[1] === 'front' ? '몸은 계속 가고 싶어서 앞으로 쏠려요.' : '몸은 그대로 있고 싶어서 뒤로 쏠려요.');
+                }
+                choices([['⬅ 뒤로 쏠려요', function () { pick('back'); }], ['앞으로 쏠려요 ➡', function () { pick('front'); }]]);
+            });
+        },
+        dino: function () {
+            var names = ['🦖 티라노사우루스', '🦕 브라키오사우루스', '🦏 트리케라톱스'];
+            rounds(shuffle([['날카로운 이빨로 고기를 먹어요', 0], ['목이 아주아주 길어요', 1], ['얼굴에 뿔이 세 개 있어요', 2], ['앞다리가 아주 짧고 두 발로 걸어요', 0], ['높은 나무의 잎을 먹어요', 1], ['목에 방패 같은 장식이 있어요', 2]]), function (q, done) {
+                stage.appendChild(el('div', 'rg-big', '“' + q[0] + '”'));
+                choices(names.map(function (n, i) { return [n, function () { done(i === q[1], '정답은 ' + names[q[1]] + '!'); }]; }));
+            });
+        }
+    };
+
+    var game = GAMES[box.dataset.game];
+    if (!game) { box.hidden = true; return; }
+    function begin() { cancelAnimationFrame(frame); timers.forEach(clearTimeout); timers = []; stage.innerHTML = ''; say(''); score(''); game(); }
+    box.querySelector('.rg-start').addEventListener('click', function () { this.textContent = '↺ 처음부터'; begin(); });
+})();
+</script>
+<style>
+    .rg { border: 2px dashed #f59e0b; }
+    .rg-head { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: space-between; }
+    .rg-stage { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 12px; }
+    .rg-score { font-weight: 800; color: #d97706; font-size: 17px; }
+    .rg-msg { text-align: center; font-size: 19px; font-weight: 800; min-height: 30px; margin-top: 8px; line-height: 1.6; }
+    .rg-msg.good { color: #059669; } .rg-msg.bad { color: #dc2626; }
+    .rg-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+    .rg-btn { font-size: 19px; font-weight: 800; padding: 12px 20px; border-radius: 14px; border: 2px solid #93c5fd; background: #eff6ff; color: #1e3a8a; cursor: pointer; }
+    .rg-btn:hover { background: #dbeafe; } .rg-btn.on, .rg-btn.go { background: #2563eb; border-color: #2563eb; color: #fff; }
+    .rg-big { font-size: 22px; font-weight: 800; text-align: center; line-height: 1.6; }
+    .rg-canvas { width: 100%; max-width: 640px; border-radius: 14px; border: 1px solid var(--border); }
+    .rg-range { width: min(420px, 100%); height: 34px; }
+    .rg-svg { width: 260px; max-width: 100%; background: #f8fafc; border-radius: 14px; }
+    .rg-arm { position: relative; width: 260px; height: 110px; }
+    .rg-arm b { position: absolute; left: 0; bottom: 0; font-size: 62px; }
+    .rg-arm i { position: absolute; left: 52px; bottom: 34px; width: 90px; height: 14px; border-radius: 8px; background: #22c55e; transform-origin: left center; transition: width .3s; }
+    .rg-arm.long i { width: 200px; } .rg-arm.short i { width: 55px; }
+    .rg-arm.move i { animation: rg-swing .7s ease-in-out 3; }
+    .rg-move { font-size: 90px; line-height: 1.2; display: inline-block; }
+    .rg-turn { animation: rg-turn 1.6s linear infinite; }
+    .rg-swing { animation: rg-swing 1.4s ease-in-out infinite; transform-origin: top center; }
+    .rg-slide { animation: rg-slide 1.2s ease-in-out infinite; }
+    @keyframes rg-turn { to { transform: rotate(360deg); } }
+    @keyframes rg-swing { 0%, 100% { transform: rotate(-35deg); } 50% { transform: rotate(35deg); } }
+    @keyframes rg-slide { 0%, 100% { transform: translateX(-60px); } 50% { transform: translateX(60px); } }
+    .rg-snow { display: flex; flex-direction: column; gap: 4px; }
+    .rg-line { display: flex; gap: 4px; align-items: center; }
+    .rg-line .rg-btn { font-size: 16px; padding: 6px 10px; }
+    .rg-line span { width: 38px; height: 38px; background: #e2e8f0; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+    .rg-grid { display: grid; grid-template-columns: repeat(5, 58px); gap: 4px; }
+    .rg-grid span { height: 58px; background: #ecfccb; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 30px; position: relative; }
+    .rg-grid span.me { background: #fde68a; } .rg-grid small { position: absolute; right: 2px; bottom: 0; font-size: 18px; color: #1e3a8a; }
+    .rg-queue { min-height: 48px; width: min(520px, 100%); border: 2px solid var(--border); border-radius: 12px; padding: 10px; text-align: center; font-size: 17px; font-weight: 700; line-height: 1.7; }
+    .rg-bus { position: relative; width: 320px; max-width: 100%; height: 130px; background: #fdba74; border-radius: 18px 36px 12px 12px; border-bottom: 14px solid #374151; }
+    .rg-kid { position: absolute; left: 50%; margin-left: -34px; bottom: 6px; font-size: 68px; transform-origin: bottom center; transition: transform .5s; display: inline-block; }
+    .rg-bus em { position: absolute; left: 12px; top: 8px; font-style: normal; font-weight: 800; color: #111827; } .rg-bus em.f { left: auto; right: 16px; }
+    .rg-bus.lean-front .rg-kid { transform: rotate(32deg); } .rg-bus.lean-back .rg-kid { transform: rotate(-32deg); }
+</style>
