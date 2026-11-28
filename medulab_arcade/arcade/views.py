@@ -7014,6 +7014,24 @@ def _parse_report_month_params(request):
     return None, None
 
 
+def _today_typing_rows(scores):
+    """오늘 한 타자연습을 '언어·연습 종류'별로 묶는다 (최근에 한 것부터). 마이 리포트의 '오늘의 학습 내용'에 쓴다."""
+    from django.db.models import Avg, Count, Max
+    from typing_practice.models import LANGUAGE_CHOICES, PRACTICE_TYPE_CHOICES
+
+    types, languages = dict(PRACTICE_TYPE_CHOICES), dict(LANGUAGE_CHOICES)
+    rows = (scores.values('practice_type', 'language')
+            .annotate(count=Count('id'), best=Max('speed'), accuracy=Avg('accuracy'), last=Max('created_at'))
+            .order_by('-last'))
+    return [{
+        'name': types.get(r['practice_type'], r['practice_type']),
+        'language': languages.get(r['language'], r['language']),
+        'count': r['count'],
+        'best': r['best'] or 0,
+        'accuracy': round(r['accuracy'] or 0, 1),
+    } for r in rows]
+
+
 def _build_report_context(user, view_year=None, view_month=None):
     """마이 리포트 통계 집계. 본인 조회(my_report)와 학부모의 자녀 조회(child_report)가 공유.
 
@@ -7036,6 +7054,7 @@ def _build_report_context(user, view_year=None, view_month=None):
     max_speed = today_scores.aggregate(Max('speed'))['speed__max'] or 0
     avg_accuracy = today_scores.aggregate(Avg('accuracy'))['accuracy__avg'] or 0.0
     avg_accuracy = round(avg_accuracy, 1)
+    typing_today = _today_typing_rows(today_scores)
 
     # 2. 오늘의 코딩 학습 성과 집계
     today_progress_qs = UserProgress.objects.filter(
@@ -7352,6 +7371,7 @@ def _build_report_context(user, view_year=None, view_month=None):
         'avg_accuracy': avg_accuracy,
         'coding_count': coding_count,
         'today_progress_list': today_progress_qs,
+        'typing_today': typing_today,
         'has_attended_today': has_attended_today,
         'today_attendance_type_display': today_attendance_type_display,
         'attendance_dates': attendance_dates,
