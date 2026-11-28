@@ -9,6 +9,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import JsonResponse
 from django.utils import timezone
+from django.views.decorators.csrf import ensure_csrf_cookie
 from arcade.badge_service import get_recent_user_badges, evaluate_typing_badges
 from .models import (
     AGE_GROUP_CHOICES,
@@ -665,6 +666,7 @@ def mouse_practice(request):
     return render(request, 'typing_practice/mouse_practice.html')
 
 
+@ensure_csrf_cookie
 def typing_game(request):
     """플레이 — 타자게임 (떨어지는 낱말 맞추기)"""
     return render(request, 'typing_practice/typing_game.html')

@@ -19,6 +19,23 @@
 .tg-card .nm { font-weight: 800; font-size: 15px; }
 .tg-card .st { font-size: 11px; color: #f59e0b; letter-spacing: 1px; }
 .tg-card .bs { font-size: 11px; color: var(--text-muted); min-height: 14px; }
+.tg-card .tp { font-size: 11px; color: #b45309; min-height: 28px; line-height: 1.3; font-weight: 700; word-break: break-all; }
+.tg-rec { display: flex; justify-content: center; gap: 8px 22px; flex-wrap: wrap; margin-bottom: 8px; font-size: 13px; color: var(--text-muted); }
+.tg-rec b { color: var(--text-primary, #1f2937); }
+.tg-levels { position: absolute; inset: 0; overflow-y: auto; padding: 18px 12px; }
+.tg-levels .h { font-size: 20px; font-weight: 900; margin-bottom: 4px; }
+.tg-levels .s { font-size: 13px; color: #475569; margin-bottom: 14px; }
+.tg-levels .src { font-size: 11px; color: #94a3b8; margin-top: 12px; }
+.tg-lvgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; max-width: 720px; margin: 0 auto; }
+.tg-lvgrid.chain { grid-template-columns: 1fr; max-width: 380px; }
+.tg-lv { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 78px; padding: 8px 4px; border-radius: 14px; border: 2px solid #bae6fd; background: #fff; color: #1e293b; cursor: pointer; font: inherit; }
+.tg-lv b { font-size: 16px; }
+.tg-lv small { font-size: 11px; color: #64748b; word-break: keep-all; }
+.tg-lv.done { background: #dcfce7; border-color: #86efac; }
+.tg-lv.next { border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,.3); }
+.tg-lv:disabled { opacity: .5; cursor: not-allowed; background: #e2e8f0; }
+.tg-lvgrid.chain .tg-lv { min-height: 62px; }
+.tg-note { font-weight: 900; color: #fde047; min-height: 20px; }
 @media (max-width: 560px) {
     .tg-wrap { padding: 0 10px; }
     .tg-menu { gap: 6px; }
@@ -26,7 +43,10 @@
     .tg-card .ic { font-size: 28px; }
     .tg-card .nm { font-size: 11px; word-break: keep-all; }
     .tg-card .st { font-size: 9px; }
-    .tg-card .bs { font-size: 9px; }
+    .tg-card .bs, .tg-card .tp { font-size: 9px; }
+    .tg-lvgrid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+    .tg-lv { min-height: 56px; }
+    .tg-rec { font-size: 12px; }
 }
 
 /* 게임 화면 */
@@ -99,9 +119,10 @@
         <div class="tg-top">
             <button class="tg-back" id="tgBack">← 게임 목록</button>
             <div class="tg-gtitle" id="tgTitle"></div>
-            <span style="width:90px"></span>
+            <button class="tg-back" id="tgLevelBtn">레벨 선택</button>
         </div>
-        <div class="tg-info"><span><span id="tgLA">점수</span> <b id="tgA">0</b></span><span><span id="tgLB">목숨</span> <b id="tgB"></b></span><span>최고 <b id="tgBest">0</b></span></div>
+        <div class="tg-rec" id="tgRec"></div>
+        <div class="tg-info" id="tgInfo"><span><span id="tgLA">점수</span> <b id="tgA">0</b></span><span><span id="tgLB">목숨</span> <b id="tgB"></b></span><span id="tgCWrap"><span id="tgLC"></span> <b id="tgC"></b></span></div>
         <div class="tg-board" id="tgBoard"></div>
         <input type="text" id="tgInput" class="tg-input" placeholder="여기에 입력하고 Enter" autocomplete="off" autocapitalize="off" spellcheck="false" disabled>
     </section>
@@ -167,10 +188,11 @@
     var DUEUM = { '라':'나','래':'내','로':'노','루':'누','르':'느','리':'이','려':'여','료':'요','류':'유','녀':'여','니':'이','람':'남','락':'낙','랑':'낭','룡':'용','림':'임','린':'인','립':'입','력':'역' };
 
     /* =============== 공통 도우미 =============== */
-    var lang = 'ko', cur = null, onSubmit = null;
+    var lang = 'ko', cur = null, level = 1, onSubmit = null;
     try { lang = localStorage.getItem('tg2_lang') === 'en' ? 'en' : 'ko'; } catch (e) {}
     var menu = document.getElementById('tgMenu'), gameEl = document.getElementById('tgGame'), board = document.getElementById('tgBoard'), input = document.getElementById('tgInput');
-    var laEl = document.getElementById('tgLA'), aEl = document.getElementById('tgA'), lbEl = document.getElementById('tgLB'), bEl = document.getElementById('tgB'), bestEl = document.getElementById('tgBest');
+    var infoEl = document.getElementById('tgInfo'), laEl = document.getElementById('tgLA'), aEl = document.getElementById('tgA'), lbEl = document.getElementById('tgLB'), bEl = document.getElementById('tgB');
+    var cWrap = document.getElementById('tgCWrap'), lcEl = document.getElementById('tgLC'), cEl = document.getElementById('tgC'), recEl = document.getElementById('tgRec');
     var cleanups = [];
     function addC(fn) { cleanups.push(fn); }
     function stopAll() { cleanups.forEach(function (f) { try { f(); } catch (e) {} }); cleanups = []; onSubmit = null; }
@@ -184,11 +206,16 @@
     }
     function rnd(a, b) { return Math.floor(a + Math.random() * (b - a)); }
     function mk(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+    function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : t; return d.innerHTML; }
     function shuffle(a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = rnd(0, i + 1), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
     function hearts(n) { return n > 0 ? new Array(n + 1).join('❤️') : '💔'; }
-    function setInfo(la, a, lb, b) { laEl.textContent = la; aEl.textContent = a; lbEl.textContent = lb; bEl.textContent = b; }
+    function setInfo(la, a, lb, b, lc, c) {
+        laEl.textContent = la; aEl.textContent = a; lbEl.textContent = lb; bEl.textContent = b;
+        cWrap.style.display = lc ? '' : 'none'; lcEl.textContent = lc || ''; cEl.textContent = c == null ? '' : c;
+    }
     function setA(v) { aEl.textContent = v; }
     function setB(v) { bEl.textContent = v; }
+    function setC(v) { cEl.textContent = v; }
     function eq(a, b) { return lang === 'en' ? a.toLowerCase() === b.toLowerCase() : a === b; }
     function normSent(s) { return s.toLowerCase().replace(/[.,!?]/g, '').replace(/\s+/g, ''); }
     function floatAt(x, y, text, color) {
@@ -197,31 +224,6 @@
     }
     function flash() { board.classList.add('tg-flash'); setTimeout(function () { board.classList.remove('tg-flash'); }, 300); }
     function shake(el) { el.classList.add('tg-shake'); setTimeout(function () { el.classList.remove('tg-shake'); }, 300); }
-    function bestKey(id) { return 'tg2_' + id + '_' + lang; }
-    function readBest(id) { try { var v = parseFloat(localStorage.getItem(bestKey(id))); return isNaN(v) ? null : v; } catch (e) { return null; } }
-    function saveBest(id, val, lower) {
-        if (val == null) return false;
-        try {
-            if (!lower && val <= 0) return false;
-            var old = readBest(id);
-            var isNew = old === null || (lower ? val < old : val > old);
-            if (isNew) localStorage.setItem(bestKey(id), val);
-            return isNew;
-        } catch (e) { return false; }
-    }
-    function overlay(big, small, btns) {
-        var d = mk('div', 'tg-msg', '<div class="big">' + big + '</div><div>' + small + '</div><div class="tg-btns"></div>');
-        btns.forEach(function (b) { var x = mk('button', 'tg-btn' + (b.sub ? ' sub' : ''), b.text); x.onclick = b.fn; d.querySelector('.tg-btns').appendChild(x); });
-        board.appendChild(d); input.disabled = true;
-    }
-    function endGame(o) {
-        stopAll(); input.disabled = true;
-        var g = GAMES[cur], isNew = saveBest(cur, o.val, g.lower);
-        if (readBest(cur) !== null) bestEl.textContent = readBest(cur);
-        overlay(o.title, (o.sub || '') + (isNew ? '<br>🏅 새 최고 기록이에요!' : ''),
-            [{ text: '다시 하기', fn: function () { startGame(cur); } }, { text: '게임 목록', sub: true, fn: toMenu }]);
-    }
-    function cheer(score, hi, mid) { return score >= hi ? '🏆 대단해요!' : score >= mid ? '🎉 잘했어요!' : '💪 괜찮아요! 다시 하면 더 잘할 수 있어요!'; }
     function countdown3(cb) {
         var d = mk('div', 'tg-msg', '<div class="big" style="font-size:64px">3</div>'); board.appendChild(d);
         after(function () { d.firstChild.textContent = '2'; }, 700);
@@ -230,28 +232,149 @@
         after(function () { if (d.parentNode) d.parentNode.removeChild(d); cb(); }, 2700);
     }
     function timerUp() { var s = Date.now(); setB('0.0'); every(function () { setB(((Date.now() - s) / 1000).toFixed(1)); }, 100); return function () { return parseFloat(((Date.now() - s) / 1000).toFixed(1)); }; }
-    function timerDown(sec, onEnd) { var end = Date.now() + sec * 1000; setB(sec); every(function () { var r = Math.ceil((end - Date.now()) / 1000); setB(Math.max(0, r)); if (r <= 0) onEnd(); }, 200); }
+    function timerDown(sec, setter, onEnd) {
+        var end = Date.now() + sec * 1000, done = false; setter(sec);
+        every(function () { var r = Math.ceil((end - Date.now()) / 1000); setter(Math.max(0, r)); if (r <= 0 && !done) { done = true; onEnd(); } }, 200);
+    }
     function pool(src) { return src[lang]; }
+    // 레벨이 올라가면 긴 낱말이 섞여 나온다
+    function wordsFor(lv) { return lv < 5 ? pool(SHORT) : lv < 8 ? uniq(pool(SHORT).concat(pool(MID))) : uniq(pool(MID).concat(pool(LONG))); }
     function hintOf(w) { return lang === 'ko' ? w.charAt(0) + '○'.repeat(Math.max(0, w.length - 1)) : w.charAt(0) + '_'.repeat(Math.max(0, w.length - 1)); }
+
+    /* =============== 레벨 설정 =============== */
+    var CHAIN_LV = [
+        { t: '🌱 쉬움', short: '쉬움', d: '아이들이 아는 쉬운 낱말 · 10번 이으면 성공', goal: 10, limit: 25 },
+        { t: '🌿 보통', short: '보통', d: '생활 속 낱말이 많이 나와요 · 15번 이으면 성공', goal: 15, limit: 20 },
+        { t: '🌳 어려움', short: '어려움', d: '어른도 도전! 컴퓨터가 어려운 글자로 끝내요 · 20번', goal: 20, limit: 15 },
+        { t: '♾️ 무한', short: '무한', d: '끝이 없어요! 최대 몇 번까지 이을 수 있을까요?', goal: 0, limit: 20 }
+    ];
+    var FALL = { rain: { spawn: 2.2, speed: 34 }, meteor: { spawn: 2.4, speed: 32 }, balloon: { spawn: 2.0, speed: 40 },
+                 zombie: { spawn: 2.6, speed: 0.04 }, ninja: { spawn: 1.8, speed: 0 }, rhythm: { spawn: 1.9, speed: 0.12 } };
+    var COUNT = { scramble: { n: 8, base: 20, step: 1.6 }, pic: { n: 10, base: 14, step: 1.1 }, blank: { n: 8, base: 16, step: 1.2 }, vault: { n: 5, base: 16, step: 1.2 } };
+    // 게임과 레벨(1~10)에 따른 난이도. k 가 커질수록 빠르고, 많이, 짧은 시간에.
+    function levelCfg(id, lv) {
+        var k = lv - 1, c;
+        if (FALL[id]) {
+            var f = FALL[id], spawn = f.spawn * (1.15 - 0.065 * k), bombs = id === 'ninja' ? 0.1 + 0.02 * k : 0;
+            c = { spawn: spawn, speed: f.speed * (0.75 + 0.09 * k), bombRate: bombs, gravity: 300 + 25 * k, lives: lv <= 5 ? 5 : lv <= 8 ? 4 : 3,
+                  seconds: 60, target: Math.round(60 / spawn * (0.35 + 0.039 * k) * (1 - bombs)) * 10 };
+            c.desc = '60초 안에 ' + c.target + '점';
+        } else if (id === 'brick' || id === 'hamster') {
+            c = { seconds: 60, target: 8 + 2 * k }; c.desc = '60초 안에 ' + c.target + '개';
+        } else if (id === 'car') {
+            c = { goal: 5 + Math.floor(k / 3) }; c.oppTime = Math.round(c.goal * (18 - 1.2 * k)); c.desc = c.goal + '문장 · ' + c.oppTime + '초 안에';
+        } else if (id === 'rabbit') {
+            c = { goal: 8 + Math.floor(k / 2), freeze: 1000 + 100 * k }; c.oppTime = Math.round(c.goal * (12 - 0.85 * k)); c.desc = c.goal + '낱말 · ' + c.oppTime + '초 안에';
+        } else if (COUNT[id]) {
+            var q = COUNT[id]; c = { n: q.n, limit: Math.round(q.n * (q.base - q.step * k)) }; c.desc = c.n + '문제 · ' + c.limit + '초 안에';
+        } else if (id === 'bomb') {
+            c = { goal: 6 + Math.floor(k / 2), fuse: Math.round((18 - 1.2 * k) * 10) / 10 }; c.desc = c.goal + '개 해체 · 한 개에 ' + c.fuse + '초';
+        } else {
+            c = CHAIN_LV[lv - 1]; c = { goal: c.goal, limit: c.limit, desc: c.d };
+        }
+        return c;
+    }
+
+    /* =============== 기록 =============== */
+    var records = {}, loggedIn = false, unlockAll = false, recordsFailed = false;
+    function emptyRec() { return { mine: null, top: null, cleared: 0 }; }
+    function rec(id) { return records[id] || (records[id] = emptyRec()); }
+    function localKey() { return 'tg3_' + lang; }
+    function readLocal() { try { return JSON.parse(localStorage.getItem(localKey())) || {}; } catch (e) { return {}; } }
+    function better(a, b, lower) { if (!b) return true; if (a.level !== b.level) return a.level > b.level; return lower ? a.value < b.value : a.value > b.value; }
+    function applyRecords(d) {
+        loggedIn = !!d.logged_in; unlockAll = !!d.unlock_all; records = d.games || {};
+        if (!loggedIn) {   // 로그인하지 않으면 이 기기에만 저장한 내 기록을 보여 준다
+            var local = readLocal();
+            Object.keys(local).forEach(function (id) { var r = rec(id); r.mine = local[id].mine; r.cleared = local[id].cleared; });
+        }
+    }
+    function loadRecords() {
+        var asked = lang;
+        return fetch('/typing/api/game-records/?lang=' + asked, { credentials: 'same-origin' }).then(function (r) { return r.json(); })
+            .then(function (d) { if (asked !== lang) return; recordsFailed = false; applyRecords(d); })
+            .catch(function () { if (asked !== lang) return; recordsFailed = true; applyRecords({ games: {} }); })
+            .then(refresh);
+    }
+    function csrf() { var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/); return m ? decodeURIComponent(m[1]) : ''; }
+    function fmt(id, r) {
+        if (!r) return '';
+        if (id === 'chain') return CHAIN_LV[r.level - 1].short + ' ' + r.value + '번';
+        return 'Lv.' + r.level + ' · ' + r.value + GAMES[id].unit;
+    }
+    // 성공한 기록을 저장하고, 결과 안내 글을 note 에 채운다
+    function submitRecord(id, lv, val, note) {
+        var lower = !!GAMES[id].lower, r = rec(id), now = { level: lv, value: val };
+        var isBest = better(now, r.mine, lower);
+        r.cleared = Math.max(r.cleared, lv); if (isBest) r.mine = now;
+        if (!loggedIn) {
+            try { var all = readLocal(); all[id] = { mine: r.mine, cleared: r.cleared }; localStorage.setItem(localKey(), JSON.stringify(all)); } catch (e) {}
+            note.innerHTML = (isBest ? '🏅 새 최고 기록이에요!<br>' : '') + (recordsFailed ? '' : '<small>로그인하면 기록이 저장되고 순위에 올라가요.</small>');
+            return;
+        }
+        var asked = lang;
+        note.textContent = '기록을 저장하는 중…';
+        fetch('/typing/api/game-records/', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+            body: JSON.stringify({ game: id, lang: asked, level: lv, value: val }) })
+            .then(function (res) { return res.json(); })
+            .then(function (d) {
+                if (!d.ok) { note.textContent = d.error || '기록을 저장하지 못했어요.'; return; }
+                if (asked === lang) { applyRecords(d); showRecordLine(id); }
+                note.innerHTML = d.new_top ? '👑 전체 최고 기록이에요!' : isBest ? '🏅 새 최고 기록이에요!' : '';
+            })
+            .catch(function () { note.textContent = '기록을 저장하지 못했어요.'; });
+    }
+    function showRecordLine(id) {
+        var r = rec(id);
+        recEl.innerHTML = '<span>🏅 내 최고 <b>' + (fmt(id, r.mine) || '아직 없어요') + '</b></span><span>👑 전체 최고 <b>' +
+            (r.top ? fmt(id, r.top) + ' (' + esc(r.top.name) + ')' : '아직 없어요') + '</b></span>';
+    }
+
+    /* =============== 결과 화면 =============== */
+    function overlay(big, small, btns) {
+        var d = mk('div', 'tg-msg', '<div class="big">' + big + '</div><div>' + small + '</div><div class="tg-note"></div><div class="tg-btns"></div>');
+        btns.forEach(function (b) { var x = mk('button', 'tg-btn' + (b.sub ? ' sub' : ''), b.text); x.onclick = b.fn; d.querySelector('.tg-btns').appendChild(x); });
+        board.appendChild(d); input.disabled = true;
+        return d;
+    }
+    function endGame(o) {
+        stopAll(); input.disabled = true;
+        var id = cur, lv = level, last = id === 'chain' ? 4 : 10, btns = [];
+        if (o.cleared && lv < last && !(id === 'chain' && lv === 3)) btns.push({ text: '다음 레벨 ▶', fn: function () { startLevel(id, lv + 1); } });
+        if (o.cleared && id === 'chain' && lv === 3) btns.push({ text: '♾️ 무한 도전 ▶', fn: function () { startLevel(id, 4); } });
+        btns.push({ text: '다시 하기', sub: btns.length > 0, fn: function () { startLevel(id, lv); } });
+        btns.push({ text: '레벨 선택', sub: true, fn: function () { showLevels(id); } });
+        btns.push({ text: '게임 목록', sub: true, fn: toMenu });
+        var head = o.cleared && !(id === 'chain' && lv === 4) ? '<div style="color:#fde047;font-weight:900">✨ ' + (id === 'chain' ? CHAIN_LV[lv - 1].short : '레벨 ' + lv) + ' 성공!</div>' : '';
+        var d = overlay(o.title, head + (o.sub || ''), btns);
+        if (o.cleared && o.val != null) submitRecord(id, lv, o.val, d.querySelector('.tg-note'));
+        showRecordLine(id);
+    }
+    function cheer(cleared, target) { return cleared ? '🎉 목표를 이뤘어요!' : '💪 목표는 ' + target + '이에요. 다시 하면 할 수 있어요!'; }
 
     /* =============== 떨어지고 날아오는 게임 엔진 =============== */
     function fallGame(c) {
-        var W = board.clientWidth, H = board.clientHeight, life = 5, score = 0, items = [], spawnT = 0.6;
+        var L = levelCfg(cur, level);
+        var W = board.clientWidth, H = board.clientHeight, life = L.lives, score = 0, items = [], spawnT = 0.6;
         board.style.background = c.bg; board.innerHTML = '';
         if (c.ground) board.appendChild(mk('div', 'tg-ground'));
         if (c.base) { var b = mk('div', 'tg-base', c.base); b.style.left = c.baseLeft(W) + 'px'; b.style.bottom = (c.baseBottom || 6) + 'px'; board.appendChild(b); }
         if (c.zone) { var z = mk('div', 'tg-zone'); z.style.left = c.zoneX + 'px'; board.appendChild(z); }
-        setInfo('점수', 0, '목숨', hearts(life));
-        var words = pool(SHORT), laneN = 5, laneH = (H - 24) / laneN;
-        var speedBase = c.dir === 'left' ? c.speed * W : c.speed;
+        setInfo('점수', '0 / ' + L.target, '목숨', hearts(life), '남은 시간', L.seconds);
+        var words = wordsFor(level), laneN = 5, laneH = (H - 24) / laneN;
+        var speedBase = c.dir === 'left' ? L.speed * W : L.speed;
+        function finish(title) {
+            var ok = score >= L.target;
+            endGame({ title: title + ' ' + score + '점', sub: cheer(ok, L.target + '점'), cleared: ok, val: score });
+        }
         function spawn() {
-            var bomb = c.bombs && Math.random() < 0.2, text;
+            var bomb = c.bombs && Math.random() < L.bombRate, text;
             var onScreen = items.map(function (i) { return i.text; });
             do { text = words[rnd(0, words.length)]; } while (onScreen.indexOf(text) >= 0 && onScreen.length < words.length - 1);
             var el = mk('div', 'tg-item' + (bomb ? ' bomb' : ''), '<span class="em">' + (bomb ? '💣' : c.emoji()) + '</span><span class="tg-chip">' + text + '</span>');
             board.appendChild(el);
             var w = el.offsetWidth, it = { el: el, text: text, bomb: bomb, w: w, t: 0, x: 0, y: 0, vx: 0, vy: 0 };
-            var v = speedBase + Math.min(score, 300) * c.grow * (c.dir === 'left' ? W / 800 : 1);
+            var v = speedBase + Math.min(score, 300) * c.grow * 0.3 * (c.dir === 'left' ? W / 800 : 1);
             if (c.dir === 'down') {
                 it.x = rnd(10, Math.max(11, W - w - 10)); it.y = -40; it.vy = v * (0.9 + Math.random() * 0.25);
                 if (c.drift) { var tt = (H - 70) / it.vy; it.vx = (W / 2 - w / 2 - it.x) / tt; }
@@ -263,17 +386,18 @@
                 it.lane = lane; it.x = W; it.y = 8 + lane * laneH; it.vx = -v;
             } else { // arc
                 it.x = rnd(30, Math.max(31, W - w - 30)); it.y = H; var hgt = H * (0.55 + Math.random() * 0.3);
-                it.g = 380; it.vy = -Math.sqrt(2 * it.g * hgt); it.vx = (Math.random() - 0.5) * 80;
+                it.g = L.gravity; it.vy = -Math.sqrt(2 * it.g * hgt); it.vx = (Math.random() - 0.5) * 80;
             }
             el.style.left = it.x + 'px'; el.style.top = it.y + 'px';
             items.push(it);
         }
         function urgency(it) { return c.dir === 'down' ? it.y : c.dir === 'up' ? -it.y : c.dir === 'left' ? -it.x : it.t; }
         function remove(it) { var k = items.indexOf(it); if (k >= 0) items.splice(k, 1); if (it.el.parentNode) it.el.parentNode.removeChild(it.el); }
-        function lose() { life--; setB(hearts(life)); flash(); if (life <= 0) endGame({ title: '게임 끝! ' + score + '점', sub: cheer(score, c.hi, c.mid), val: score }); }
+        function lose() { life--; setB(hearts(life)); flash(); if (life <= 0) finish('게임 끝!'); }
+        timerDown(L.seconds, setC, function () { finish('시간 끝!'); });
         frames(function (dt) {
             spawnT -= dt;
-            if (spawnT <= 0) { spawn(); spawnT = c.fixedBeat ? c.fixedBeat : Math.max(c.spawnMin, c.spawn0 - score / 150); }
+            if (spawnT <= 0) { spawn(); spawnT = L.spawn; }
             for (var i = items.length - 1; i >= 0; i--) {
                 var it = items[i]; it.t += dt;
                 if (c.dir === 'arc') it.vy += it.g * dt;
@@ -290,19 +414,21 @@
             var bx = best.x, by = best.y;
             best.el.classList.add('hit'); items.splice(items.indexOf(best), 1);
             setTimeout(function () { if (best.el.parentNode) best.el.parentNode.removeChild(best.el); }, 150);
-            if (best.bomb) { life--; setB(hearts(life)); flash(); floatAt(bx, by, '💥 폭탄!', '#dc2626'); if (life <= 0) endGame({ title: '게임 끝! ' + score + '점', sub: '폭탄을 쳤어요! ' + cheer(score, c.hi, c.mid), val: score }); return; }
+            if (best.bomb) { life--; setB(hearts(life)); flash(); floatAt(bx, by, '💥 폭탄!', '#dc2626'); if (life <= 0) finish('💥 폭탄을 쳤어요!'); return; }
             var pts = 10;
             if (c.zone) {
                 var d = Math.abs(bx - c.zoneX);
                 if (d < 45) { pts = 20; floatAt(bx, by, 'PERFECT! +20', '#d97706'); } else if (d < 130) { pts = 10; floatAt(bx, by, 'GOOD +10', '#16a34a'); } else { pts = 5; floatAt(bx, by, '+5', '#2563eb'); }
             } else floatAt(bx, by, '+10');
-            score += pts; setA(score);
+            var before = score; score += pts; setA(score + ' / ' + L.target);
+            if (before < L.target && score >= L.target) floatAt(W / 2 - 60, H / 2, '🎯 목표 달성!', '#7c3aed');
         };
     }
 
     /* =============== 달리기 게임 엔진 =============== */
     function raceGame(c) {
-        var W = board.clientWidth, goal = c.goal, done = 0, frozenUntil = 0, finished = false, startAt = 0;
+        var L = levelCfg(cur, level);
+        var W = board.clientWidth, goal = L.goal, done = 0, frozenUntil = 0, finished = false, startAt = 0;
         board.style.background = c.bg; board.innerHTML = '';
         var laneP = mk('div', 'tg-lane'), laneO = mk('div', 'tg-lane');
         laneP.style.top = '20px'; laneO.style.top = '100px';
@@ -321,18 +447,18 @@
             var elapsedFn = timerUp();
             frames(function () {
                 if (finished) return;
-                var op = Math.min(1, (Date.now() - startAt) / 1000 / c.oppTime); place(runO, op);
-                if (op >= 1) { finished = true; endGame({ title: '😢 아쉬워요! ' + c.oName + '이(가) 먼저 도착했어요', sub: '다시 도전해 봐요! 💪', val: null }); }
+                var op = Math.min(1, (Date.now() - startAt) / 1000 / L.oppTime); place(runO, op);
+                if (op >= 1) { finished = true; endGame({ title: '😢 아쉬워요! ' + c.oName + '이(가) 먼저 도착했어요', sub: '다시 도전해 봐요! 💪', cleared: false }); return; }
                 if (frozenUntil && Date.now() > frozenUntil) { frozenUntil = 0; input.disabled = false; input.focus(); show(); }
             });
             onSubmit = function (v) {
                 if (finished || frozenUntil || !v) return;
                 if (normSent(v) === normSent(prompts[done])) {
                     done++; setA(goal - done); place(runP, done / goal);
-                    if (done >= goal) { finished = true; var sec = elapsedFn(); endGame({ title: '🏆 1등이에요! ' + sec.toFixed(1) + '초', sub: c.winText, val: sec }); return; }
+                    if (done >= goal) { finished = true; var sec = elapsedFn(); endGame({ title: '🏆 1등이에요! ' + sec.toFixed(1) + '초', sub: c.winText, cleared: true, val: sec }); return; }
                     show();
                 } else if (c.freeze) {
-                    frozenUntil = Date.now() + c.freeze; input.disabled = true; promptEl.innerHTML = '<div class="w">😵 잠깐 멈춤!</div><div class="s">틀렸어요. 조금만 기다려요</div>'; shake(runP);
+                    frozenUntil = Date.now() + L.freeze; input.disabled = true; promptEl.innerHTML = '<div class="w">😵 잠깐 멈춤!</div><div class="s">틀렸어요. 조금만 기다려요</div>'; shake(runP);
                 } else shake(promptEl);
             };
         });
@@ -340,11 +466,12 @@
 
     /* =============== 문제 풀기 게임 엔진 =============== */
     function quizBoard() { board.style.background = 'linear-gradient(#fef9c3,#fff7ed)'; board.innerHTML = '<div class="tg-vis" id="tgVis"></div><div class="tg-prompt" id="tgPrompt"></div>'; return [document.getElementById('tgVis'), document.getElementById('tgPrompt')]; }
-    // 정해진 개수의 문제를 모두 풀면 끝(걸린 시간 기록)
+    // 제한 시간 안에 정해진 개수의 문제를 모두 풀면 성공(걸린 시간 기록)
     function countGame(c) {
-        var n = c.items.length, idx = 0, tries = 0, els = quizBoard(), vis = els[0], prm = els[1];
-        setInfo(c.unitLabel, n, '시간', '0.0');
-        var elapsed = timerUp();
+        var L = levelCfg(cur, level);
+        var n = c.items.length, idx = 0, tries = 0, solved = false, els = quizBoard(), vis = els[0], prm = els[1], start = Date.now();
+        setInfo(c.unitLabel, n, '남은 시간', L.limit);
+        timerDown(L.limit, setB, function () { if (!solved) endGame({ title: '⏰ 시간이 다 됐어요', sub: n + '문제 중 ' + idx + '문제를 풀었어요. 다시 해 봐요! 💪', cleared: false }); });
         function show() {
             var q = c.items[idx]; tries = 0;
             vis.innerHTML = q.vis; prm.innerHTML = q.prompt;
@@ -361,21 +488,22 @@
             }
             if (c.onCorrect) c.onCorrect(idx, vis);
             idx++; setA(n - idx);
-            if (idx >= n) { var sec = elapsed(); after(function () { endGame({ title: '🎉 잘했어요! ' + sec.toFixed(1) + '초', sub: c.doneText, val: sec }); }, 450); onSubmit = null; return; }
+            if (idx >= n) { solved = true; onSubmit = null; var sec = parseFloat(((Date.now() - start) / 1000).toFixed(1)); after(function () { endGame({ title: '🎉 잘했어요! ' + sec.toFixed(1) + '초', sub: c.doneText, cleared: true, val: sec }); }, 450); return; }
             after(show, c.onCorrect ? 350 : 0);
         };
     }
-    // 시간 안에 많이 맞히기
+    // 시간 안에 목표 개수만큼 맞히기
     function timedGame(c) {
+        var L = levelCfg(cur, level);
         var score = 0, els = quizBoard(), vis = els[0], prm = els[1], word = null;
-        setInfo('점수', 0, '남은 시간', c.seconds);
+        setInfo('맞힌 개수', '0 / ' + L.target, '남은 시간', L.seconds);
         c.setup(vis);
         function next() { word = c.next(); prm.innerHTML = word.prompt; }
         next();
-        timerDown(c.seconds, function () { endGame({ title: '시간 끝! ' + score + '점', sub: cheer(score, c.hi, c.mid), val: score }); });
+        timerDown(L.seconds, setB, function () { var ok = score >= L.target; endGame({ title: '시간 끝! ' + score + '개', sub: cheer(ok, L.target + '개'), cleared: ok, val: score }); });
         onSubmit = function (v) {
             if (!v) return;
-            if (eq(word.answer, v)) { score++; setA(score); c.onCorrect(score, vis, word); next(); }
+            if (eq(word.answer, v)) { score++; setA(score + ' / ' + L.target); c.onCorrect(score, vis, word); next(); }
             else { shake(prm); flash(); }
         };
     }
@@ -385,30 +513,32 @@
     function mkWord(arr) { return arr[rnd(0, arr.length)]; }
 
     GAMES.rain = { name: '낱말 비', icon: '☔', stars: 2, unit: '점', run: function () {
-        fallGame({ dir: 'down', bg: 'linear-gradient(#dbeafe,#eff6ff)', ground: true, emoji: function () { return '💧'; }, speed: 34, grow: 0.12, spawn0: 2.2, spawnMin: 1.0, hi: 150, mid: 60 });
+        fallGame({ dir: 'down', bg: 'linear-gradient(#dbeafe,#eff6ff)', ground: true, emoji: function () { return '💧'; }, grow: 0.12 });
     } };
     GAMES.meteor = { name: '우주선 지키기', icon: '🚀', stars: 2, unit: '점', run: function () {
-        fallGame({ dir: 'down', drift: true, bg: 'linear-gradient(#0f172a,#312e81)', emoji: function () { return '☄️'; }, base: '🚀', baseLeft: function (W) { return W / 2 - 22; }, speed: 32, grow: 0.12, spawn0: 2.4, spawnMin: 1.1, floor: 78, hi: 150, mid: 60 });    } };
+        fallGame({ dir: 'down', drift: true, bg: 'linear-gradient(#0f172a,#312e81)', emoji: function () { return '☄️'; }, base: '🚀', baseLeft: function (W) { return W / 2 - 22; }, grow: 0.12, floor: 78 });
+    } };
     GAMES.balloon = { name: '풍선 터뜨리기', icon: '🎈', stars: 1, unit: '점', run: function () {
-        fallGame({ dir: 'up', bg: 'linear-gradient(#bae6fd,#f0f9ff)', emoji: function () { return '🎈'; }, speed: 40, grow: 0.1, spawn0: 2.0, spawnMin: 1.0, hi: 150, mid: 60 });
+        fallGame({ dir: 'up', bg: 'linear-gradient(#bae6fd,#f0f9ff)', emoji: function () { return '🎈'; }, grow: 0.1 });
     } };
     GAMES.zombie = { name: '좀비 막기', icon: '🧟', stars: 3, unit: '점', run: function () {
-        fallGame({ dir: 'left', bg: 'linear-gradient(#1e293b,#334155)', emoji: function () { return '🧟'; }, base: '🏠', baseLeft: function () { return 4; }, baseBottom: 190, missX: 52, speed: 0.04, grow: 0.0004, spawn0: 2.6, spawnMin: 1.4, hi: 150, mid: 60 });
+        fallGame({ dir: 'left', bg: 'linear-gradient(#1e293b,#334155)', emoji: function () { return '🧟'; }, base: '🏠', baseLeft: function () { return 4; }, baseBottom: 190, missX: 52, grow: 0.0004 });
         board.style.color = '#1e293b';
     } };
     GAMES.ninja = { name: '과일 닌자', icon: '🍉', stars: 2, unit: '점', run: function () {
         var F = ['🍎', '🍌', '🍇', '🍓', '🍊', '🍉'];
-        fallGame({ dir: 'arc', bombs: true, bg: 'linear-gradient(#fde68a,#fef3c7)', emoji: function () { return F[rnd(0, F.length)]; }, spawn0: 1.8, spawnMin: 1.1, grow: 0, speed: 0, hi: 150, mid: 60 });
+        fallGame({ dir: 'arc', bombs: true, bg: 'linear-gradient(#fde68a,#fef3c7)', emoji: function () { return F[rnd(0, F.length)]; }, grow: 0 });
     } };
     GAMES.car = { name: '자동차 경주', icon: '🏎️', stars: 2, unit: '초', lower: true, run: function () {
-        raceGame({ bg: 'linear-gradient(#bbf7d0,#ecfccb)', pEmoji: '🏎️', oEmoji: '🚙', oName: '컴퓨터 자동차', goal: 6, oppTime: 85, pool: pool(SENT), unit: '문장', unitLabel: '남은 문장', big: 28, winText: '문장을 정확하게 모두 썼어요' });
+        raceGame({ bg: 'linear-gradient(#bbf7d0,#ecfccb)', pEmoji: '🏎️', oEmoji: '🚙', oName: '컴퓨터 자동차', pool: pool(SENT), unit: '문장', unitLabel: '남은 문장', big: 28, winText: '문장을 정확하게 모두 썼어요' });
     } };
     GAMES.rabbit = { name: '토끼와 거북이', icon: '🐢', stars: 1, unit: '초', lower: true, run: function () {
-        raceGame({ bg: 'linear-gradient(#fef9c3,#ecfccb)', pEmoji: '🐰', oEmoji: '🐢', oName: '거북이', goal: 10, oppTime: 100, freeze: 1500, pool: pool(SHORT), unit: '낱말', unitLabel: '남은 낱말', winText: '틀리지 않고 달려서 도착했어요' });
+        raceGame({ bg: 'linear-gradient(#fef9c3,#ecfccb)', pEmoji: '🐰', oEmoji: '🐢', oName: '거북이', freeze: true, pool: wordsFor(level), unit: '낱말', unitLabel: '남은 낱말', winText: '틀리지 않고 달려서 도착했어요' });
     } };
     GAMES.brick = { name: '벽돌 쌓기', icon: '🧱', stars: 1, unit: '개', run: function () {
-        timedGame({ seconds: 60, hi: 25, mid: 12, setup: function (vis) { vis.style.cssText += ';align-items:flex-end;justify-content:flex-start;'; vis.innerHTML = '<div id="tgTower" style="position:relative;width:100%;height:100%"></div>'; },
-            next: function () { var w = mkWord(pool(SHORT)); return { answer: w, prompt: '<div class="s">벽돌 한 칸! 낱말을 쓰세요</div><div class="w">' + w + '</div>' }; },
+        var words = wordsFor(level);
+        timedGame({ setup: function (vis) { vis.style.cssText += ';align-items:flex-end;justify-content:flex-start;'; vis.innerHTML = '<div id="tgTower" style="position:relative;width:100%;height:100%"></div>'; },
+            next: function () { var w = mkWord(words); return { answer: w, prompt: '<div class="s">벽돌 한 칸! 낱말을 쓰세요</div><div class="w">' + w + '</div>' }; },
             onCorrect: function (n) {
                 var t = document.getElementById('tgTower'), k = n - 1, perCol = 9, col = Math.floor(k / perCol), row = k % perCol;
                 var b = mk('div', 'tg-brick'); b.style.background = 'hsl(' + ((k * 37) % 360) + ',70%,60%)';
@@ -416,8 +546,8 @@
             } });
     } };
     GAMES.hamster = { name: '햄스터 먹이 주기', icon: '🐹', stars: 1, unit: '개', run: function () {
-        var foods = pool(FOODS), n = 0;
-        timedGame({ seconds: 60, hi: 25, mid: 12,
+        var foods = pool(FOODS);
+        timedGame({
             setup: function (vis) { vis.style.cssText += ';flex-direction:column;'; vis.innerHTML = '<div id="tgHam" style="font-size:96px;transition:transform .2s">🐹</div><div class="tg-eaten" id="tgEaten"></div>'; },
             next: function () { var f = mkWord(foods); return { answer: f[1], prompt: '<div class="s">햄스터에게 먹이를 주세요!</div><div class="w">' + f[0] + ' ' + f[1] + '</div>', food: f[0] }; },
             onCorrect: function (score, vis, word) {
@@ -426,11 +556,12 @@
             } });
     } };
     GAMES.rhythm = { name: '리듬 타자', icon: '🎵', stars: 3, unit: '점', run: function () {
-        fallGame({ dir: 'left', bg: 'linear-gradient(#581c87,#be185d)', zone: true, zoneX: 90, emoji: function () { return '🎵'; }, fixedBeat: 1.9, missX: 10, speed: 0.12, grow: 0, spawn0: 1.9, spawnMin: 1.9, hi: 300, mid: 120 });
+        fallGame({ dir: 'left', bg: 'linear-gradient(#581c87,#be185d)', zone: true, zoneX: 90, emoji: function () { return '🎵'; }, missX: 10, grow: 0 });
     } };
     GAMES.scramble = { name: '글자 순서 맞추기', icon: '🔤', stars: 2, unit: '초', lower: true, run: function () {
-        var src = PICS.filter(function (p) { return lang === 'ko' ? p[1].length >= 2 : p[2].length >= 4; });
-        var items = shuffle(src).slice(0, 8).map(function (p) {
+        var min = (lang === 'ko' ? 2 : 4) + (level >= 6 ? 1 : 0);
+        var src = PICS.filter(function (p) { return (lang === 'ko' ? p[1] : p[2]).length >= min; });
+        var items = shuffle(src).slice(0, COUNT.scramble.n).map(function (p) {
             var ans = lang === 'ko' ? p[1] : p[2], parts = ans.split(''), mixed, t = 0;
             do { mixed = shuffle(parts); t++; } while (mixed.join('') === ans && t < 20);
             return { vis: p[0], answers: [ans], hint: hintOf(ans), prompt: '<div class="s">섞인 글자를 올바른 순서로 써 보세요</div><div>' + mixed.map(function (ch) { return '<span class="tg-tile">' + ch + '</span>'; }).join('') + '</div>' };
@@ -438,32 +569,34 @@
         countGame({ items: items, unitLabel: '남은 문제', doneText: '글자를 모두 맞게 정리했어요' });
     } };
     GAMES.pic = { name: '그림 보고 쓰기', icon: '🖼️', stars: 1, unit: '초', lower: true, run: function () {
-        var items = shuffle(PICS).slice(0, 10).map(function (p) {
+        var src = level >= 6 ? PICS.filter(function (p) { return (lang === 'ko' ? p[1] : p[2]).length >= (lang === 'ko' ? 3 : 4); }) : PICS;
+        var items = shuffle(src).slice(0, COUNT.pic.n).map(function (p) {
             var ans = lang === 'ko' ? p[1] : p[2];
             return { vis: p[0], answers: [ans], hint: hintOf(ans), prompt: '<div class="s">이 그림의 이름은 무엇일까요?</div>' };
         });
         countGame({ items: items, unitLabel: '남은 문제', doneText: '그림 이름을 모두 맞혔어요' });
     } };
     GAMES.blank = { name: '빈칸 채우기', icon: '❓', stars: 2, unit: '초', lower: true, run: function () {
-        var items = shuffle(BLANKS[lang]).slice(0, 8).map(function (b) {
+        var items = shuffle(BLANKS[lang]).slice(0, COUNT.blank.n).map(function (b) {
             return { vis: b[2], answers: [b[1]], hint: hintOf(b[1]), prompt: '<div class="w" style="font-size:26px">' + b[0] + '</div><div class="s">빈칸에 들어갈 낱말을 쓰세요</div>' };
         });
         countGame({ items: items, unitLabel: '남은 문제', doneText: '빈칸을 모두 채웠어요' });
     } };
     GAMES.vault = { name: '금고 풀기', icon: '🔐', stars: 2, unit: '초', lower: true, run: function () {
-        var words = shuffle(pool(MID)).slice(0, 5);
+        var words = shuffle(pool(level < 6 ? MID : LONG)).slice(0, COUNT.vault.n);
         var items = words.map(function (w) { return { vis: '', answers: [w], hint: hintOf(w), prompt: '<div class="s">자물쇠를 열어요! 낱말을 쓰세요</div><div class="w">' + w + '</div>' }; });
         function locks(open) { return '<div class="tg-locks">' + words.map(function (_, i) { return '<span>' + (i < open ? '🔓' : '🔒') + '</span>'; }).join('') + '</div>'; }
         items.forEach(function (q, i) { q.vis = locks(i); });
         countGame({ items: items, unitLabel: '남은 자물쇠', doneText: '금고를 활짝 열었어요 💰', onCorrect: function (i, vis) { vis.innerHTML = locks(i + 1); } });
     } };
-    GAMES.bomb = { name: '폭탄 해체', icon: '💣', stars: 3, unit: '개', run: function () {
-        var life = 3, defused = 0, goal = 10, els = quizBoard(), vis = els[0], prm = els[1], word, deadline = 0, limit = 0, exploding = false;
+    GAMES.bomb = { name: '폭탄 해체', icon: '💣', stars: 3, unit: '초', lower: true, run: function () {
+        var L = levelCfg('bomb', level), words = pool(level < 4 ? MID : LONG);
+        var life = 3, defused = 0, goal = L.goal, els = quizBoard(), vis = els[0], prm = els[1], word, deadline = 0, limit = 0, exploding = false, start = Date.now();
         board.style.background = 'linear-gradient(#fee2e2,#fef2f2)';
-        setInfo('해체한 폭탄', 0, '목숨', hearts(life));
+        setInfo('해체한 폭탄', '0 / ' + goal, '목숨', hearts(life));
         vis.style.flexDirection = 'column';
         function next() {
-            exploding = false; word = mkWord(pool(LONG)); limit = Math.max(9, 16 - defused * 0.7);
+            exploding = false; word = mkWord(words); limit = Math.max(5, L.fuse - defused * 0.3);
             deadline = Date.now() + limit * 1000;
             vis.innerHTML = '<div id="tgBomb">💣</div><div style="width:240px;height:14px;border-radius:8px;background:rgba(0,0,0,.12);overflow:hidden"><i id="tgFuse" style="display:block;height:100%;width:100%;background:#ef4444"></i></div>';
             prm.innerHTML = '<div class="s">폭탄이 터지기 전에 쓰세요!</div><div class="w">' + word + '</div>';
@@ -475,15 +608,15 @@
             if (f) f.style.width = Math.max(0, left / (limit * 1000) * 100) + '%';
             if (left <= 0) {
                 exploding = true; life--; setB(hearts(life)); flash(); document.getElementById('tgBomb').textContent = '💥';
-                if (life <= 0) { after(function () { endGame({ title: '💥 펑! 게임 끝 (' + defused + '개 해체)', sub: cheer(defused, 8, 4), val: defused }); }, 600); return; }
+                if (life <= 0) { after(function () { endGame({ title: '💥 펑! 게임 끝', sub: '폭탄 ' + defused + '개를 해체했어요. 목표는 ' + goal + '개예요 💪', cleared: false }); }, 600); return; }
                 after(next, 900);
             }
         });
         onSubmit = function (v) {
             if (exploding || !v) return;
             if (eq(word, v)) {
-                defused++; setA(defused); exploding = true; document.getElementById('tgBomb').textContent = '✅';
-                if (defused >= goal) { after(function () { endGame({ title: '🏆 폭탄을 모두 해체했어요!', sub: '폭탄 ' + goal + '개 해체 성공', val: defused }); }, 500); return; }
+                defused++; setA(defused + ' / ' + goal); exploding = true; document.getElementById('tgBomb').textContent = '✅';
+                if (defused >= goal) { var sec = parseFloat(((Date.now() - start) / 1000).toFixed(1)); after(function () { endGame({ title: '🏆 폭탄을 모두 해체했어요! ' + sec.toFixed(1) + '초', sub: '폭탄 ' + goal + '개 해체 성공', cleared: true, val: sec }); }, 500); return; }
                 after(next, 450);
             } else shake(prm);
         };
@@ -493,40 +626,22 @@
         if (chainExtra) { cb(chainExtra); return; }
         fetch('/typing/api/chain-words/').then(function (r) { return r.json(); })
             .then(function (d) { chainExtra = d; cb(d); })
-            .catch(function () { chainExtra = { mid: [], hard: [] }; cb(chainExtra); });
+            .catch(function () { cb({ mid: [], hard: [] }); });
     }
     GAMES.chain = { name: '끝말잇기', icon: '🔗', stars: 2, unit: '번', run: function () {
-        if (lang !== 'ko') {
-            chainPlay({ list: uniq(EN_CHAIN.filter(function (w) { return /^[a-z]{2,}$/.test(w); })), goal: 10, limit: 25, trap: false, dict: false });
-            return;
-        }
-        onSubmit = function () {}; input.disabled = true;
+        var L = levelCfg('chain', level), lv = level;
+        var cfg = { goal: L.goal, limit: L.limit, trap: lv === 3, dict: lang === 'ko' };
+        if (lang !== 'ko') { cfg.list = uniq(EN_CHAIN.filter(function (w) { return /^[a-z]{2,}$/.test(w); })); cfg.trap = false; chainPlay(cfg); return; }
+        onSubmit = null; input.disabled = true;
         setInfo('이은 횟수', 0, '목숨', hearts(3));
         board.style.background = 'linear-gradient(#f0f9ff,#e0f2fe)';
-        board.innerHTML = '<div style="padding:18px 12px;text-align:center">' +
-            '<div style="font-size:1.15rem;font-weight:800;margin-bottom:4px">🔗 끝말잇기 난이도를 골라요</div>' +
-            '<div style="font-size:.85rem;color:#64748b;margin-bottom:14px">컴퓨터가 먼저 시작해요. 사전에 있는 낱말이면 뭐든 쓸 수 있어요!</div>' +
-            '<div id="chLv" style="display:flex;flex-direction:column;gap:10px;max-width:340px;margin:0 auto"></div>' +
-            '<div style="font-size:.7rem;color:#94a3b8;margin-top:16px">낱말 출처: 국립국어원 표준국어대사전 (CC BY-SA 2.0 KR)</div></div>';
-        var box = document.getElementById('chLv');
-        var LV = [
-            { k: 'easy', t: '🌱 쉬움', d: '아이들이 아는 쉬운 낱말 · 10번 이으면 성공', goal: 10, limit: 25 },
-            { k: 'mid', t: '🌿 보통', d: '생활 속 낱말이 많이 나와요 · 15번 이으면 성공', goal: 15, limit: 20 },
-            { k: 'hard', t: '🌳 어려움', d: '어른도 도전! 컴퓨터가 어려운 글자로 끝내요 · 20번', goal: 20, limit: 15 }
-        ];
-        LV.forEach(function (lv) {
-            var b = mk('button', '', lv.t + '\n' + lv.d);
-            b.style.cssText = 'padding:12px;border-radius:14px;border:2px solid #bae6fd;background:#fff;font-size:1rem;font-weight:700;cursor:pointer;white-space:pre-line;line-height:1.5';
-            b.onclick = function () {
-                box.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
-                b.textContent = '낱말을 불러오는 중…';
-                loadChainExtra(function (ex) {
-                    var base = KO_CHAIN.slice();
-                    var list = lv.k === 'easy' ? base : uniq(base.concat(ex.mid || [], lv.k === 'hard' ? (ex.hard || []) : []));
-                    chainPlay({ list: list, goal: lv.goal, limit: lv.limit, trap: lv.k === 'hard', dict: true });
-                });
-            };
-            box.appendChild(b);
+        board.innerHTML = '<div style="padding:60px 12px;font-weight:800">낱말을 불러오는 중…</div>';
+        var alive = true; addC(function () { alive = false; });
+        loadChainExtra(function (ex) {
+            if (!alive) return;
+            var base = KO_CHAIN.slice();
+            cfg.list = lv === 1 ? base : uniq(base.concat(ex.mid || [], lv >= 3 ? (ex.hard || []) : []));
+            chainPlay(cfg);
         });
     } };
     function chainPlay(cfg) {
@@ -536,9 +651,10 @@
         board.style.background = 'linear-gradient(#f0f9ff,#e0f2fe)';
         board.innerHTML = '<div class="tg-chat" id="tgChat"></div><div class="tg-timebar"><i id="tgTimeI"></i></div>';
         var chat = document.getElementById('tgChat'), bar = document.getElementById('tgTimeI');
-        setInfo('이은 횟수', 0, '목숨', hearts(life));
+        setInfo(goal ? '이은 횟수' : '♾️ 이은 횟수', goal ? '0 / ' + goal : 0, '목숨', hearts(life));
         input.disabled = false; input.focus();
-        function bubble(cls, text) { var b = mk('div', 'tg-bubble ' + cls, text); chat.appendChild(b); chat.scrollTop = chat.scrollHeight; }
+        if (!document.getElementById('tgNotice') && cfg.dict) bar.title = '낱말 출처: 국립국어원 표준국어대사전 (CC BY-SA 2.0 KR)';
+        function bubble(cls, text) { var b = mk('div', 'tg-bubble ' + cls, esc(text)); chat.appendChild(b); chat.scrollTop = chat.scrollHeight; }
         function lastCh(w) { return w.charAt(w.length - 1).toLowerCase(); }
         function starts(ch) { var a = [ch]; if (lang === 'ko' && DUEUM[ch]) a.push(DUEUM[ch]); return a; }
         function candidates(ch) {
@@ -548,17 +664,17 @@
         }
         function cpuTurn(ch) {
             var c = candidates(ch);
-            if (!c.length) { over = true; endGame({ title: '🎉 컴퓨터가 졌어요!', sub: '컴퓨터가 더 이상 말을 못 이었어요. 내가 이겼어요! (' + turns + '번 이었어요)', val: goal }); return; }
+            if (!c.length) { over = true; endGame({ title: '🎉 컴퓨터가 졌어요!', sub: '컴퓨터가 더 이상 말을 못 이었어요. 내가 이겼어요! (' + turns + '번 이었어요)', cleared: true, val: turns }); return; }
             var pickFrom = c;
             if (cfg.trap) {
                 // 어려움: 사람이 이을 만한 말이 적은 글자로 끝나는 낱말을 고른다
-                var best = 1e9, pool = [];
+                var best = 1e9, picks = [];
                 c.slice(0, 600).forEach(function (w) {
                     var n = candidates(lastCh(w)).length;
                     if (n < 1) return;
-                    if (n < best) { best = n; pool = [w]; } else if (n === best) pool.push(w);
+                    if (n < best) { best = n; picks = [w]; } else if (n === best) picks.push(w);
                 });
-                if (pool.length) pickFrom = pool;
+                if (picks.length) pickFrom = picks;
             } else {
                 var safe = c.filter(function (w) { return candidates(lastCh(w)).length > 0; });
                 if (safe.length) pickFrom = safe;
@@ -573,7 +689,11 @@
             var left = deadline - Date.now(); bar.style.width = Math.max(0, left / (LIMIT * 1000) * 100) + '%';
             if (left <= 0) {
                 life--; setB(hearts(life)); flash(); deadline = Date.now() + LIMIT * 1000;
-                if (life <= 0) { over = true; endGame({ title: '게임 끝! ' + turns + '번 이었어요', sub: cheer(turns, 8, 4), val: turns }); return; }
+                if (life <= 0) {
+                    over = true;
+                    var ok = !goal && turns > 0;   // 무한은 끝날 때까지 이은 횟수가 기록
+                    endGame({ title: '게임 끝! ' + turns + '번 이었어요', sub: goal ? cheer(false, goal + '번') : '다음에는 더 길게 이어 봐요! 💪', cleared: ok, val: turns }); return;
+                }
                 bubble('sys', '⏰ 시간이 다 됐어요! 다시 해 봐요');
             }
         });
@@ -586,8 +706,8 @@
             if (used[w]) { bubble('sys', '이미 나온 말이에요! 다른 말을 써요'); return; }
             function accept() {
                 if (over) return;
-                used[w] = 1; turns++; setA(turns); bubble('me', w + ' 🙂');
-                if (turns >= goal) { over = true; after(function () { endGame({ title: '🏆 대단해요! ' + goal + '번 이었어요', sub: '끝말잇기 성공!', val: turns }); }, 400); return; }
+                used[w] = 1; turns++; setA(goal ? turns + ' / ' + goal : turns); bubble('me', w + ' 🙂');
+                if (goal && turns >= goal) { over = true; after(function () { endGame({ title: '🏆 대단해요! ' + goal + '번 이었어요', sub: '끝말잇기 성공!', cleared: true, val: turns }); }, 400); return; }
                 input.disabled = true; cpuTurn(lastCh(w));
             }
             // 사전에 있는 낱말인지 확인 (사전을 못 불러오면 그냥 인정해 준다)
@@ -610,30 +730,67 @@
     var ORDER = ['rain', 'meteor', 'balloon', 'zombie', 'ninja', 'car', 'rabbit', 'brick', 'hamster', 'rhythm', 'scramble', 'pic', 'blank', 'vault', 'bomb', 'chain'];
 
     /* =============== 화면 전환 =============== */
+    var view = 'menu';
     function buildMenu() {
         menu.innerHTML = '';
         ORDER.forEach(function (id) {
-            var g = GAMES[id], b = readBest(id);
-            var card = mk('button', 'tg-card', '<span class="ic">' + g.icon + '</span><span class="nm">' + g.name + '</span><span class="st">' + new Array(g.stars + 1).join('★') + new Array(4 - g.stars).join('☆') + '</span><span class="bs">' + (b !== null ? '🏅 ' + b + g.unit : '') + '</span>');
-            card.onclick = function () { startGame(id); };
+            var g = GAMES[id], r = rec(id);
+            var card = mk('button', 'tg-card', '<span class="ic">' + g.icon + '</span><span class="nm">' + g.name + '</span><span class="st">' + new Array(g.stars + 1).join('★') + new Array(4 - g.stars).join('☆') + '</span>' +
+                '<span class="bs">' + (r.mine ? '🏅 ' + fmt(id, r.mine) : '') + '</span>' +
+                '<span class="tp">' + (r.top ? '👑 ' + fmt(id, r.top) + '<br>' + esc(r.top.name) : '') + '</span>');
+            card.onclick = function () { showLevels(id); };
             menu.appendChild(card);
         });
     }
-    function startGame(id) {
+    function openGameView(id) {
         stopAll(); cur = id; var g = GAMES[id];
         menu.style.display = 'none'; document.getElementById('tgSub').style.display = 'none'; gameEl.style.display = '';
         document.getElementById('tgTitle').textContent = g.icon + ' ' + g.name;
-        var b = readBest(id); bestEl.textContent = b !== null ? b : 0;
         board.className = 'tg-board'; board.style.cssText = ''; board.innerHTML = '';
+        showRecordLine(id);
+    }
+    function showLevels(id) {
+        openGameView(id); view = 'levels'; input.disabled = true; input.value = ''; input.style.display = 'none'; infoEl.style.display = 'none';
+        document.getElementById('tgLevelBtn').style.visibility = 'hidden';
+        var chain = id === 'chain', cleared = rec(id).cleared, total = chain ? 4 : 10;
+        var wrap = mk('div', 'tg-levels', '<div class="h">' + (chain ? '🔗 난이도를 골라요' : '⭐ 레벨을 골라요') + '</div><div class="s">' +
+            (chain ? '컴퓨터가 먼저 시작해요. 사전에 있는 낱말이면 뭐든 쓸 수 있어요!' : '목표를 이루면 다음 레벨이 열려요. 레벨이 높을수록 어려워져요.') + '</div>');
+        var grid = mk('div', 'tg-lvgrid' + (chain ? ' chain' : ''));
+        for (var n = 1; n <= total; n++) {
+            (function (n) {
+                var locked = !chain && !unlockAll && n > cleared + 1, done = !chain && n <= cleared;
+                var label = chain ? '<b>' + CHAIN_LV[n - 1].t + '</b><small>' + CHAIN_LV[n - 1].d + '</small>'
+                    : '<b>' + (locked ? '🔒 ' : done ? '✅ ' : '') + 'Lv.' + n + '</b><small>' + levelCfg(id, n).desc + '</small>';
+                var b = mk('button', 'tg-lv' + (done ? ' done' : '') + (!chain && n === cleared + 1 ? ' next' : ''), label);
+                b.disabled = locked;
+                b.onclick = function () { startLevel(id, n); };
+                grid.appendChild(b);
+            })(n);
+        }
+        wrap.appendChild(grid);
+        if (chain && lang === 'ko') wrap.appendChild(mk('div', 'src', '낱말 출처: 국립국어원 표준국어대사전 (CC BY-SA 2.0 KR)'));
+        board.appendChild(wrap);
+    }
+    function startLevel(id, n) {
+        openGameView(id); view = 'play'; level = n;
+        infoEl.style.display = ''; input.style.display = ''; document.getElementById('tgLevelBtn').style.visibility = '';
+        document.getElementById('tgTitle').textContent = GAMES[id].icon + ' ' + GAMES[id].name + ' · ' + (id === 'chain' ? CHAIN_LV[n - 1].short : 'Lv.' + n);
         input.value = ''; input.disabled = false; input.placeholder = lang === 'ko' ? '여기에 쓰고 Enter' : 'Type here and press Enter';
-        g.run();
+        GAMES[id].run();
         if (!input.disabled) input.focus();
     }
     function toMenu() {
-        stopAll(); cur = null; input.disabled = true; gameEl.style.display = 'none';
+        stopAll(); cur = null; view = 'menu'; input.disabled = true; gameEl.style.display = 'none';
         document.getElementById('tgSub').style.display = ''; menu.style.display = ''; buildMenu();
     }
+    // 기록을 다 불러오면 지금 보고 있는 화면을 다시 그린다 (게임 중에는 기록 줄만)
+    function refresh() {
+        if (view === 'menu') buildMenu();
+        else if (view === 'levels') showLevels(cur);
+        else if (cur) showRecordLine(cur);
+    }
     document.getElementById('tgBack').onclick = toMenu;
+    document.getElementById('tgLevelBtn').onclick = function () { if (cur) showLevels(cur); };
     input.addEventListener('keydown', function (e) {
         if (e.key !== 'Enter' || !onSubmit) return;
         // 한글 조합 중에 눌러도 마지막 글자가 확정된 뒤 값을 읽는다
@@ -645,10 +802,12 @@
             document.querySelectorAll('.tg-tab').forEach(function (x) { x.classList.remove('active'); });
             b.classList.add('active'); lang = b.dataset.lang;
             try { localStorage.setItem('tg2_lang', lang); } catch (e) {}
-            if (cur) toMenu(); else buildMenu();
+            records = {};
+            toMenu(); loadRecords();
         });
     });
     buildMenu();
+    loadRecords();
 })();
 </script>
 {% endblock %}

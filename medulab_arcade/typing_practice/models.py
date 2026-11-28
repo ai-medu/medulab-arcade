@@ -143,3 +143,21 @@ class TypingContent(models.Model):
     def __str__(self):
         preview = self.title or self.text_ko or self.text or "내용 없음"
         return f"[{self.get_content_type_display()}] {preview[:20]}"
+
+
+class TypingGameRecord(models.Model):
+    """타자게임에서 성공한 레벨별 개인 최고 기록 (회원·게임·언어·레벨마다 하나)"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="typing_game_records")
+    game = models.CharField("게임", max_length=20)
+    language = models.CharField("언어", max_length=10, choices=LANGUAGE_CHOICES)
+    level = models.PositiveSmallIntegerField("레벨")
+    value = models.FloatField("기록", help_text="점수·개수·횟수 또는 걸린 시간(초)")
+    achieved_at = models.DateTimeField("달성 시각", auto_now=True)
+
+    class Meta:
+        unique_together = ("user", "game", "language", "level")
+        verbose_name = "타자게임 기록"
+        verbose_name_plural = "타자게임 기록"
+
+    def __str__(self):
+        return f"{self.user.username} - {self.game}({self.language}) Lv.{self.level}: {self.value}"

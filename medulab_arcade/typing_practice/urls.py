@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from . import game_records, views
 
 urlpatterns = [
     path('', views.typing_home, name='typing_home'),
@@ -10,6 +10,7 @@ urlpatterns = [
     path('practice/short/', views.practice_text, {'content_type': 'short'}, name='practice_short'),
     path('practice/long/', views.practice_long, name='practice_long_select'),
     path('practice/long/<int:pk>/', views.practice_long, name='practice_long'),
+    path('api/game-records/', game_records.game_records, name='typing_game_records'),
     path('api/chain-check/', views.chain_check, name='chain_check'),
     path('api/chain-words/', views.chain_words, name='chain_words'),
     path('api/save-score/', views.save_score, name='save_score'),
