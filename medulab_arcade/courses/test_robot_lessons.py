@@ -109,6 +109,15 @@ class RobotLessonTests(TestCase):
         self.assertNotContains(res, LESSONS[0]['quiz'][0]['explain'])
         self.assertNotIn('answer', res.context['quiz'][0])
 
+    def test_changed_picture_gets_a_new_address(self):
+        self.client.force_login(self.member)
+        path = os.path.join(self.dir, 'lv1_01', 'code.svg')
+        page = reverse('item_page', args=[self.item.id])
+        os.utime(path, (1000, 1000))
+        self.assertContains(self.client.get(page), 'code.svg?v=1000')
+        os.utime(path, (2000, 2000))
+        self.assertContains(self.client.get(page), 'code.svg?v=2000')
+
     def test_quiz_grading_completes_at_80(self):
         self.client.force_login(self.member)
         right = [q['answer'] for q in LESSONS[0]['quiz']]

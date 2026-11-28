@@ -27,7 +27,13 @@ def asset_dir(item):
 
 
 def asset_url(item, name):
-    return reverse('robot_asset', args=[item.id, name])
+    """그림 주소. 브라우저가 하루 동안 보관하므로, 파일이 바뀌면 주소(?v=)도 바뀌게 해서 바로 새 그림을 받게 한다."""
+    url = reverse('robot_asset', args=[item.id, name])
+    folder = asset_dir(item)
+    try:
+        return f'{url}?v={int(os.path.getmtime(os.path.join(folder, name)))}' if folder else url
+    except OSError:
+        return url
 
 
 def _asset_urls(item, prefix):
